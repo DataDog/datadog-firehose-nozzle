@@ -18,9 +18,10 @@ before_install:
 - go get -v github.com/onsi/gomega
 - go get -v github.com/golang/lint/golint
 - go install -v github.com/onsi/ginkgo/ginkgo
+- curl https://glide.sh/get | sh
 
 install:
-- go get -v -d -t ./...
+- glide install
 
 script: PATH=$HOME/gopath/bin:$PATH bin/test
 
@@ -28,6 +29,3 @@ after_success:
 - 'echo "mode: set" > all.coverprofile'
 - 'find . -name "*.coverprofile" -exec grep -v mode: {} >> all.coverprofile \;'
 - "$HOME/gopath/bin/goveralls -coverprofile=all.coverprofile -repotoken=$COVERALLS_TOKEN"
-
-COVERALLS_TOKEN:
-  secure: AX2lu4hfmZHwcKI6E7RIoBcAw8KanvVKpNvCE5AuYdnT4bhmZJGsNnLPufYEFe+t6aB530QTdvuJHIxOexhlOZ2BQVHa3Ljc9HWxZX9+h7NYEPLbx/7wcELedko2VuL6Yr0qfDmLCx3YbyRw5Q8oc7/IGrWiHdBdK2Udf+vNKlE=
