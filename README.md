@@ -33,9 +33,9 @@ go run main.go -config config/datadog-firehose-nozzle.json"
 The configuration file specifies the interval at which the nozzle will flush metrics to datadog. By default this is set to 15 seconds.
 
 ### `slowConsumerAlert`
-For the most part, the datadog-firehose-nozzle forwards metrics from the loggregator firehose to datadog without too much processing. A notable exception is the `datadog.nozzle.slowConsumerAlert` metric. The metric is a binary value (0 or 1) indicating whether or not the nozzle is forwarding metrics to datadog at the same rate that it is receiving them from the firehose: `0` means the the nozzle is keeping up with the firehose, and `1` means that the nozzle is falling behind.
+For the most part, the datadog-firehose-nozzle forwards metrics from the loggregator firehose to datadog without too much processing. A notable exception is the `cf.slowConsumerAlert` metric. The metric is a binary value (0 or 1) indicating whether or not the nozzle is forwarding metrics to datadog at the same rate that it is receiving them from the firehose: `0` means the the nozzle is keeping up with the firehose, and `1` means that the nozzle is falling behind.
 
-The nozzle determines the value of `datadog.nozzle.slowConsumerAlert` with the following rules:
+The nozzle determines the value of `cf.slowConsumerAlert` with the following rules:
 
 1. **When the nozzle receives a websocket Close frame with status `1008`, it publishes the value `1`.** Traffic Controller pings clients to determine if the connections are still alive. If it does not receive a Pong response before the KeepAlive deadline, it decides that the connection is too slow (or even dead) and sends the Close frame.
 
