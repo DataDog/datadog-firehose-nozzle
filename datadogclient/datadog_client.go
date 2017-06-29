@@ -246,6 +246,7 @@ func parseTags(envelope *events.Envelope) []string {
 	tags = appendTagIfNotEmpty(tags, "index", envelope.GetIndex())
 	tags = appendTagIfNotEmpty(tags, "ip", envelope.GetIp())
 	tags = appendTagIfNotEmpty(tags, "origin", envelope.GetOrigin())
+	tags = appendTagIfNotEmpty(tags, "name", envelope.GetOrigin())
 	for tname, tvalue := range envelope.GetTags() {
 		tags = appendTagIfNotEmpty(tags, tname, tvalue)
 	}
@@ -253,10 +254,10 @@ func parseTags(envelope *events.Envelope) []string {
 }
 
 func parseHost(envelope *events.Envelope) string {
-	if envelope.GetOrigin() != "" {
-		return envelope.GetOrigin()
-	} else if envelope.GetIndex() != "" {
+	if envelope.GetIndex() != "" {
 		return envelope.GetIndex()
+	} else if envelope.GetOrigin() != "" {
+		return envelope.GetOrigin()
 	}
 
 	return ""
