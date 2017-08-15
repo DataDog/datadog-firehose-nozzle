@@ -6,17 +6,17 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/onsi/gomega/types"
 )
 
 type containMetric struct {
 	name   string
-	series []datadogclient.Metric
-	target *datadogclient.Metric
+	series []metrics.Series
+	target *metrics.Series
 }
 
-func ContainMetric(name string, target *datadogclient.Metric) types.GomegaMatcher {
+func ContainMetric(name string, target *metrics.Series) types.GomegaMatcher {
 	return &containMetric{
 		name:   name,
 		target: target,
@@ -25,9 +25,9 @@ func ContainMetric(name string, target *datadogclient.Metric) types.GomegaMatche
 
 func (m *containMetric) Match(actual interface{}) (success bool, err error) {
 	var ok bool
-	m.series, ok = actual.([]datadogclient.Metric)
+	m.series, ok = actual.([]metrics.Series)
 	if !ok {
-		return false, errors.New("Actual must be of type []datadogclient.Metric")
+		return false, errors.New("Actual must be of type []metrics.Series")
 	}
 	for _, metric := range m.series {
 		if metric.Metric == m.name {
@@ -51,7 +51,7 @@ func (m *containMetric) NegatedFailureMessage(actual interface{}) (message strin
 type containMetricTags struct {
 	name   string
 	tags   []string
-	series []datadogclient.Metric
+	series []metrics.Series
 }
 
 func ContainMetricWithTags(name string, tags ...string) types.GomegaMatcher {
@@ -64,9 +64,9 @@ func ContainMetricWithTags(name string, tags ...string) types.GomegaMatcher {
 
 func (m *containMetricTags) Match(actual interface{}) (success bool, err error) {
 	var ok bool
-	m.series, ok = actual.([]datadogclient.Metric)
+	m.series, ok = actual.([]metrics.Series)
 	if !ok {
-		return false, errors.New("Actual must be of type []datadogclient.Metric")
+		return false, errors.New("Actual must be of type []metrics.Series")
 	}
 	for _, metric := range m.series {
 		sort.Strings(metric.Tags)

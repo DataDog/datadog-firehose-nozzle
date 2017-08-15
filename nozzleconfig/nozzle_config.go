@@ -8,23 +8,32 @@ import (
 	"strconv"
 )
 
+var (
+	DefaultWorkers int = 4
+)
+
 type NozzleConfig struct {
-	UAAURL                 string
-	Client                 string
-	ClientSecret           string
-	TrafficControllerURL   string
-	FirehoseSubscriptionID string
-	DataDogURL             string
-	DataDogAPIKey          string
-	DataDogTimeoutSeconds  uint32
-	FlushDurationSeconds   uint32
-	FlushMaxBytes          uint32
-	InsecureSSLSkipVerify  bool
-	MetricPrefix           string
-	Deployment             string
-	DeploymentFilter       string
-	DisableAccessControl   bool
-	IdleTimeoutSeconds     uint32
+	UAAURL                  string
+	Client                  string
+	ClientSecret            string
+	TrafficControllerURL    string
+	DopplerEndpoint         string
+	FirehoseSubscriptionID  string
+	DataDogURL              string
+	DataDogAPIKey           string
+	CloudControllerEndpoint string
+	DataDogTimeoutSeconds   uint32
+	FlushDurationSeconds    uint32
+	FlushMaxBytes           uint32
+	InsecureSSLSkipVerify   bool
+	MetricPrefix            string
+	Deployment              string
+	DeploymentFilter        string
+	DisableAccessControl    bool
+	IdleTimeoutSeconds      uint32
+	AppMetrics              bool
+	NumWorkers              int
+	GrabInterval            int
 }
 
 func Parse(configPath string) (*NozzleConfig, error) {
@@ -62,6 +71,12 @@ func Parse(configPath string) (*NozzleConfig, error) {
 		config.MetricPrefix = "cloudfoundry.nozzle."
 	}
 
+	if config.NumWorkers == 0 {
+		config.NumWorkers = DefaultWorkers
+	}
+
+	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
+
 	return &config, nil
 }
 
@@ -80,6 +95,17 @@ func overrideWithEnvUint32(name string, value *uint32) {
 			panic(err)
 		}
 		*value = uint32(tmpValue)
+	}
+}
+
+func overrideWithEnvInt(name string, value *int) {
+	envValue := os.Getenv(name)
+	if envValue != "" {
+		tmpValue, err := strconv.Atoi(envValue)
+		if err != nil {
+			panic(err)
+		}
+		*value = int(tmpValue)
 	}
 }
 

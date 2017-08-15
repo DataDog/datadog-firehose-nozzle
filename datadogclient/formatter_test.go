@@ -2,6 +2,7 @@ package datadogclient_test
 
 import (
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,9 +23,9 @@ var _ = Describe("Formatter", func() {
 	})
 
 	It("does not 'delete' points when trying to split", func() {
-		m := make(map[datadogclient.MetricKey]datadogclient.MetricValue)
-		m[datadogclient.MetricKey{Name: "a"}] = datadogclient.MetricValue{
-			Points: []datadogclient.Point{{
+		m := make(map[metrics.MetricKey]metrics.MetricValue)
+		m[metrics.MetricKey{Name: "a"}] = metrics.MetricValue{
+			Points: []metrics.Point{{
 				Value: 9,
 			}},
 		}

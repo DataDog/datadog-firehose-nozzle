@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		os.Setenv("NOZZLE_UAAURL", fakeUAA.URL())
 		os.Setenv("NOZZLE_DATADOGURL", fakeDatadogAPI.URL())
 		os.Setenv("NOZZLE_TRAFFICCONTROLLERURL", strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1))
+		os.Setenv("NOZZLE_NUM_WORKERS", "1")
 
 		var err error
 		nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", "fixtures/test-config.json")
@@ -116,15 +118,15 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(metric.Tags).To(HaveLen(4))
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				if metric.Tags[1] == "job:doppler" {
-					Expect(metric.Points).To(Equal([]datadogclient.Point{
-						datadogclient.Point{
+					Expect(metric.Points).To(Equal([]metrics.Point{
+						metrics.Point{
 							Timestamp: 1,
 							Value:     5.0,
 						},
 					}))
 				} else if metric.Tags[1] == "job:gorouter" {
-					Expect(metric.Points).To(Equal([]datadogclient.Point{
-						datadogclient.Point{
+					Expect(metric.Points).To(Equal([]metrics.Point{
+						metrics.Point{
 							Timestamp: 2,
 							Value:     10.0,
 						},
@@ -137,8 +139,8 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				Expect(metric.Tags[1]).To(Equal("job:doppler"))
 
-				Expect(metric.Points).To(Equal([]datadogclient.Point{
-					datadogclient.Point{
+				Expect(metric.Points).To(Equal([]metrics.Point{
+					metrics.Point{
 						Timestamp: 3,
 						Value:     15.0,
 					},

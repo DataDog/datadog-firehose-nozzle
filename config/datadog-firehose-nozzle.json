@@ -13,5 +13,8 @@
   "Deployment": "deployment-name",
   "DeploymentFilter": "deployment-filter",
   "DisableAccessControl": false,
-  "IdleTimeoutSeconds" : 60
+  "IdleTimeoutSeconds" : 60,
+  "CloudControllerEndpoint": "string",
+  "AppMetrics": true,
+  "NumWorkers": 1
 }

@@ -1,16 +1,23 @@
 package datadogclient
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-type Formatter struct{}
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/cloudfoundry/gosteno"
+)
 
-func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[MetricKey]MetricValue) [][]byte {
+type Formatter struct {
+	log *gosteno.Logger
+}
+
+func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metrics.MetricKey]metrics.MetricValue) [][]byte {
 	if len(data) == 0 {
 		return nil
 	}
 
 	var result [][]byte
-	seriesBytes := formatMetrics(prefix, data)
+	seriesBytes := f.formatMetrics(prefix, data)
 	if uint32(len(seriesBytes)) > maxPostBytes && canSplit(data) {
 		metricsA, metricsB := splitPoints(data)
 		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
@@ -23,23 +30,27 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[MetricKey
 	return result
 }
 
-func formatMetrics(prefix string, data map[MetricKey]MetricValue) []byte {
-	metrics := []Metric{}
+func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metrics.MetricValue) []byte {
+	s := []metrics.Series{}
 	for key, mVal := range data {
-		metrics = append(metrics, Metric{
+		m := metrics.Series{
 			Metric: prefix + key.Name,
 			Points: mVal.Points,
 			Type:   "gauge",
 			Tags:   mVal.Tags,
 			Host:   mVal.Host,
-		})
+		}
+		s = append(s, m)
 	}
 
-	encodedMetric, _ := json.Marshal(Payload{Series: metrics})
+	encodedMetric, err := json.Marshal(Payload{Series: s})
+	if err != nil {
+		f.log.Errorf("Error marshalling metrics: %v", err)
+	}
 	return encodedMetric
 }
 
-func canSplit(data map[MetricKey]MetricValue) bool {
+func canSplit(data map[metrics.MetricKey]metrics.MetricValue) bool {
 	for _, v := range data {
 		if len(v.Points) > 1 {
 			return true
@@ -49,24 +60,24 @@ func canSplit(data map[MetricKey]MetricValue) bool {
 	return false
 }
 
-func splitPoints(data map[MetricKey]MetricValue) (a, b map[MetricKey]MetricValue) {
-	a = make(map[MetricKey]MetricValue)
-	b = make(map[MetricKey]MetricValue)
+func splitPoints(data map[metrics.MetricKey]metrics.MetricValue) (a, b map[metrics.MetricKey]metrics.MetricValue) {
+	a = make(map[metrics.MetricKey]metrics.MetricValue)
+	b = make(map[metrics.MetricKey]metrics.MetricValue)
 	for k, v := range data {
 		split := len(v.Points) / 2
 		if split == 0 {
-			a[k] = MetricValue{
+			a[k] = metrics.MetricValue{
 				Tags:   v.Tags,
 				Points: v.Points,
 			}
 			continue
 		}
 
-		a[k] = MetricValue{
+		a[k] = metrics.MetricValue{
 			Tags:   v.Tags,
 			Points: v.Points[:split],
 		}
-		b[k] = MetricValue{
+		b[k] = metrics.MetricValue{
 			Tags:   v.Tags,
 			Points: v.Points[split:],
 		}

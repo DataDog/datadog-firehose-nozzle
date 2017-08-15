@@ -1,8 +1,17 @@
-hash: 52c058d798a33bea2de0548e48f12f7178894c7bc59a70353642b193ede7602b
-updated: 2017-08-10T13:25:51.408656521-04:00
+hash: 4217292fec2b55777eca82447b188df5ebc31111748b1e2f8923d6472c4cc9ca
+updated: 2017-08-17T13:55:25.285027689-04:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
+- name: github.com/boltdb/bolt
+  version: 4d30731e9122988d2012a9574c43f80f054a0d3b
+- name: github.com/cloudfoundry-community/firehose-to-syslog
+  version: 53a26f4ed1e32dbebb63e874ca5255f60802439d
+  subpackages:
+  - caching
+  - logging
+- name: github.com/cloudfoundry-community/go-cfclient
+  version: dbe382d68b57a2345f60b71935eb6e8cfa7e5895
 - name: github.com/cloudfoundry-incubator/uaago
   version: 5673cb47f5a48458e28c77e5948503602312de2e
 - name: github.com/cloudfoundry/gosteno
@@ -25,8 +34,49 @@ imports:
   - gogoproto
   - proto
   - protoc-gen-gogo/descriptor
+- name: github.com/golang/protobuf
+  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  subpackages:
+  - proto
 - name: github.com/gorilla/websocket
   version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
+- name: github.com/mailru/easyjson
+  version: 159cdb893c982e3d1bc6450322fedd514f9c9de3
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
+- name: github.com/pkg/errors
+  version: c605e284fe17294bda444b34710735b29d1a9d90
+- name: github.com/RackSec/srslog
+  version: a974ba6f7fb527d2ddc73ee9c05d3e2ccc0af0dc
+- name: github.com/shinji62/logrus-syslog-ng
+  version: 2b60df6a829a654a0456501c6092e5307f674d76
+- name: github.com/Sirupsen/logrus
+  version: 61e43dc76f7ee59a82bdf3d71033dc12bea4c77d
+- name: golang.org/x/net
+  version: 7dbad50ab5b31073856416cdcfeb2796d682f844
+  subpackages:
+  - context
+- name: golang.org/x/oauth2
+  version: da3ce8d62a7f77aadfda06cb82bd604d6469c645
+  subpackages:
+  - clientcredentials
+  - internal
+- name: golang.org/x/sys
+  version: 9d4e42a20653790449273b3c85e67d6d8bae6e2e
+  subpackages:
+  - unix
+- name: google.golang.org/appengine
+  version: d9a072cfa7b9736e44311ef77b3e09d804bfa599
+  subpackages:
+  - internal
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/remote_api
+  - internal/urlfetch
+  - urlfetch
 testImports:
 - name: github.com/onsi/ginkgo
   version: 77a8c1e5c40d6bb6c5eb4dd4bdce9763564f6298
@@ -64,9 +114,5 @@ testImports:
   - matchers/support/goraph/node
   - matchers/support/goraph/util
   - types
-- name: golang.org/x/sys
-  version: 39e3dc274464e7d2f663aa606a830611bae5f1db
-  subpackages:
-  - unix
 - name: gopkg.in/yaml.v2
   version: a3f3340b5840cee44f372bddb5880fcbc419b46a
