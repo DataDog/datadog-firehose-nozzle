@@ -221,9 +221,9 @@ func (c *Client) addInternalMetric(name string, value uint64) {
 func getName(envelope *events.Envelope) string {
 	switch envelope.GetEventType() {
 	case events.Envelope_ValueMetric:
-		return envelope.GetOrigin() + "." + envelope.GetValueMetric().GetName()
+		return envelope.GetValueMetric().GetName()
 	case events.Envelope_CounterEvent:
-		return envelope.GetOrigin() + "." + envelope.GetCounterEvent().GetName()
+		return envelope.GetCounterEvent().GetName()
 	default:
 		panic("Unknown event type")
 	}
