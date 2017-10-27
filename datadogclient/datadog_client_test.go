@@ -137,7 +137,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(payload.Series).To(HaveLen(4))
 
 		var metric datadogclient.Metric
-		Expect(payload.Series).To(ContainMetric("datadog.nozzle.test-origin.", &metric))
+		Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
 		Expect(metric.Tags).To(ConsistOf(
 			"deployment:deployment-name",
 			"job:doppler",
@@ -196,7 +196,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(5))
 		Expect(payload.Series).To(ContainMetricWithTags(
-			"datadog.nozzle.test-origin.",
+			"datadog.nozzle.",
 			"deployment:deployment-name",
 			"index:1",
 			"ip:10.0.1.2",
@@ -207,7 +207,7 @@ var _ = Describe("DatadogClient", func() {
 			"request_id:d3ac-livefood",
 		))
 		Expect(payload.Series).To(ContainMetricWithTags(
-			"datadog.nozzle.test-origin.",
+			"datadog.nozzle.",
 			"deployment:deployment-name",
 			"index:1",
 			"ip:10.0.1.2",
@@ -322,7 +322,7 @@ var _ = Describe("DatadogClient", func() {
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
 
-			if metric.Metric == "datadog.nozzle.origin.metricName" {
+			if metric.Metric == "datadog.nozzle.metricName" {
 				metricFound = true
 				Expect(metric.Points).To(Equal([]datadogclient.Point{
 					datadogclient.Point{
@@ -434,7 +434,7 @@ var _ = Describe("DatadogClient", func() {
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
 
-			if metric.Metric == "datadog.nozzle.origin.metricName" {
+			if metric.Metric == "datadog.nozzle.metricName" {
 				Expect(metric.Tags).To(HaveLen(4))
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				if metric.Tags[1] == "job:doppler" {
@@ -499,7 +499,7 @@ var _ = Describe("DatadogClient", func() {
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
 
-			if metric.Metric == "datadog.nozzle.origin.counterName" {
+			if metric.Metric == "datadog.nozzle.counterName" {
 				counterNameFound = true
 				Expect(metric.Points).To(Equal([]datadogclient.Point{
 					datadogclient.Point{
