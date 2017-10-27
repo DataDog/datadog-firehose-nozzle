@@ -101,7 +101,7 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 func (d *DatadogFirehoseNozzle) postMetrics() {
 	err := d.client.PostMetrics()
 	if err != nil {
-		d.log.Fatalf("FATAL ERROR: %s\n\n", err)
+		d.log.Errorf("FATAL ERROR: %s\n\n", err)
 	}
 }
 
