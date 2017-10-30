@@ -102,11 +102,14 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 	resolvedApp, err := am.CFClient.AppByGuid(guid)
 	if err != nil {
 		if app.ErrorGrabbing {
+			// If there was a previous error grabbing the app, assume it's been removed and remove it from the cache
 			am.log.Errorf("there was an error grabbing the instance data for app %v, removing from cache: %v", resolvedApp.Guid, err)
 			delete(am.Apps, guid)
 		} else {
+			// If there was not, say that there was such an error
 			am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
 		}
+		// Ensure that ErrorGrabbing is set
 		app.ErrorGrabbing = true
 		return nil, err
 	}
@@ -212,8 +215,8 @@ func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.Metri
 
 	guid := message.GetApplicationId()
 	app, err := am.getAppData(guid)
-	app.lock.RLock()
-	defer app.lock.RUnlock()
+	app.lock.Lock()
+	defer app.lock.Unlock()
 
 	if err != nil {
 		am.log.Errorf("there was an error grabbing data for app %v: %v", guid, err)

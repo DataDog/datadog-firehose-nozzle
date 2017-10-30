@@ -10,7 +10,6 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-// TODO: lock
 type App struct {
 	Name                   string
 	Host                   string
@@ -120,8 +119,7 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric) ([]metrics.M
 		float64(message.GetMemoryBytes()),
 		float64(message.GetMemoryBytesQuota()),
 	}
-	tags := []string{}
-	tags = append(tags, fmt.Sprintf("instance:%v", message.GetInstanceIndex()))
+	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
 
 	return a.mkMetrics(names, ms, tags), nil
 }
@@ -137,7 +135,7 @@ func (a *App) getTags() []string {
 func (a *App) generateTags() []string {
 	var tags = []string{}
 	if a.Name != "" {
-		tags = append(tags, fmt.Sprintf("name:%v", a.Name))
+		tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
 	}
 	if a.Buildpack != "" {
 		tags = append(tags, fmt.Sprintf("buildpack:%v", a.Buildpack))

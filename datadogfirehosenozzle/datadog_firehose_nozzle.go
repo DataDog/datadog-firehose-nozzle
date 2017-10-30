@@ -25,7 +25,7 @@ type DatadogFirehoseNozzle struct {
 	log              *gosteno.Logger
 	appMetrics       bool
 	stopper          chan bool
-	stopWorkers      chan bool
+	workersStopper   chan bool
 }
 
 type AuthTokenFetcher interface {
@@ -39,7 +39,7 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 		log:              log,
 		appMetrics:       config.AppMetrics,
 		stopper:          make(chan bool),
-		stopWorkers:      make(chan bool),
+		workersStopper:   make(chan bool),
 	}
 }
 
@@ -55,7 +55,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.consumeFirehose(authToken)
 	d.startWorkers()
 	err := d.postToDatadog()
-	d.stop()
+	d.stopWorkers()
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
 	return err
 }
@@ -116,12 +116,6 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 		case err := <-d.errs:
 			d.handleError(err)
 			return err
-		case envelope := <-d.messages:
-			if !d.keepMessage(envelope) {
-				continue
-			}
-			d.handleMessage(envelope)
-			d.client.ProcessMetric(envelope)
 		case <-d.stopper:
 			return nil
 		}
@@ -137,7 +131,7 @@ func (d *DatadogFirehoseNozzle) work() {
 			}
 			d.handleMessage(envelope)
 			d.client.ProcessMetric(envelope)
-		case <-d.stopWorkers:
+		case <-d.workersStopper:
 			return
 		}
 	}
@@ -149,10 +143,10 @@ func (d *DatadogFirehoseNozzle) startWorkers() {
 	}
 }
 
-func (d *DatadogFirehoseNozzle) stop() {
+func (d *DatadogFirehoseNozzle) stopWorkers() {
 	go func() {
 		for i := 0; i < d.config.NumWorkers; i++ {
-			d.stopWorkers <- true
+			d.workersStopper <- true
 		}
 	}()
 }
@@ -166,7 +160,7 @@ func (d *DatadogFirehoseNozzle) Stop() {
 func (d *DatadogFirehoseNozzle) postMetrics() {
 	err := d.client.PostMetrics()
 	if err != nil {
-		d.log.Fatalf("FATAL ERROR: %s\n\n", err)
+		d.log.Errorf("Error posting metrics: %s\n\n", err)
 	}
 }
 

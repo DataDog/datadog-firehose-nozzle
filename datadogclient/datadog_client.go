@@ -90,7 +90,6 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	c.mLock.Unlock()
 
 	var err error
-	var e error
 	var metricsPackages []metrics.MetricPackage
 
 	metricsPackages, err = c.ParseInfraMetric(envelope)
@@ -102,8 +101,8 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 		return
 	}
 
-	metricsPackages, e = c.ParseAppMetric(envelope)
-	if e == nil {
+	metricsPackages, err = c.ParseAppMetric(envelope)
+	if err == nil {
 		for _, m := range metricsPackages {
 			c.AddMetric(*m.MetricKey, *m.MetricValue)
 		}
@@ -114,8 +113,8 @@ func (c *Client) AddMetric(key metrics.MetricKey, value metrics.MetricValue) {
 	c.mLock.Lock()
 	defer c.mLock.Unlock()
 
-	mVal := c.metricPoints[key]
-	if len(mVal.Points) == 0 {
+	mVal, ok := c.metricPoints[key]
+	if !ok {
 		mVal = value
 	} else {
 		mVal.Points = append(mVal.Points, value.Points...)
