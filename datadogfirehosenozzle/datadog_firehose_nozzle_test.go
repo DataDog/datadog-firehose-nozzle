@@ -104,7 +104,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		err := json.Unmarshal(contents, &payload)
 		Expect(err).ToNot(HaveOccurred())
 		// +3 internal metrics that show totalMessagesReceived, totalMetricSent, and slowConsumerAlert
-		Expect(payload.Series).To(HaveLen(13))
+		Expect(payload.Series).To(HaveLen(23))
 
 	}, 2)
 
