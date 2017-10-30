@@ -9,12 +9,11 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-func (c *Client) ParseInfraMetric(envelope *events.Envelope) (metrics.MetricKey, metrics.MetricValue, error) {
-	c.mLock.Lock()
-	defer c.mLock.Unlock()
+func (c *Client) ParseInfraMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
+	metricsPackages := []metrics.MetricPackage{}
 
 	if envelope.GetEventType() != events.Envelope_ValueMetric && envelope.GetEventType() != events.Envelope_CounterEvent {
-		return metrics.MetricKey{}, metrics.MetricValue{}, fmt.Errorf("not an infra metric")
+		return metricsPackages, fmt.Errorf("not an infra metric")
 	}
 
 	tags := parseTags(envelope)
@@ -36,15 +35,31 @@ func (c *Client) ParseInfraMetric(envelope *events.Envelope) (metrics.MetricKey,
 		Value:     value,
 	})
 
-	return key, mVal, nil
+	metricsPackages = append(metricsPackages, metrics.MetricPackage{
+		MetricKey:   &key,
+		MetricValue: &mVal,
+	})
+
+	keyLegacyName := metrics.MetricKey{
+		EventType: envelope.GetEventType(),
+		Name:      envelope.GetOrigin() + "." + key.Name,
+		TagsHash:  utils.HashTags(tags),
+	}
+
+	metricsPackages = append(metricsPackages, metrics.MetricPackage{
+		MetricKey:   &keyLegacyName,
+		MetricValue: &mVal,
+	})
+
+	return metricsPackages, nil
 }
 
 func getName(envelope *events.Envelope) string {
 	switch envelope.GetEventType() {
 	case events.Envelope_ValueMetric:
-		return envelope.GetOrigin() + "." + envelope.GetValueMetric().GetName()
+		return envelope.GetValueMetric().GetName()
 	case events.Envelope_CounterEvent:
-		return envelope.GetOrigin() + "." + envelope.GetCounterEvent().GetName()
+		return envelope.GetCounterEvent().GetName()
 	default:
 		panic("Unknown event type")
 	}

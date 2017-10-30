@@ -89,15 +89,16 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	c.totalMessagesReceived++
 	c.mLock.Unlock()
 
-	var key metrics.MetricKey
-	var mVal metrics.MetricValue
 	var err error
 	var e error
 	var metricsPackages []metrics.MetricPackage
 
-	key, mVal, err = c.ParseInfraMetric(envelope)
+	metricsPackages, err = c.ParseInfraMetric(envelope)
 	if err == nil {
-		c.AddMetric(key, mVal)
+		for _, m := range metricsPackages {
+			c.AddMetric(*m.MetricKey, *m.MetricValue)
+		}
+		// it can only be one or the other
 		return
 	}
 

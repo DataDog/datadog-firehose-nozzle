@@ -114,7 +114,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
 
-			if metric.Metric == "cloudfoundry.nozzle.origin.metricName" {
+			if metric.Metric == "cloudfoundry.nozzle.origin.metricName" || metric.Metric == "cloudfoundry.nozzle.metricName" {
 				Expect(metric.Tags).To(HaveLen(4))
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				if metric.Tags[1] == "job:doppler" {
@@ -134,7 +134,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				} else {
 					panic("Unknown tag")
 				}
-			} else if metric.Metric == "cloudfoundry.nozzle.origin.counterName" {
+			} else if metric.Metric == "cloudfoundry.nozzle.origin.counterName" || metric.Metric == "cloudfoundry.nozzle.counterName" {
 				Expect(metric.Tags).To(HaveLen(4))
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				Expect(metric.Tags[1]).To(Equal("job:doppler"))
