@@ -8,8 +8,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	printer "log"
-
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
 )
@@ -64,7 +62,6 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
-			printer.Printf("here")
 
 			event := &events.Envelope{
 				Origin:    proto.String("test-origin"),
@@ -86,7 +83,6 @@ var _ = Describe("AppMetrics", func() {
 				Index:      proto.String("1"),
 				Ip:         proto.String("10.0.1.2"),
 			}
-			printer.Printf("here")
 
 			metrics, err := a.ParseAppMetric(event)
 
