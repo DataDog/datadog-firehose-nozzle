@@ -43,7 +43,7 @@ var _ = Describe("DatadogClient", func() {
 			"test-deployment",
 			"dummy-ip",
 			time.Second,
-			1024,
+			1500,
 			gosteno.NewLogger("datadogclient test"),
 		)
 	})
@@ -134,10 +134,21 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(4))
+		Expect(payload.Series).To(HaveLen(5))
 
 		var metric datadogclient.Metric
 		Expect(payload.Series).To(ContainMetric("datadog.nozzle.test-origin.", &metric))
+		Expect(metric.Tags).To(ConsistOf(
+			"deployment:deployment-name",
+			"job:doppler",
+			"index:1",
+			"ip:10.0.1.2",
+			"protocol:http",
+			"name:test-origin",
+			"origin:test-origin",
+			"request_id:a1f5-deadbeef",
+		))
+		Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
 		Expect(metric.Tags).To(ConsistOf(
 			"deployment:deployment-name",
 			"job:doppler",
@@ -189,12 +200,11 @@ var _ = Describe("DatadogClient", func() {
 
 		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
-
 		Eventually(bodies).Should(HaveLen(1))
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(5))
+		Expect(payload.Series).To(HaveLen(7))
 		Expect(payload.Series).To(ContainMetricWithTags(
 			"datadog.nozzle.test-origin.",
 			"deployment:deployment-name",
@@ -208,6 +218,28 @@ var _ = Describe("DatadogClient", func() {
 		))
 		Expect(payload.Series).To(ContainMetricWithTags(
 			"datadog.nozzle.test-origin.",
+			"deployment:deployment-name",
+			"index:1",
+			"ip:10.0.1.2",
+			"job:doppler",
+			"name:test-origin",
+			"origin:test-origin",
+			"protocol:http",
+			"request_id:a1f5-deadbeef",
+		))
+		Expect(payload.Series).To(ContainMetricWithTags(
+			"datadog.nozzle.",
+			"deployment:deployment-name",
+			"index:1",
+			"ip:10.0.1.2",
+			"job:doppler",
+			"name:test-origin",
+			"origin:test-origin",
+			"protocol:https",
+			"request_id:d3ac-livefood",
+		))
+		Expect(payload.Series).To(ContainMetricWithTags(
+			"datadog.nozzle.",
 			"deployment:deployment-name",
 			"index:1",
 			"ip:10.0.1.2",
@@ -316,14 +348,14 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(4))
+		Expect(payload.Series).To(HaveLen(5))
 
-		metricFound := false
+		metricsFound := 0
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
 
-			if metric.Metric == "datadog.nozzle.origin.metricName" {
-				metricFound = true
+			if metric.Metric == "datadog.nozzle.origin.metricName" || metric.Metric == "datadog.nozzle.metricName" {
+				metricsFound++
 				Expect(metric.Points).To(Equal([]datadogclient.Point{
 					datadogclient.Point{
 						Timestamp: 1,
@@ -342,7 +374,7 @@ var _ = Describe("DatadogClient", func() {
 				}))
 			}
 		}
-		Expect(metricFound).To(BeTrue())
+		Expect(metricsFound).To(Equal(2))
 
 		validateMetrics(payload, 2, 0)
 	})
@@ -428,7 +460,7 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(5))
+		Expect(payload.Series).To(HaveLen(7))
 		dopplerFound := false
 		gorouterFound := false
 		for _, metric := range payload.Series {
@@ -494,7 +526,7 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(4))
+		Expect(payload.Series).To(HaveLen(5))
 		counterNameFound := false
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
@@ -525,7 +557,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(3))
 
-		validateMetrics(payload, 2, 4)
+		validateMetrics(payload, 2, 5)
 	})
 
 	It("sends a value 1 for the slowConsumerAlert metric when consumer error is set", func() {

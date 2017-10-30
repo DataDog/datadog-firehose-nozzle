@@ -127,6 +127,10 @@ func (c *Client) AddMetric(envelope *events.Envelope) {
 	})
 
 	c.metricPoints[key] = mVal
+
+	// Add the metric again with the "old" name (so as not to break any current user's dashboards/monitors)
+	key.Name = envelope.GetOrigin() + "." + key.Name
+	c.metricPoints[key] = mVal
 }
 
 func (c *Client) PostMetrics() error {
@@ -220,10 +224,12 @@ func (c *Client) addInternalMetric(name string, value uint64) {
 
 func getName(envelope *events.Envelope) string {
 	switch envelope.GetEventType() {
+
 	case events.Envelope_ValueMetric:
-		return envelope.GetOrigin() + "." + envelope.GetValueMetric().GetName()
+		return envelope.GetValueMetric().GetName()
+
 	case events.Envelope_CounterEvent:
-		return envelope.GetOrigin() + "." + envelope.GetCounterEvent().GetName()
+		return envelope.GetCounterEvent().GetName()
 	default:
 		panic("Unknown event type")
 	}
