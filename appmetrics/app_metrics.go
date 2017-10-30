@@ -1,7 +1,6 @@
 package appmetrics
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
@@ -151,13 +150,11 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 
 	resolvedInstances, err := am.CFClient.GetAppInstances(guid)
 	if err == nil {
-		app.Instances = make(map[int32]Instance)
+		app.Instances = make(map[string]Instance)
 		app.NumberOfInstances = len(resolvedInstances)
 		for i, inst := range resolvedInstances {
-			instIdx64, _ := strconv.ParseInt(i, 10, 32)
-			instIdx := int32(instIdx64)
-			app.Instances[instIdx] = Instance{
-				InstanceIndex: instIdx,
+			app.Instances[i] = Instance{
+				InstanceIndex: i,
 				State:         inst.State,
 			}
 		}

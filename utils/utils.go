@@ -6,6 +6,8 @@ import (
 )
 
 func HashTags(tags []string) string {
+	// This is the origial implementation of this function from the original nozzle
+	// It might make sense to concat all tags together in the future
 	sort.Strings(tags)
 	hash := ""
 	for _, tag := range tags {

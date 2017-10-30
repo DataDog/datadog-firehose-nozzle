@@ -24,7 +24,7 @@ type App struct {
 	SpaceURL               string
 	GUID                   string
 	DockerImage            string
-	Instances              map[int32]Instance
+	Instances              map[string]Instance
 	NumberOfInstances      int
 	TotalDiskConfigured    int
 	TotalMemoryConfigured  int
@@ -40,7 +40,7 @@ type App struct {
 type Instance struct {
 	CellIP        string
 	State         string
-	InstanceIndex int32
+	InstanceIndex string
 }
 
 func newApp(guid string) *App {

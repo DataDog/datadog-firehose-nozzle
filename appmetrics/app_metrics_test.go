@@ -106,7 +106,7 @@ func newFakeApps(guids []string) map[string]*App {
 			TotalMemoryConfigured:  1,
 			TotalDiskProvisioned:   1,
 			TotalMemoryProvisioned: 1,
-			Instances:              map[int32]Instance{},
+			Instances:              map[string]Instance{},
 		}
 	}
 
