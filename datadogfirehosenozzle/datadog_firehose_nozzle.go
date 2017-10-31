@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/localip"
+	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	"github.com/cloudfoundry/gosteno"
@@ -22,6 +23,9 @@ type DatadogFirehoseNozzle struct {
 	consumer         *consumer.Consumer
 	client           *datadogclient.Client
 	log              *gosteno.Logger
+	appMetrics       bool
+	stopper          chan bool
+	workersStopper   chan bool
 }
 
 type AuthTokenFetcher interface {
@@ -33,6 +37,9 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 		config:           config,
 		authTokenFetcher: tokenFetcher,
 		log:              log,
+		appMetrics:       config.AppMetrics,
+		stopper:          make(chan bool),
+		workersStopper:   make(chan bool),
 	}
 }
 
@@ -44,20 +51,22 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	}
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
-	d.createClient()
+	d.client = d.createClient()
 	d.consumeFirehose(authToken)
+	d.startWorkers()
 	err := d.postToDatadog()
+	d.stopWorkers()
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
 	return err
 }
 
-func (d *DatadogFirehoseNozzle) createClient() {
+func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
 	}
 
-	d.client = datadogclient.New(
+	client := datadogclient.New(
 		d.config.DataDogURL,
 		d.config.DataDogAPIKey,
 		d.config.MetricPrefix,
@@ -67,6 +76,26 @@ func (d *DatadogFirehoseNozzle) createClient() {
 		d.config.FlushMaxBytes,
 		d.log,
 	)
+
+	if d.appMetrics {
+		appMetrics, err := appmetrics.New(
+			d.config.CloudControllerEndpoint,
+			d.config.Client,
+			d.config.ClientSecret,
+			d.config.InsecureSSLSkipVerify,
+			d.config.GrabInterval,
+			d.log,
+		)
+		if err != nil {
+			d.appMetrics = false
+			d.log.Warnf("error setting up appMetrics, continuing without application metrics: %v", err)
+		} else {
+			d.log.Debug("setting up app metrics")
+			client.SetAppMetrics(appMetrics)
+		}
+	}
+
+	return client
 }
 
 func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) {
@@ -84,24 +113,54 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 		select {
 		case <-ticker.C:
 			d.postMetrics()
+		case err := <-d.errs:
+			d.handleError(err)
+			return err
+		case <-d.stopper:
+			return nil
+		}
+	}
+}
+
+func (d *DatadogFirehoseNozzle) work() {
+	for {
+		select {
 		case envelope := <-d.messages:
 			if !d.keepMessage(envelope) {
 				continue
 			}
-
 			d.handleMessage(envelope)
-			d.client.AddMetric(envelope)
-		case err := <-d.errs:
-			d.handleError(err)
-			return err
+			d.client.ProcessMetric(envelope)
+		case <-d.workersStopper:
+			return
 		}
 	}
+}
+
+func (d *DatadogFirehoseNozzle) startWorkers() {
+	for i := 0; i < d.config.NumWorkers; i++ {
+		go d.work()
+	}
+}
+
+func (d *DatadogFirehoseNozzle) stopWorkers() {
+	go func() {
+		for i := 0; i < d.config.NumWorkers; i++ {
+			d.workersStopper <- true
+		}
+	}()
+}
+
+func (d *DatadogFirehoseNozzle) Stop() {
+	go func() {
+		d.stopper <- true
+	}()
 }
 
 func (d *DatadogFirehoseNozzle) postMetrics() {
 	err := d.client.PostMetrics()
 	if err != nil {
-		d.log.Fatalf("FATAL ERROR: %s\n\n", err)
+		d.log.Errorf("Error posting metrics: %s\n\n", err)
 	}
 }
 

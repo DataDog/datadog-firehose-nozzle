@@ -2,16 +2,16 @@ package datadogclient
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"fmt"
 	"net/http"
-	"sort"
+	"sync"
 	"time"
-
-	"errors"
 
 	"io/ioutil"
 
+	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/DataDog/datadog-firehose-nozzle/utils"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
 )
@@ -21,7 +21,8 @@ const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 type Client struct {
 	apiURL                string
 	apiKey                string
-	metricPoints          map[MetricKey]MetricValue
+	metricPoints          map[metrics.MetricKey]metrics.MetricValue
+	mLock                 sync.RWMutex
 	prefix                string
 	deployment            string
 	ip                    string
@@ -32,35 +33,11 @@ type Client struct {
 	maxPostBytes          uint32
 	log                   *gosteno.Logger
 	formatter             Formatter
-}
-
-type MetricKey struct {
-	EventType events.Envelope_EventType
-	Name      string
-	TagsHash  string
-}
-
-type MetricValue struct {
-	Tags   []string
-	Points []Point
-	Host   string
+	appMetrics            *appmetrics.AppMetrics
 }
 
 type Payload struct {
-	Series []Metric `json:"series"`
-}
-
-type Metric struct {
-	Metric string   `json:"metric"`
-	Points []Point  `json:"points"`
-	Type   string   `json:"type"`
-	Host   string   `json:"host,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
-}
-
-type Point struct {
-	Timestamp int64
-	Value     float64
+	Series []metrics.Series `json:"series"`
 }
 
 func New(
@@ -85,15 +62,17 @@ func New(
 	return &Client{
 		apiURL:       apiURL,
 		apiKey:       apiKey,
-		metricPoints: make(map[MetricKey]MetricValue),
+		metricPoints: make(map[metrics.MetricKey]metrics.MetricValue),
 		prefix:       prefix,
 		deployment:   deployment,
 		ip:           ip,
 		log:          log,
-		tagsHash:     hashTags(ourTags),
+		tagsHash:     utils.HashTags(ourTags),
 		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
-		formatter:    Formatter{},
+		formatter: Formatter{
+			log: log,
+		},
 	}
 }
 
@@ -101,46 +80,63 @@ func (c *Client) AlertSlowConsumerError() {
 	c.addInternalMetric("slowConsumerAlert", uint64(1))
 }
 
-func (c *Client) AddMetric(envelope *events.Envelope) {
+func (c *Client) SetAppMetrics(appMetrics *appmetrics.AppMetrics) {
+	c.appMetrics = appMetrics
+}
+
+func (c *Client) ProcessMetric(envelope *events.Envelope) {
+	c.mLock.Lock()
 	c.totalMessagesReceived++
-	if envelope.GetEventType() != events.Envelope_ValueMetric && envelope.GetEventType() != events.Envelope_CounterEvent {
+	c.mLock.Unlock()
+
+	var err error
+	var metricsPackages []metrics.MetricPackage
+
+	metricsPackages, err = c.ParseInfraMetric(envelope)
+	if err == nil {
+		for _, m := range metricsPackages {
+			c.AddMetric(*m.MetricKey, *m.MetricValue)
+		}
+		// it can only be one or the other
 		return
 	}
 
-	tags := parseTags(envelope)
-	host := parseHost(envelope)
+	metricsPackages, err = c.ParseAppMetric(envelope)
+	if err == nil {
+		for _, m := range metricsPackages {
+			c.AddMetric(*m.MetricKey, *m.MetricValue)
+		}
+	}
+}
 
-	key := MetricKey{
-		EventType: envelope.GetEventType(),
-		Name:      getName(envelope),
-		TagsHash:  hashTags(tags),
+func (c *Client) AddMetric(key metrics.MetricKey, value metrics.MetricValue) {
+	c.mLock.Lock()
+	defer c.mLock.Unlock()
+
+	mVal, ok := c.metricPoints[key]
+	if !ok {
+		mVal = value
+	} else {
+		mVal.Points = append(mVal.Points, value.Points...)
 	}
 
-	mVal := c.metricPoints[key]
-	value := getValue(envelope)
-
-	mVal.Host = host
-	mVal.Tags = tags
-	mVal.Points = append(mVal.Points, Point{
-		Timestamp: envelope.GetTimestamp() / int64(time.Second),
-		Value:     value,
-	})
-
-	c.metricPoints[key] = mVal
-
-	// Add the metric again with the "old" name (so as not to break any current user's dashboards/monitors)
-	key.Name = envelope.GetOrigin() + "." + key.Name
 	c.metricPoints[key] = mVal
 }
 
 func (c *Client) PostMetrics() error {
 	c.populateInternalMetrics()
-	numMetrics := len(c.metricPoints)
+
+	c.mLock.Lock()
+	metricPoints := c.metricPoints
+	c.metricPoints = make(map[metrics.MetricKey]metrics.MetricValue)
+
+	numMetrics := len(metricPoints)
 	c.log.Infof("Posting %d metrics", numMetrics)
 
-	c.totalMetricsSent += uint64(len(c.metricPoints))
-	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, c.metricPoints)
-	c.metricPoints = make(map[MetricKey]MetricValue)
+	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metricPoints)
+
+	c.totalMetricsSent += uint64(len(metricPoints))
+	c.mLock.Unlock()
 
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
@@ -149,7 +145,10 @@ func (c *Client) PostMetrics() error {
 		}
 
 		if err := c.postMetrics(data); err != nil {
-			return err
+			// Retry the request once
+			if err := c.postMetrics(data); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -183,8 +182,13 @@ func (c *Client) seriesURL() string {
 }
 
 func (c *Client) populateInternalMetrics() {
-	c.addInternalMetric("totalMessagesReceived", c.totalMessagesReceived)
-	c.addInternalMetric("totalMetricsSent", c.totalMetricsSent)
+	c.mLock.RLock()
+	totalMessagesReceived := c.totalMessagesReceived
+	totalMetricsSent := c.totalMetricsSent
+	c.mLock.RUnlock()
+
+	c.addInternalMetric("totalMessagesReceived", totalMessagesReceived)
+	c.addInternalMetric("totalMetricsSent", totalMetricsSent)
 
 	if !c.containsSlowConsumerAlert() {
 		c.addInternalMetric("slowConsumerAlert", uint64(0))
@@ -192,7 +196,7 @@ func (c *Client) populateInternalMetrics() {
 }
 
 func (c *Client) containsSlowConsumerAlert() bool {
-	key := MetricKey{
+	key := metrics.MetricKey{
 		Name:     "slowConsumerAlert",
 		TagsHash: c.tagsHash,
 	}
@@ -201,109 +205,25 @@ func (c *Client) containsSlowConsumerAlert() bool {
 }
 
 func (c *Client) addInternalMetric(name string, value uint64) {
-	key := MetricKey{
+	key := metrics.MetricKey{
 		Name:     name,
 		TagsHash: c.tagsHash,
 	}
 
-	point := Point{
+	point := metrics.Point{
 		Timestamp: time.Now().Unix(),
 		Value:     float64(value),
 	}
 
-	mValue := MetricValue{
+	mValue := metrics.MetricValue{
 		Tags: []string{
 			fmt.Sprintf("ip:%s", c.ip),
 			fmt.Sprintf("deployment:%s", c.deployment),
 		},
-		Points: []Point{point},
+		Points: []metrics.Point{point},
 	}
 
+	c.mLock.Lock()
 	c.metricPoints[key] = mValue
-}
-
-func getName(envelope *events.Envelope) string {
-	switch envelope.GetEventType() {
-
-	case events.Envelope_ValueMetric:
-		return envelope.GetValueMetric().GetName()
-
-	case events.Envelope_CounterEvent:
-		return envelope.GetCounterEvent().GetName()
-	default:
-		panic("Unknown event type")
-	}
-}
-
-func getValue(envelope *events.Envelope) float64 {
-	switch envelope.GetEventType() {
-	case events.Envelope_ValueMetric:
-		return envelope.GetValueMetric().GetValue()
-	case events.Envelope_CounterEvent:
-		return float64(envelope.GetCounterEvent().GetTotal())
-	default:
-		panic("Unknown event type")
-	}
-}
-
-func parseTags(envelope *events.Envelope) []string {
-	tags := appendTagIfNotEmpty(nil, "deployment", envelope.GetDeployment())
-	tags = appendTagIfNotEmpty(tags, "job", envelope.GetJob())
-	tags = appendTagIfNotEmpty(tags, "index", envelope.GetIndex())
-	tags = appendTagIfNotEmpty(tags, "ip", envelope.GetIp())
-	tags = appendTagIfNotEmpty(tags, "origin", envelope.GetOrigin())
-	tags = appendTagIfNotEmpty(tags, "name", envelope.GetOrigin())
-	for tname, tvalue := range envelope.GetTags() {
-		tags = appendTagIfNotEmpty(tags, tname, tvalue)
-	}
-	return tags
-}
-
-func parseHost(envelope *events.Envelope) string {
-	if envelope.GetIndex() != "" {
-		return envelope.GetIndex()
-	} else if envelope.GetOrigin() != "" {
-		return envelope.GetOrigin()
-	}
-
-	return ""
-}
-
-func appendTagIfNotEmpty(tags []string, key, value string) []string {
-	if value != "" {
-		tags = append(tags, fmt.Sprintf("%s:%s", key, value))
-	}
-	return tags
-}
-
-func (p Point) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`[%d, %f]`, p.Timestamp, p.Value)), nil
-}
-
-func (p *Point) UnmarshalJSON(in []byte) error {
-	var timestamp int64
-	var value float64
-
-	parsed, err := fmt.Sscanf(string(in), `[%d,%f]`, &timestamp, &value)
-	if err != nil {
-		return err
-	}
-	if parsed != 2 {
-		return errors.New("expected two parsed values")
-	}
-
-	p.Timestamp = timestamp
-	p.Value = value
-
-	return nil
-}
-
-func hashTags(tags []string) string {
-	sort.Strings(tags)
-	hash := ""
-	for _, tag := range tags {
-		tagHash := sha1.Sum([]byte(tag))
-		hash += string(tagHash[:])
-	}
-	return hash
+	c.mLock.Unlock()
 }

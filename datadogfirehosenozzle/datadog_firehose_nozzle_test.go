@@ -3,6 +3,7 @@ package datadogfirehosenozzle_test
 import (
 	"bytes"
 
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -52,6 +53,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			DisableAccessControl: false,
 			MetricPrefix:         "datadog.nozzle.",
 			Deployment:           "nozzle-deployment",
+			AppMetrics:           false,
+			NumWorkers:           1,
 		}
 		content := make([]byte, 1024)
 		logContent = bytes.NewBuffer(content)
@@ -71,6 +74,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	})
 
 	AfterEach(func() {
+		nozzle.Stop()
 		fakeUAA.Close()
 		fakeFirehose.Close()
 		fakeDatadogAPI.Close()
@@ -78,6 +82,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 	It("receives data from the firehose", func(done Done) {
 		defer close(done)
+
+		go nozzle.Start()
 
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
@@ -94,8 +100,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 			fakeFirehose.AddEvent(envelope)
 		}
-
-		go nozzle.Start()
 
 		var contents []byte
 		Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
@@ -229,12 +233,15 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				DataDogURL:           fakeDatadogAPI.URL(),
 				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
 				DisableAccessControl: true,
+				NumWorkers:           1,
+				AppMetrics:           false,
 			}
 
 			nozzle = datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
 		})
 
 		AfterEach(func() {
+			nozzle.Stop()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -270,6 +277,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				IdleTimeoutSeconds:   1,
 				FlushDurationSeconds: 1,
 				FlushMaxBytes:        10240,
+				NumWorkers:           1,
+				AppMetrics:           false,
 			}
 
 			tokenFetcher := &FakeTokenFetcher{}
@@ -319,7 +328,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	})
 })
 
-func findSlowConsumerMetric(payload datadogclient.Payload) *datadogclient.Metric {
+func findSlowConsumerMetric(payload datadogclient.Payload) *metrics.Series {
 	for _, metric := range payload.Series {
 		if metric.Metric == "datadog.nozzle.slowConsumerAlert" {
 			return &metric
