@@ -1,6 +1,7 @@
 package appmetrics
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,6 +29,10 @@ func New(
 	grabInterval int,
 	log *gosteno.Logger,
 ) (*AppMetrics, error) {
+
+	if ccEndpoint == "" {
+		return nil, fmt.Errorf("The CC Endpoint needs to be set in order to set up appmetrics")
+	}
 
 	cfg := cfclient.Config{
 		ApiAddress:        ccEndpoint,
