@@ -83,6 +83,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	It("receives data from the firehose", func(done Done) {
 		defer close(done)
 
+		go nozzle.Start()
+
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -98,8 +100,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 			fakeFirehose.AddEvent(envelope)
 		}
-
-		go nozzle.Start()
 
 		var contents []byte
 		Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
