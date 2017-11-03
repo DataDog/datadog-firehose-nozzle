@@ -217,13 +217,13 @@ func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.Metri
 
 	guid := message.GetApplicationId()
 	app, err := am.getAppData(guid)
-	app.lock.Lock()
-	defer app.lock.Unlock()
-
-	if err != nil {
+	if err != nil || app == nil {
 		am.log.Errorf("there was an error grabbing data for app %v: %v", guid, err)
 		return metricsPackages, err
 	}
+
+	app.lock.Lock()
+	defer app.lock.Unlock()
 
 	app.Host = envelope.GetOrigin()
 
