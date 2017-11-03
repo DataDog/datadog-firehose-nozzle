@@ -21,7 +21,7 @@ const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 type Client struct {
 	apiURL                string
 	apiKey                string
-	metricPoints          map[metrics.MetricKey]metrics.MetricValue
+	metrics               chan Metric
 	mLock                 sync.RWMutex
 	prefix                string
 	deployment            string
@@ -29,6 +29,7 @@ type Client struct {
 	tagsHash              string
 	totalMessagesReceived uint64
 	totalMetricsSent      uint64
+	slowConsumerAlert     uint64
 	httpClient            *http.Client
 	maxPostBytes          uint32
 	log                   *gosteno.Logger
@@ -38,6 +39,23 @@ type Client struct {
 
 type Payload struct {
 	Series []metrics.Series `json:"series"`
+}
+
+type Metric struct {
+	key metrics.MetricKey
+	val metrics.MetricValue
+}
+
+type MetricMap map[metrics.MetricKey]metrics.MetricValue
+
+func (m MetricMap) add(metric Metric) {
+	value, exists := m[metric.key]
+	if exists {
+		value.Points = append(value.Points, metric.val.Points...)
+	} else {
+		value = metric.val
+	}
+	m[metric.key] = value
 }
 
 func New(
@@ -62,7 +80,7 @@ func New(
 	return &Client{
 		apiURL:       apiURL,
 		apiKey:       apiKey,
-		metricPoints: make(map[metrics.MetricKey]metrics.MetricValue),
+		metrics:      make(chan Metric),
 		prefix:       prefix,
 		deployment:   deployment,
 		ip:           ip,
@@ -77,7 +95,9 @@ func New(
 }
 
 func (c *Client) AlertSlowConsumerError() {
-	c.addInternalMetric("slowConsumerAlert", uint64(1))
+	c.mLock.Lock()
+	c.slowConsumerAlert = uint64(1)
+	c.mLock.Unlock()
 }
 
 func (c *Client) SetAppMetrics(appMetrics *appmetrics.AppMetrics) {
@@ -95,7 +115,7 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	metricsPackages, err = c.ParseInfraMetric(envelope)
 	if err == nil {
 		for _, m := range metricsPackages {
-			c.AddMetric(*m.MetricKey, *m.MetricValue)
+			c.metrics <- Metric{*m.MetricKey, *m.MetricValue}
 		}
 		// it can only be one or the other
 		return
@@ -104,31 +124,13 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	metricsPackages, err = c.ParseAppMetric(envelope)
 	if err == nil {
 		for _, m := range metricsPackages {
-			c.AddMetric(*m.MetricKey, *m.MetricValue)
+			c.metrics <- Metric{*m.MetricKey, *m.MetricValue}
 		}
 	}
 }
 
-func (c *Client) AddMetric(key metrics.MetricKey, value metrics.MetricValue) {
-	c.mLock.Lock()
-	defer c.mLock.Unlock()
-
-	mVal, ok := c.metricPoints[key]
-	if !ok {
-		mVal = value
-	} else {
-		mVal.Points = append(mVal.Points, value.Points...)
-	}
-
-	c.metricPoints[key] = mVal
-}
-
 func (c *Client) PostMetrics() error {
-	c.populateInternalMetrics()
-
-	c.mLock.Lock()
-	metricPoints := c.metricPoints
-	c.metricPoints = make(map[metrics.MetricKey]metrics.MetricValue)
+	metricPoints := c.aggregateMetrics()
 
 	numMetrics := len(metricPoints)
 	c.log.Infof("Posting %d metrics", numMetrics)
@@ -136,7 +138,6 @@ func (c *Client) PostMetrics() error {
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metricPoints)
 
 	c.totalMetricsSent += uint64(len(metricPoints))
-	c.mLock.Unlock()
 
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
@@ -153,6 +154,42 @@ func (c *Client) PostMetrics() error {
 	}
 
 	return nil
+}
+
+func (c *Client) aggregateMetrics() MetricMap {
+	metricPoints := make(MetricMap)
+	timeout := make(chan bool)
+	go func() {
+		time.Sleep(1 * time.Second)
+		timeout <- true
+	}()
+
+	// Add new metrics
+loop:
+	for {
+		select {
+		case <-timeout:
+			break loop
+		case metric := <-c.metrics:
+			metricPoints.add(metric)
+		default:
+			break loop
+		}
+	}
+
+	// Add internal metrics
+	c.mLock.RLock()
+	totalMessagesReceived := c.totalMessagesReceived
+	totalMetricsSent := c.totalMetricsSent
+	slowConsumerAlert := c.slowConsumerAlert
+	c.slowConsumerAlert = uint64(0)
+	c.mLock.RUnlock()
+
+	metricPoints.add(c.makeInternalMetric("totalMessagesReceived", totalMessagesReceived))
+	metricPoints.add(c.makeInternalMetric("totalMetricsSent", totalMetricsSent))
+	metricPoints.add(c.makeInternalMetric("slowConsumerAlert", slowConsumerAlert))
+
+	return metricPoints
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
@@ -181,30 +218,7 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) populateInternalMetrics() {
-	c.mLock.RLock()
-	totalMessagesReceived := c.totalMessagesReceived
-	totalMetricsSent := c.totalMetricsSent
-	c.mLock.RUnlock()
-
-	c.addInternalMetric("totalMessagesReceived", totalMessagesReceived)
-	c.addInternalMetric("totalMetricsSent", totalMetricsSent)
-
-	if !c.containsSlowConsumerAlert() {
-		c.addInternalMetric("slowConsumerAlert", uint64(0))
-	}
-}
-
-func (c *Client) containsSlowConsumerAlert() bool {
-	key := metrics.MetricKey{
-		Name:     "slowConsumerAlert",
-		TagsHash: c.tagsHash,
-	}
-	_, ok := c.metricPoints[key]
-	return ok
-}
-
-func (c *Client) addInternalMetric(name string, value uint64) {
+func (c *Client) makeInternalMetric(name string, value uint64) Metric {
 	key := metrics.MetricKey{
 		Name:     name,
 		TagsHash: c.tagsHash,
@@ -223,7 +237,5 @@ func (c *Client) addInternalMetric(name string, value uint64) {
 		Points: []metrics.Point{point},
 	}
 
-	c.mLock.Lock()
-	c.metricPoints[key] = mValue
-	c.mLock.Unlock()
+	return Metric{key, mValue}
 }
