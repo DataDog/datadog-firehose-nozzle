@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
@@ -19,6 +20,8 @@ type DatadogFirehoseNozzle struct {
 	config           *nozzleconfig.NozzleConfig
 	errs             <-chan error
 	messages         <-chan *events.Envelope
+	metrics          <-chan metrics.MetricPackage
+	metricPoints     metrics.MetricsMap
 	authTokenFetcher AuthTokenFetcher
 	consumer         *consumer.Consumer
 	client           *datadogclient.Client
@@ -36,6 +39,8 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 	return &DatadogFirehoseNozzle{
 		config:           config,
 		authTokenFetcher: tokenFetcher,
+		metricPoints:     make(metrics.MetricsMap),
+		metrics:          make(chan metrics.MetricPackage),
 		log:              log,
 		appMetrics:       config.AppMetrics,
 		stopper:          make(chan bool),
@@ -69,6 +74,7 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 	client := datadogclient.New(
 		d.config.DataDogURL,
 		d.config.DataDogAPIKey,
+		d.metrics,
 		d.config.MetricPrefix,
 		d.config.Deployment,
 		ipAddress,
@@ -118,6 +124,8 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 			return err
 		case <-d.stopper:
 			return nil
+		case m := <-d.metrics:
+			d.metricPoints.Add(*m.MetricKey, *m.MetricValue)
 		}
 	}
 }
@@ -158,7 +166,8 @@ func (d *DatadogFirehoseNozzle) Stop() {
 }
 
 func (d *DatadogFirehoseNozzle) postMetrics() {
-	err := d.client.PostMetrics()
+	err := d.client.PostMetrics(d.metricPoints)
+	d.metricPoints = make(metrics.MetricsMap)
 	if err != nil {
 		d.log.Errorf("Error posting metrics: %s\n\n", err)
 	}

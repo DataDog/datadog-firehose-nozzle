@@ -21,7 +21,7 @@ const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 type Client struct {
 	apiURL                string
 	apiKey                string
-	metrics               chan Metric
+	metrics               chan<- metrics.MetricPackage
 	mLock                 sync.RWMutex
 	prefix                string
 	deployment            string
@@ -41,26 +41,10 @@ type Payload struct {
 	Series []metrics.Series `json:"series"`
 }
 
-type Metric struct {
-	key metrics.MetricKey
-	val metrics.MetricValue
-}
-
-type MetricMap map[metrics.MetricKey]metrics.MetricValue
-
-func (m MetricMap) add(metric Metric) {
-	value, exists := m[metric.key]
-	if exists {
-		value.Points = append(value.Points, metric.val.Points...)
-	} else {
-		value = metric.val
-	}
-	m[metric.key] = value
-}
-
 func New(
 	apiURL string,
 	apiKey string,
+	metrics chan<- metrics.MetricPackage,
 	prefix string,
 	deployment string,
 	ip string,
@@ -80,7 +64,7 @@ func New(
 	return &Client{
 		apiURL:       apiURL,
 		apiKey:       apiKey,
-		metrics:      make(chan Metric),
+		metrics:      metrics,
 		prefix:       prefix,
 		deployment:   deployment,
 		ip:           ip,
@@ -115,7 +99,7 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	metricsPackages, err = c.ParseInfraMetric(envelope)
 	if err == nil {
 		for _, m := range metricsPackages {
-			c.metrics <- Metric{*m.MetricKey, *m.MetricValue}
+			c.metrics <- m
 		}
 		// it can only be one or the other
 		return
@@ -124,20 +108,18 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 	metricsPackages, err = c.ParseAppMetric(envelope)
 	if err == nil {
 		for _, m := range metricsPackages {
-			c.metrics <- Metric{*m.MetricKey, *m.MetricValue}
+			c.metrics <- m
 		}
 	}
 }
 
-func (c *Client) PostMetrics() error {
-	metricPoints := c.aggregateMetrics()
+func (c *Client) PostMetrics(metricPoints metrics.MetricsMap) error {
+	c.addInternalMetrics(metricPoints)
 
 	numMetrics := len(metricPoints)
 	c.log.Infof("Posting %d metrics", numMetrics)
 
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metricPoints)
-
-	c.totalMetricsSent += uint64(len(metricPoints))
 
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
@@ -154,42 +136,6 @@ func (c *Client) PostMetrics() error {
 	}
 
 	return nil
-}
-
-func (c *Client) aggregateMetrics() MetricMap {
-	metricPoints := make(MetricMap)
-	timeout := make(chan bool)
-	go func() {
-		time.Sleep(1 * time.Second)
-		timeout <- true
-	}()
-
-	// Add new metrics
-loop:
-	for {
-		select {
-		case <-timeout:
-			break loop
-		case metric := <-c.metrics:
-			metricPoints.add(metric)
-		default:
-			break loop
-		}
-	}
-
-	// Add internal metrics
-	c.mLock.RLock()
-	totalMessagesReceived := c.totalMessagesReceived
-	totalMetricsSent := c.totalMetricsSent
-	slowConsumerAlert := c.slowConsumerAlert
-	c.slowConsumerAlert = uint64(0)
-	c.mLock.RUnlock()
-
-	metricPoints.add(c.makeInternalMetric("totalMessagesReceived", totalMessagesReceived))
-	metricPoints.add(c.makeInternalMetric("totalMetricsSent", totalMetricsSent))
-	metricPoints.add(c.makeInternalMetric("slowConsumerAlert", slowConsumerAlert))
-
-	return metricPoints
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
@@ -218,7 +164,22 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) makeInternalMetric(name string, value uint64) Metric {
+func (c *Client) addInternalMetrics(metricPoints metrics.MetricsMap) {
+	c.mLock.RLock()
+	totalMessagesReceived := c.totalMessagesReceived // Modified by ProcessMetric
+	slowConsumerAlert := c.slowConsumerAlert         // Modified by AlertSlowConsumerError
+	c.slowConsumerAlert = uint64(0)
+	c.mLock.RUnlock()
+
+	totalMetricsSent := c.totalMetricsSent
+	c.totalMetricsSent += uint64(len(metricPoints))
+
+	metricPoints.Add(c.makeMetric("totalMessagesReceived", totalMessagesReceived))
+	metricPoints.Add(c.makeMetric("totalMetricsSent", totalMetricsSent))
+	metricPoints.Add(c.makeMetric("slowConsumerAlert", slowConsumerAlert))
+}
+
+func (c *Client) makeMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
 	key := metrics.MetricKey{
 		Name:     name,
 		TagsHash: c.tagsHash,
@@ -237,5 +198,5 @@ func (c *Client) makeInternalMetric(name string, value uint64) Metric {
 		Points: []metrics.Point{point},
 	}
 
-	return Metric{key, mValue}
+	return key, mValue
 }

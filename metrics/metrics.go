@@ -29,6 +29,23 @@ type MetricPackage struct {
 	MetricValue *MetricValue
 }
 
+type Metric struct {
+	MetricKey   *MetricKey
+	MetricValue *MetricValue
+}
+
+type MetricsMap map[MetricKey]MetricValue
+
+func (m MetricsMap) Add(key MetricKey, newVal MetricValue) {
+	value, exists := m[key]
+	if exists {
+		value.Points = append(value.Points, newVal.Points...)
+	} else {
+		value = newVal
+	}
+	m[key] = value
+}
+
 type Series struct {
 	Metric string   `json:"metric"`
 	Points []Point  `json:"points"`
