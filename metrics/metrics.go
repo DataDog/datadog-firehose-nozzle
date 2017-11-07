@@ -29,11 +29,6 @@ type MetricPackage struct {
 	MetricValue *MetricValue
 }
 
-type Metric struct {
-	MetricKey   *MetricKey
-	MetricValue *MetricValue
-}
-
 type MetricsMap map[MetricKey]MetricValue
 
 func (m MetricsMap) Add(key MetricKey, newVal MetricValue) {
