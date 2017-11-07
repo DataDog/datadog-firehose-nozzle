@@ -114,12 +114,17 @@ func (c *Client) ProcessMetric(envelope *events.Envelope) {
 }
 
 func (c *Client) PostMetrics(metricPoints metrics.MetricsMap) error {
-	c.addInternalMetrics(metricPoints)
+	c.populateInternalMetrics(metricPoints)
 
 	numMetrics := len(metricPoints)
 	c.log.Infof("Posting %d metrics", numMetrics)
 
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metricPoints)
+
+	c.totalMetricsSent += uint64(len(metricPoints))
+	c.mLock.RLock()
+	c.slowConsumerAlert = uint64(0) // Modified by AlertSlowConsumerError
+	c.mLock.RUnlock()
 
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
@@ -164,22 +169,18 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) addInternalMetrics(metricPoints metrics.MetricsMap) {
+func (c *Client) populateInternalMetrics(metricPoints metrics.MetricsMap) {
 	c.mLock.RLock()
 	totalMessagesReceived := c.totalMessagesReceived // Modified by ProcessMetric
 	slowConsumerAlert := c.slowConsumerAlert         // Modified by AlertSlowConsumerError
-	c.slowConsumerAlert = uint64(0)
 	c.mLock.RUnlock()
 
-	totalMetricsSent := c.totalMetricsSent
-	c.totalMetricsSent += uint64(len(metricPoints))
-
-	metricPoints.Add(c.makeMetric("totalMessagesReceived", totalMessagesReceived))
-	metricPoints.Add(c.makeMetric("totalMetricsSent", totalMetricsSent))
-	metricPoints.Add(c.makeMetric("slowConsumerAlert", slowConsumerAlert))
+	c.addInternalMetric("totalMetricsSent", c.totalMetricsSent, metricPoints)
+	c.addInternalMetric("totalMessagesReceived", totalMessagesReceived, metricPoints)
+	c.addInternalMetric("slowConsumerAlert", slowConsumerAlert, metricPoints)
 }
 
-func (c *Client) makeMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
+func (c *Client) addInternalMetric(name string, value uint64, metricPoints metrics.MetricsMap) {
 	key := metrics.MetricKey{
 		Name:     name,
 		TagsHash: c.tagsHash,
@@ -198,5 +199,5 @@ func (c *Client) makeMetric(name string, value uint64) (metrics.MetricKey, metri
 		Points: []metrics.Point{point},
 	}
 
-	return key, mValue
+	metricPoints[key] = mValue
 }

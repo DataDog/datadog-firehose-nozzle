@@ -20,7 +20,7 @@ type DatadogFirehoseNozzle struct {
 	config           *nozzleconfig.NozzleConfig
 	errs             <-chan error
 	messages         <-chan *events.Envelope
-	metrics          <-chan metrics.MetricPackage
+	metrics          chan metrics.MetricPackage
 	metricPoints     metrics.MetricsMap
 	authTokenFetcher AuthTokenFetcher
 	consumer         *consumer.Consumer

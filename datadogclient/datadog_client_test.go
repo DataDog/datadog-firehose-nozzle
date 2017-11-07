@@ -27,8 +27,10 @@ var (
 
 var _ = Describe("DatadogClient", func() {
 	var (
-		ts *httptest.Server
-		c  *datadogclient.Client
+		ts        *httptest.Server
+		c         *datadogclient.Client
+		metricPts metrics.MetricsMap
+		mchan     chan metrics.MetricPackage
 	)
 
 	BeforeEach(func() {
@@ -37,9 +39,13 @@ var _ = Describe("DatadogClient", func() {
 		responseCode = http.StatusOK
 		responseBody = []byte("some-response-body")
 		ts = httptest.NewServer(http.HandlerFunc(handlePost))
+		metricPts = make(metrics.MetricsMap)
+		mchan = make(chan metrics.MetricPackage, 2500)
+
 		c = datadogclient.New(
 			ts.URL,
 			"dummykey",
+			mchan,
 			"datadog.nozzle.",
 			"test-deployment",
 			"dummy-ip",
@@ -58,6 +64,7 @@ var _ = Describe("DatadogClient", func() {
 			c = datadogclient.New(
 				ts.URL,
 				"dummykey",
+				mchan,
 				"datadog.nozzle.",
 				"test-deployment",
 				"dummy-ip",
@@ -82,8 +89,15 @@ var _ = Describe("DatadogClient", func() {
 
 			errs := make(chan error)
 
+			for i := 0; i < 2; i++ { // Recall that each metric gets sent twice
+				select {
+				case metric := <-mchan:
+					metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+				}
+			}
+
 			go func() {
-				errs <- c.PostMetrics()
+				errs <- c.PostMetrics(metricPts)
 			}()
 			Eventually(errs).Should(Receive(HaveOccurred()))
 		})
@@ -102,7 +116,14 @@ var _ = Describe("DatadogClient", func() {
 			Ip:         proto.String("10.0.1.2"),
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 2; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 		var req *http.Request
 		Eventually(reqs).Should(Receive(&req))
@@ -129,7 +150,14 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 2; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -200,7 +228,14 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 4; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(bodies).Should(HaveLen(1))
 		var payload datadogclient.Payload
@@ -282,7 +317,9 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		err := c.PostMetrics()
+		Consistently(mchan).ShouldNot(Receive())
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -295,7 +332,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("generates aggregate messages even when idle", func() {
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -306,7 +343,7 @@ var _ = Describe("DatadogClient", func() {
 
 		validateMetrics(payload, 0, 0)
 
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(2))
@@ -342,7 +379,14 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 4; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -396,7 +440,14 @@ var _ = Describe("DatadogClient", func() {
 			})
 		}
 
-		err := c.PostMetrics()
+		for i := 0; i < 2000; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -419,7 +470,14 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 2; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -454,7 +512,14 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("gorouter"),
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 4; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -497,7 +562,7 @@ var _ = Describe("DatadogClient", func() {
 		validateMetrics(payload, 2, 0)
 	})
 
-	It("posts CounterEvents in JSON format and empties map after post", func() {
+	It("posts CounterEvents in JSON format", func() {
 		c.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -520,7 +585,14 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		for i := 0; i < 4; i++ {
+			select {
+			case metric := <-mchan:
+				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
+			}
+		}
+
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -549,23 +621,12 @@ var _ = Describe("DatadogClient", func() {
 		}
 		Expect(counterNameFound).To(BeTrue())
 		validateMetrics(payload, 2, 0)
-
-		err = c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(2))
-
-		err = json.Unmarshal(bodies[1], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		validateMetrics(payload, 2, 5)
 	})
 
 	It("sends a value 1 for the slowConsumerAlert metric when consumer error is set", func() {
 		c.AlertSlowConsumerError()
 
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -582,7 +643,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sends a value 0 for the slowConsumerAlert metric when consumer error is not set", func() {
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -601,7 +662,7 @@ var _ = Describe("DatadogClient", func() {
 	It("unsets the slow consumer error once it publishes the alert to datadog", func() {
 		c.AlertSlowConsumerError()
 
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -613,7 +674,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(errMetric).NotTo(BeNil())
 		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(1))
 
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(2))
@@ -628,18 +689,18 @@ var _ = Describe("DatadogClient", func() {
 	It("returns an error when datadog responds with a non 200 response code", func() {
 		responseCode = http.StatusBadRequest // 400
 		responseBody = []byte("something went horribly wrong")
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricPts)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
 		Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
 
 		responseCode = http.StatusSwitchingProtocols // 101
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricPts)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
 
 		responseCode = http.StatusAccepted // 201
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricPts)
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
