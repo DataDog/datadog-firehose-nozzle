@@ -2,11 +2,14 @@ package datadogfirehosenozzle
 
 import (
 	"crypto/tls"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	"github.com/cloudfoundry/gosteno"
@@ -17,18 +20,23 @@ import (
 )
 
 type DatadogFirehoseNozzle struct {
-	config           *nozzleconfig.NozzleConfig
-	errs             <-chan error
-	messages         <-chan *events.Envelope
-	metrics          chan metrics.MetricPackage
-	metricPoints     metrics.MetricsMap
-	authTokenFetcher AuthTokenFetcher
-	consumer         *consumer.Consumer
-	client           *datadogclient.Client
-	log              *gosteno.Logger
-	appMetrics       bool
-	stopper          chan bool
-	workersStopper   chan bool
+	config                *nozzleconfig.NozzleConfig
+	errs                  <-chan error
+	messages              <-chan *events.Envelope
+	authTokenFetcher      AuthTokenFetcher
+	consumer              *consumer.Consumer
+	client                *datadogclient.Client
+	processor             *metricProcessor.Processor
+	processedMetrics      chan []metrics.MetricPackage
+	log                   *gosteno.Logger
+	appMetrics            bool
+	stopper               chan bool
+	workersStopper        chan bool
+	mapLock               sync.RWMutex
+	metricsMap            metrics.MetricsMap // modified by workers & main thread
+	totalMessagesReceived uint64             // modified by workers, read by main thread
+	slowConsumerAlert     uint64             // modified by workers, read by main thread
+	totalMetricsSent      uint64
 }
 
 type AuthTokenFetcher interface {
@@ -39,8 +47,8 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 	return &DatadogFirehoseNozzle{
 		config:           config,
 		authTokenFetcher: tokenFetcher,
-		metricPoints:     make(metrics.MetricsMap),
-		metrics:          make(chan metrics.MetricPackage),
+		metricsMap:       make(metrics.MetricsMap),
+		processedMetrics: make(chan []metrics.MetricPackage),
 		log:              log,
 		appMetrics:       config.AppMetrics,
 		stopper:          make(chan bool),
@@ -57,6 +65,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
 	d.client = d.createClient()
+	d.processor = d.createProcessor()
 	d.consumeFirehose(authToken)
 	d.startWorkers()
 	err := d.postToDatadog()
@@ -74,7 +83,6 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 	client := datadogclient.New(
 		d.config.DataDogURL,
 		d.config.DataDogAPIKey,
-		d.metrics,
 		d.config.MetricPrefix,
 		d.config.Deployment,
 		ipAddress,
@@ -82,6 +90,12 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		d.config.FlushMaxBytes,
 		d.log,
 	)
+
+	return client
+}
+
+func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
+	processor := metricProcessor.New(d.processedMetrics)
 
 	if d.appMetrics {
 		appMetrics, err := appmetrics.New(
@@ -97,11 +111,11 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 			d.log.Warnf("error setting up appMetrics, continuing without application metrics: %v", err)
 		} else {
 			d.log.Debug("setting up app metrics")
-			client.SetAppMetrics(appMetrics)
+			processor.SetAppMetrics(appMetrics)
 		}
 	}
 
-	return client
+	return processor
 }
 
 func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) {
@@ -118,45 +132,14 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 	for {
 		select {
 		case <-ticker.C:
-			d.postMetrics()
+			d.PostMetrics()
 		case err := <-d.errs:
 			d.handleError(err)
 			return err
 		case <-d.stopper:
 			return nil
-		case m := <-d.metrics:
-			d.metricPoints.Add(*m.MetricKey, *m.MetricValue)
 		}
 	}
-}
-
-func (d *DatadogFirehoseNozzle) work() {
-	for {
-		select {
-		case envelope := <-d.messages:
-			if !d.keepMessage(envelope) {
-				continue
-			}
-			d.handleMessage(envelope)
-			d.client.ProcessMetric(envelope)
-		case <-d.workersStopper:
-			return
-		}
-	}
-}
-
-func (d *DatadogFirehoseNozzle) startWorkers() {
-	for i := 0; i < d.config.NumWorkers; i++ {
-		go d.work()
-	}
-}
-
-func (d *DatadogFirehoseNozzle) stopWorkers() {
-	go func() {
-		for i := 0; i < d.config.NumWorkers; i++ {
-			d.workersStopper <- true
-		}
-	}()
 }
 
 func (d *DatadogFirehoseNozzle) Stop() {
@@ -165,12 +148,31 @@ func (d *DatadogFirehoseNozzle) Stop() {
 	}()
 }
 
-func (d *DatadogFirehoseNozzle) postMetrics() {
-	err := d.client.PostMetrics(d.metricPoints)
-	d.metricPoints = make(metrics.MetricsMap)
+func (d *DatadogFirehoseNozzle) PostMetrics() {
+	d.mapLock.Lock()
+	metricsMap := d.metricsMap
+	totalMessagesReceived := d.totalMessagesReceived
+	d.mapLock.Unlock()
+
+	// Add internal metrics
+	k, v := d.client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived)
+	metricsMap[k] = v
+	k, v = d.client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent)
+	metricsMap[k] = v
+	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
+	metricsMap[k] = v
+
+	err := d.client.PostMetrics(metricsMap)
 	if err != nil {
 		d.log.Errorf("Error posting metrics: %s\n\n", err)
+		return
 	}
+
+	d.totalMetricsSent += uint64(len(metricsMap))
+	d.mapLock.Lock()
+	d.metricsMap = make(metrics.MetricsMap)
+	d.mapLock.Unlock()
+	d.ResetSlowConsumerError()
 }
 
 func (d *DatadogFirehoseNozzle) handleError(err error) {
@@ -186,7 +188,7 @@ func (d *DatadogFirehoseNozzle) handleError(err error) {
 		case websocket.ClosePolicyViolation:
 			d.log.Errorf("Error while reading from the firehose: %v", err)
 			d.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
-			d.client.AlertSlowConsumerError()
+			d.AlertSlowConsumerError()
 		default:
 			d.log.Errorf("Error while reading from the firehose: %v", err)
 		}
@@ -197,16 +199,17 @@ func (d *DatadogFirehoseNozzle) handleError(err error) {
 
 	d.log.Infof("Closing connection with traffic controller due to %v", err)
 	d.consumer.Close()
-	d.postMetrics()
+	d.PostMetrics()
 }
 
 func (d *DatadogFirehoseNozzle) keepMessage(envelope *events.Envelope) bool {
 	return d.config.DeploymentFilter == "" || d.config.DeploymentFilter == envelope.GetDeployment()
 }
 
-func (d *DatadogFirehoseNozzle) handleMessage(envelope *events.Envelope) {
-	if envelope.GetEventType() == events.Envelope_CounterEvent && envelope.CounterEvent.GetName() == "TruncatingBuffer.DroppedMessages" && envelope.GetOrigin() == "doppler" {
-		d.log.Infof("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle.")
-		d.client.AlertSlowConsumerError()
-	}
+func (d *DatadogFirehoseNozzle) ResetSlowConsumerError() {
+	atomic.StoreUint64(&d.slowConsumerAlert, 0)
+}
+
+func (d *DatadogFirehoseNozzle) AlertSlowConsumerError() {
+	atomic.StoreUint64(&d.slowConsumerAlert, 1)
 }
