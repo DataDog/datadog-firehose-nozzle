@@ -84,11 +84,53 @@ var _ = Describe("AppMetrics", func() {
 				Ip:         proto.String("10.0.1.2"),
 			}
 
-			metrics, err := a.ParseAppMetric(event)
+			metrics, err := a.ParseAppMetric(event, []string{})
 
 			Expect(err).To(BeNil())
 			Expect(metrics).To(HaveLen(10))
 			Expect(metrics[0].MetricValue.Tags).To(HaveLen(2))
+		})
+	})
+
+	Context("custom tags", func() {
+		It("sends attaches custom tags if present", func() {
+			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+			Expect(err).To(BeNil())
+			guids := []string{"guid1", "guid2"}
+			a.Apps = newFakeApps(guids)
+
+			event := &events.Envelope{
+				Origin:    proto.String("test-origin"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_ContainerMetric.Enum(),
+
+				ContainerMetric: &events.ContainerMetric{
+					CpuPercentage:    proto.Float64(float64(1)),
+					DiskBytes:        proto.Uint64(uint64(1)),
+					DiskBytesQuota:   proto.Uint64(uint64(1)),
+					MemoryBytes:      proto.Uint64(uint64(1)),
+					MemoryBytesQuota: proto.Uint64(uint64(1)),
+					ApplicationId:    proto.String("guid1"),
+				},
+
+				// fields that gets sent as tags
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+				Index:      proto.String("1"),
+				Ip:         proto.String("10.0.1.2"),
+			}
+
+			metrics, err := a.ParseAppMetric(event, []string{"custom:tag", "foo:bar"})
+
+			Expect(err).To(BeNil())
+			Expect(metrics).To(HaveLen(10))
+
+			for _, metric := range metrics {
+				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:guid1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("guid:guid1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("custom:tag"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("foo:bar"))
+			}
 		})
 	})
 

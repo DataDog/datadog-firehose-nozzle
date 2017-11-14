@@ -211,7 +211,7 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 	return app, nil
 }
 
-func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
+func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope, customTags []string) ([]metrics.MetricPackage, error) {
 	metricsPackages := []metrics.MetricPackage{}
 	message := envelope.GetContainerMetric()
 
@@ -227,8 +227,8 @@ func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.Metri
 
 	app.Host = envelope.GetOrigin()
 
-	metricsPackages = app.getMetrics()
-	containerMetrics, err := app.parseContainerMetric(message)
+	metricsPackages = app.getMetrics(customTags)
+	containerMetrics, err := app.parseContainerMetric(message, customTags)
 	if err != nil {
 		return metricsPackages, err
 	}

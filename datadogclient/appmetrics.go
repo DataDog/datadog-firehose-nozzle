@@ -19,7 +19,7 @@ func (c *Client) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPack
 		return metricsPackages, fmt.Errorf("not an app metric")
 	}
 
-	metricsPackages, err = c.appMetrics.ParseAppMetric(envelope)
+	metricsPackages, err = c.appMetrics.ParseAppMetric(envelope, c.customTags)
 
 	return metricsPackages, err
 }

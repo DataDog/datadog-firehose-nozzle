@@ -50,7 +50,7 @@ func newApp(guid string) *App {
 	}
 }
 
-func (a *App) getMetrics() []metrics.MetricPackage {
+func (a *App) getMetrics(customTags []string) []metrics.MetricPackage {
 	var names = []string{
 		"app.disk.configured",
 		"app.disk.provisioned",
@@ -67,7 +67,7 @@ func (a *App) getMetrics() []metrics.MetricPackage {
 		float64(a.NumberOfInstances),
 	}
 
-	return a.mkMetrics(names, ms, []string{})
+	return a.mkMetrics(names, ms, customTags)
 }
 
 func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metrics.MetricPackage {
@@ -104,7 +104,7 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 	return metricsPackages
 }
 
-func (a *App) parseContainerMetric(message *events.ContainerMetric) ([]metrics.MetricPackage, error) {
+func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags []string) ([]metrics.MetricPackage, error) {
 	var names = []string{
 		"app.cpu.pct",
 		"app.disk.used",
@@ -120,6 +120,7 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric) ([]metrics.M
 		float64(message.GetMemoryBytesQuota()),
 	}
 	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
+	tags = append(tags, customTags...)
 
 	return a.mkMetrics(names, ms, tags), nil
 }

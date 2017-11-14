@@ -44,8 +44,9 @@ var _ = Describe("DatadogClient", func() {
 			"test-deployment",
 			"dummy-ip",
 			time.Second,
-			1500,
+			2000,
 			gosteno.NewLogger("datadogclient test"),
+			[]string{},
 		)
 	})
 
@@ -62,8 +63,9 @@ var _ = Describe("DatadogClient", func() {
 				"test-deployment",
 				"dummy-ip",
 				time.Millisecond,
-				1024,
+				2000,
 				gosteno.NewLogger("datadogclient test"),
+				[]string{},
 			)
 		})
 
@@ -110,7 +112,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
 	})
 
-	It("sends tags", func() {
+	It("sends (regular) tags", func() {
 		c.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -145,9 +147,10 @@ var _ = Describe("DatadogClient", func() {
 			"job:doppler",
 			"index:1",
 			"ip:10.0.1.2",
-			"protocol:http",
 			"name:test-origin",
 			"origin:test-origin",
+
+			"protocol:http",
 			"request_id:a1f5-deadbeef",
 		))
 		Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
@@ -156,11 +159,126 @@ var _ = Describe("DatadogClient", func() {
 			"job:doppler",
 			"index:1",
 			"ip:10.0.1.2",
-			"protocol:http",
 			"name:test-origin",
 			"origin:test-origin",
+
+			"protocol:http",
 			"request_id:a1f5-deadbeef",
 		))
+	})
+
+	Context("user configures custom tags", func() {
+		BeforeEach(func() {
+			c = datadogclient.New(
+				ts.URL,
+				"dummykey",
+				"datadog.nozzle.",
+				"test-deployment",
+				"dummy-ip",
+				time.Millisecond,
+				2000,
+				gosteno.NewLogger("datadogclient test"),
+
+				// custom tags
+				[]string{"environment:foo", "foundry:bar"},
+			)
+		})
+
+		It("sends custom tags on infra metrics", func() {
+			c.ProcessMetric(&events.Envelope{
+				Origin:    proto.String("test-origin"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_ValueMetric.Enum(),
+
+				// fields that gets sent as tags
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+				Index:      proto.String("1"),
+				Ip:         proto.String("10.0.1.2"),
+
+				// additional tags
+				Tags: map[string]string{
+					"protocol":   "http",
+					"request_id": "a1f5-deadbeef",
+				},
+			})
+
+			err := c.PostMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(bodies).Should(HaveLen(1))
+			var payload datadogclient.Payload
+			err = json.Unmarshal(bodies[0], &payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(5))
+
+			var metric metrics.Series
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.test-origin.", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"deployment:deployment-name",
+				"job:doppler",
+				"index:1",
+				"ip:10.0.1.2",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"deployment:deployment-name",
+				"job:doppler",
+				"index:1",
+				"ip:10.0.1.2",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+
+				"environment:foo",
+				"foundry:bar",
+			))
+		})
+
+		It("sends custom tags on internal metrics", func() {
+			err := c.PostMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(bodies).Should(HaveLen(1))
+			var payload datadogclient.Payload
+			err = json.Unmarshal(bodies[0], &payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(3))
+
+			var metric metrics.Series
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.totalMessagesReceived", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.totalMetricsSent", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.slowConsumerAlert", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+		})
+
+		// custom tags on app metrics tested in app_metrics_test.go
+
 	})
 
 	It("uses tags as an identifier for batching purposes", func() {
@@ -667,7 +785,7 @@ func validateMetrics(payload datadogclient.Payload, totalMessagesReceived int, t
 			Expect(metric.Points).To(HaveLen(1))
 			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
 			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
-			Expect(metric.Tags).To(Equal([]string{"ip:dummy-ip", "deployment:test-deployment"}))
+			Expect(metric.Tags).To(Equal([]string{"deployment:test-deployment", "ip:dummy-ip"}))
 		}
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())

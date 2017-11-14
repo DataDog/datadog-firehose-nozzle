@@ -26,7 +26,7 @@ type Client struct {
 	prefix                string
 	deployment            string
 	ip                    string
-	tagsHash              string
+	customTags            []string
 	totalMessagesReceived uint64
 	totalMetricsSent      uint64
 	httpClient            *http.Client
@@ -49,12 +49,8 @@ func New(
 	writeTimeout time.Duration,
 	maxPostBytes uint32,
 	log *gosteno.Logger,
+	customTags []string,
 ) *Client {
-	ourTags := []string{
-		"deployment:" + deployment,
-		"ip:" + ip,
-	}
-
 	httpClient := &http.Client{
 		Timeout: writeTimeout,
 	}
@@ -67,7 +63,7 @@ func New(
 		deployment:   deployment,
 		ip:           ip,
 		log:          log,
-		tagsHash:     utils.HashTags(ourTags),
+		customTags:   customTags,
 		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
 		formatter: Formatter{
@@ -196,30 +192,40 @@ func (c *Client) populateInternalMetrics() {
 }
 
 func (c *Client) containsSlowConsumerAlert() bool {
+	tags := []string{
+		fmt.Sprintf("deployment:%s", c.deployment),
+		fmt.Sprintf("ip:%s", c.ip),
+	}
+	tags = append(tags, c.customTags...)
+
 	key := metrics.MetricKey{
 		Name:     "slowConsumerAlert",
-		TagsHash: c.tagsHash,
+		TagsHash: utils.HashTags(tags),
 	}
+
 	_, ok := c.metricPoints[key]
 	return ok
 }
 
 func (c *Client) addInternalMetric(name string, value uint64) {
-	key := metrics.MetricKey{
-		Name:     name,
-		TagsHash: c.tagsHash,
-	}
-
 	point := metrics.Point{
 		Timestamp: time.Now().Unix(),
 		Value:     float64(value),
 	}
 
+	tags := []string{
+		fmt.Sprintf("deployment:%s", c.deployment),
+		fmt.Sprintf("ip:%s", c.ip),
+	}
+	tags = append(tags, c.customTags...)
+
+	key := metrics.MetricKey{
+		Name:     name,
+		TagsHash: utils.HashTags(tags),
+	}
+
 	mValue := metrics.MetricValue{
-		Tags: []string{
-			fmt.Sprintf("ip:%s", c.ip),
-			fmt.Sprintf("deployment:%s", c.deployment),
-		},
+		Tags:   tags,
 		Points: []metrics.Point{point},
 	}
 
