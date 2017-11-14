@@ -8,8 +8,8 @@ import (
 	"strconv"
 )
 
-var (
-	DefaultWorkers int = 4
+const (
+	defaultWorkers int = 4
 )
 
 type NozzleConfig struct {
@@ -71,7 +71,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	}
 
 	if config.NumWorkers == 0 {
-		config.NumWorkers = DefaultWorkers
+		config.NumWorkers = defaultWorkers
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
