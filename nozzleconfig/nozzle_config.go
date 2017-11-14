@@ -17,7 +17,6 @@ type NozzleConfig struct {
 	Client                  string
 	ClientSecret            string
 	TrafficControllerURL    string
-	DopplerEndpoint         string
 	FirehoseSubscriptionID  string
 	DataDogURL              string
 	DataDogAPIKey           string
