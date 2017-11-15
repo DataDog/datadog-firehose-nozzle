@@ -150,7 +150,11 @@ func (d *DatadogFirehoseNozzle) Stop() {
 
 func (d *DatadogFirehoseNozzle) PostMetrics() {
 	d.mapLock.Lock()
-	metricsMap := d.metricsMap
+	// deep copy the metrics map to pass to PostMetrics so that we can unlock d.metricsMap while posting
+	metricsMap := make(metrics.MetricsMap)
+	for k, v := range d.metricsMap {
+		metricsMap[k] = v
+	}
 	totalMessagesReceived := d.totalMessagesReceived
 	d.mapLock.Unlock()
 
