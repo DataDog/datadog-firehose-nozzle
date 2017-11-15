@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
@@ -23,20 +24,24 @@ var (
 	reqs         chan *http.Request
 	responseCode int
 	responseBody []byte
+	ts           *httptest.Server
+	c            *datadogclient.Client
+	p            *metricProcessor.Processor
+	mchan        chan []metrics.MetricPackage
+	metricsMap   metrics.MetricsMap
 )
 
 var _ = Describe("DatadogClient", func() {
-	var (
-		ts *httptest.Server
-		c  *datadogclient.Client
-	)
-
 	BeforeEach(func() {
 		bodies = nil
 		reqs = make(chan *http.Request, 1000)
 		responseCode = http.StatusOK
 		responseBody = []byte("some-response-body")
 		ts = httptest.NewServer(http.HandlerFunc(handlePost))
+		mchan = make(chan []metrics.MetricPackage, 1500)
+		p = metricProcessor.New(mchan)
+		metricsMap = make(metrics.MetricsMap)
+
 		c = datadogclient.New(
 			ts.URL,
 			"dummykey",
@@ -68,7 +73,7 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("respects the timeout", func() {
-			c.ProcessMetric(&events.Envelope{
+			p.ProcessMetric(&events.Envelope{
 				Origin:    proto.String("test-origin"),
 				Timestamp: proto.Int64(1000000000),
 				EventType: events.Envelope_ValueMetric.Enum(),
@@ -80,17 +85,18 @@ var _ = Describe("DatadogClient", func() {
 				Ip:         proto.String("10.0.1.2"),
 			})
 
-			errs := make(chan error)
+			receiveMessages(1)
 
+			errs := make(chan error)
 			go func() {
-				errs <- c.PostMetrics()
+				errs <- c.PostMetrics(metricsMap)
 			}()
 			Eventually(errs).Should(Receive(HaveOccurred()))
 		})
 	})
 
 	It("sets Content-Type header when making POST requests", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -102,7 +108,9 @@ var _ = Describe("DatadogClient", func() {
 			Ip:         proto.String("10.0.1.2"),
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(1)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 		var req *http.Request
 		Eventually(reqs).Should(Receive(&req))
@@ -111,7 +119,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sends tags", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -129,14 +137,16 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(1)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(5))
+		Expect(payload.Series).To(HaveLen(2))
 
 		var metric metrics.Series
 		Expect(payload.Series).To(ContainMetric("datadog.nozzle.test-origin.", &metric))
@@ -164,7 +174,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("uses tags as an identifier for batching purposes", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -182,7 +192,7 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -200,13 +210,15 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(2)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(bodies).Should(HaveLen(1))
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(7))
+		Expect(payload.Series).To(HaveLen(4))
 		Expect(payload.Series).To(ContainMetricWithTags(
 			"datadog.nozzle.test-origin.",
 			"deployment:deployment-name",
@@ -251,74 +263,10 @@ var _ = Describe("DatadogClient", func() {
 			"protocol:http",
 			"request_id:a1f5-deadbeef",
 		))
-	})
-
-	It("ignores messages that aren't value metrics or counter events", func() {
-		c.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_LogMessage.Enum(),
-			LogMessage: &events.LogMessage{
-				Message:     []byte("log message"),
-				MessageType: events.LogMessage_OUT.Enum(),
-				Timestamp:   proto.Int64(1000000000),
-			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
-		})
-
-		c.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ContainerMetric.Enum(),
-			ContainerMetric: &events.ContainerMetric{
-				ApplicationId: proto.String("app-id"),
-				InstanceIndex: proto.Int32(4),
-				CpuPercentage: proto.Float64(20.0),
-				MemoryBytes:   proto.Uint64(19939949),
-				DiskBytes:     proto.Uint64(29488929),
-			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
-		})
-
-		err := c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		validateMetrics(payload, 2, 0)
-	})
-
-	It("generates aggregate messages even when idle", func() {
-		err := c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		validateMetrics(payload, 0, 0)
-
-		err = c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(2))
-		err = json.Unmarshal(bodies[1], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		validateMetrics(payload, 0, 3)
 	})
 
 	It("posts ValueMetrics in JSON format", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -330,7 +278,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(2000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -342,7 +290,9 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(2)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -350,7 +300,7 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(5))
+		Expect(payload.Series).To(HaveLen(2))
 
 		metricsFound := 0
 		for _, metric := range payload.Series {
@@ -377,13 +327,11 @@ var _ = Describe("DatadogClient", func() {
 			}
 		}
 		Expect(metricsFound).To(Equal(2))
-
-		validateMetrics(payload, 2, 0)
 	})
 
 	It("breaks up a message that exceeds the FlushMaxBytes", func() {
 		for i := 0; i < 1000; i++ {
-			c.ProcessMetric(&events.Envelope{
+			p.ProcessMetric(&events.Envelope{
 				Origin:    proto.String("origin"),
 				Timestamp: proto.Int64(1000000000 + int64(i)),
 				EventType: events.Envelope_ValueMetric.Enum(),
@@ -396,7 +344,9 @@ var _ = Describe("DatadogClient", func() {
 			})
 		}
 
-		err := c.PostMetrics()
+		receiveMessages(1000)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -407,7 +357,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("discards metrics that exceed that max size", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -419,7 +369,9 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(1)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -430,7 +382,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("registers metrics with the same name but different tags as different", func() {
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -442,7 +394,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(2000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -454,7 +406,9 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("gorouter"),
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(2)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -462,7 +416,7 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(7))
+		Expect(payload.Series).To(HaveLen(4))
 		dopplerFound := false
 		gorouterFound := false
 		for _, metric := range payload.Series {
@@ -494,11 +448,10 @@ var _ = Describe("DatadogClient", func() {
 		}
 		Expect(dopplerFound).To(BeTrue())
 		Expect(gorouterFound).To(BeTrue())
-		validateMetrics(payload, 2, 0)
 	})
 
-	It("posts CounterEvents in JSON format and empties map after post", func() {
-		c.ProcessMetric(&events.Envelope{
+	It("posts CounterEvents in JSON format", func() {
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_CounterEvent.Enum(),
@@ -509,7 +462,7 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		c.ProcessMetric(&events.Envelope{
+		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(2000000000),
 			EventType: events.Envelope_CounterEvent.Enum(),
@@ -520,7 +473,9 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		err := c.PostMetrics()
+		receiveMessages(2)
+
+		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -528,7 +483,7 @@ var _ = Describe("DatadogClient", func() {
 		var payload datadogclient.Payload
 		err = json.Unmarshal(bodies[0], &payload)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(5))
+		Expect(payload.Series).To(HaveLen(2))
 		counterNameFound := false
 		for _, metric := range payload.Series {
 			Expect(metric.Type).To(Equal("gauge"))
@@ -548,131 +503,30 @@ var _ = Describe("DatadogClient", func() {
 			}
 		}
 		Expect(counterNameFound).To(BeTrue())
-		validateMetrics(payload, 2, 0)
-
-		err = c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(2))
-
-		err = json.Unmarshal(bodies[1], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		validateMetrics(payload, 2, 5)
-	})
-
-	It("sends a value 1 for the slowConsumerAlert metric when consumer error is set", func() {
-		c.AlertSlowConsumerError()
-
-		err := c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		errMetric := findSlowConsumerMetric(payload)
-		Expect(errMetric).NotTo(BeNil())
-		Expect(errMetric.Type).To(Equal("gauge"))
-		Expect(errMetric.Points).To(HaveLen(1))
-		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(1))
-	})
-
-	It("sends a value 0 for the slowConsumerAlert metric when consumer error is not set", func() {
-		err := c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(payload.Series).To(HaveLen(3))
-
-		errMetric := findSlowConsumerMetric(payload)
-		Expect(errMetric).NotTo(BeNil())
-		Expect(errMetric.Type).To(Equal("gauge"))
-		Expect(errMetric.Points).To(HaveLen(1))
-		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(0))
-	})
-
-	It("unsets the slow consumer error once it publishes the alert to datadog", func() {
-		c.AlertSlowConsumerError()
-
-		err := c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
-		Expect(err).NotTo(HaveOccurred())
-
-		errMetric := findSlowConsumerMetric(payload)
-		Expect(errMetric).NotTo(BeNil())
-		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(1))
-
-		err = c.PostMetrics()
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(bodies).Should(HaveLen(2))
-		err = json.Unmarshal(bodies[1], &payload)
-		Expect(err).NotTo(HaveOccurred())
-
-		errMetric = findSlowConsumerMetric(payload)
-		Expect(findSlowConsumerMetric(payload)).ToNot(BeNil())
-		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(0))
 	})
 
 	It("returns an error when datadog responds with a non 200 response code", func() {
+		// Need to add at least 1 value to metrics map for it to send a message
+		k, v := c.MakeInternalMetric("test", 5)
+		metricsMap[k] = v
+
 		responseCode = http.StatusBadRequest // 400
 		responseBody = []byte("something went horribly wrong")
-		err := c.PostMetrics()
+		err := c.PostMetrics(metricsMap)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
 		Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
 
 		responseCode = http.StatusSwitchingProtocols // 101
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricsMap)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
 
 		responseCode = http.StatusAccepted // 201
-		err = c.PostMetrics()
+		err = c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
-
-func validateMetrics(payload datadogclient.Payload, totalMessagesReceived int, totalMetricsSent int) {
-	totalMessagesReceivedFound := false
-	totalMetricsSentFound := false
-	for _, metric := range payload.Series {
-		Expect(metric.Type).To(Equal("gauge"))
-
-		internalMetric := false
-		var metricValue int
-		if metric.Metric == "datadog.nozzle.totalMessagesReceived" {
-			totalMessagesReceivedFound = true
-			internalMetric = true
-			metricValue = totalMessagesReceived
-		}
-		if metric.Metric == "datadog.nozzle.totalMetricsSent" {
-			totalMetricsSentFound = true
-			internalMetric = true
-			metricValue = totalMetricsSent
-		}
-
-		if internalMetric {
-			Expect(metric.Points).To(HaveLen(1))
-			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
-			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
-			Expect(metric.Tags).To(Equal([]string{"ip:dummy-ip", "deployment:test-deployment"}))
-		}
-	}
-	Expect(totalMessagesReceivedFound).To(BeTrue())
-	Expect(totalMetricsSentFound).To(BeTrue())
-}
 
 func handlePost(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
@@ -687,11 +541,13 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
-func findSlowConsumerMetric(payload datadogclient.Payload) *metrics.Series {
-	for _, metric := range payload.Series {
-		if metric.Metric == "datadog.nozzle.slowConsumerAlert" {
-			return &metric
+func receiveMessages(expecting int) {
+	for i := 0; i < expecting; i++ {
+		select {
+		case metricPkg := <-mchan:
+			for _, m := range metricPkg {
+				metricsMap.Add(*m.MetricKey, *m.MetricValue)
+			}
 		}
 	}
-	return nil
 }
