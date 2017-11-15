@@ -20,6 +20,91 @@ var _ = Describe("MetricProcessor", func() {
 		p = New(mchan)
 	})
 
+	It("processes value & counter metrics", func() {
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+			ValueMetric: &events.ValueMetric{
+				Name:  proto.String("valueName"),
+				Value: proto.Float64(5),
+			},
+			Deployment: proto.String("deployment-name"),
+			Job:        proto.String("doppler"),
+		})
+
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("origin"),
+			Timestamp: proto.Int64(2000000000),
+			EventType: events.Envelope_CounterEvent.Enum(),
+			CounterEvent: &events.CounterEvent{
+				Name:  proto.String("counterName"),
+				Delta: proto.Uint64(6),
+				Total: proto.Uint64(11),
+			},
+		})
+
+		var metricPkg1 []metrics.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg1))
+
+		var metricPkg2 []metrics.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg2))
+
+		metricPkgs := append(metricPkg1, metricPkg2...)
+
+		Expect(metricPkgs).To(HaveLen(4))
+		for _, metric := range metricPkgs {
+			if metric.MetricKey.Name == "valueName" || metric.MetricKey.Name == "origin.valueName" {
+				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{
+					metrics.Point{
+						Timestamp: 1,
+						Value:     5.0,
+					},
+				}))
+			} else if metric.MetricKey.Name == "counterName" || metric.MetricKey.Name == "origin.counterName" {
+				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{
+					metrics.Point{
+						Timestamp: 2,
+						Value:     11.0,
+					},
+				}))
+			} else {
+				panic("unknown metric in package: " + metric.MetricKey.Name)
+			}
+		}
+	})
+
+	It("generates metrics twice: once with origin in name, once without", func() {
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+			ValueMetric: &events.ValueMetric{
+				Name:  proto.String("fooMetric"),
+				Value: proto.Float64(5),
+			},
+			Deployment: proto.String("deployment-name"),
+			Job:        proto.String("doppler"),
+		})
+
+		var metricPkg []metrics.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg))
+
+		Expect(metricPkg).To(HaveLen(2))
+
+		legacyFound := false
+		newFound := false
+		for _, metric := range metricPkg {
+			if metric.MetricKey.Name == "origin.fooMetric" {
+				legacyFound = true
+			} else if metric.MetricKey.Name == "fooMetric" {
+				newFound = true
+			}
+		}
+		Expect(legacyFound).To(BeTrue())
+		Expect(newFound).To(BeTrue())
+	})
+
 	It("ignores messages that aren't value metrics or counter events", func() {
 		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
@@ -50,5 +135,42 @@ var _ = Describe("MetricProcessor", func() {
 		})
 
 		Consistently(mchan).ShouldNot(Receive())
+	})
+
+	It("adds tags", func() {
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("test-origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+
+			// fields that gets sent as tags
+			Deployment: proto.String("deployment-name"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("1"),
+			Ip:         proto.String("10.0.1.2"),
+
+			// additional tags
+			Tags: map[string]string{
+				"protocol":   "http",
+				"request_id": "a1f5-deadbeef",
+			},
+		})
+
+		var metricPkg []metrics.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg))
+
+		Expect(metricPkg).To(HaveLen(2))
+		for _, metric := range metricPkg {
+			Expect(metric.MetricValue.Tags).To(Equal([]string{
+				"deployment:deployment-name",
+				"index:1",
+				"ip:10.0.1.2",
+				"job:doppler",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+			}))
+		}
 	})
 })
