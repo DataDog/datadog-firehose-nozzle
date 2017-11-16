@@ -1,12 +1,16 @@
 package appmetrics
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
@@ -26,14 +30,14 @@ var _ = Describe("AppMetrics", func() {
 		ccAPIURL = fakeCloudControllerAPI.URL()
 	}, 0)
 
-	Context("genertor function", func() {
+	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := New("http://localhost", "", "", true, 10, log)
+			_, err := New("http://localhost", "", "", true, 10, log, []string{})
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -41,13 +45,13 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
-			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
 			_, err := a.getAppData("guid")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("grabs from the cache when it should be", func() {
-			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
 			app, err := a.getAppData("guid1")
@@ -58,7 +62,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("metric evaluation test", func() {
 		It("parses an event properly", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -84,17 +88,32 @@ var _ = Describe("AppMetrics", func() {
 				Ip:         proto.String("10.0.1.2"),
 			}
 
-			metrics, err := a.ParseAppMetric(event, []string{})
+			metrics, err := a.ParseAppMetric(event)
 
 			Expect(err).To(BeNil())
 			Expect(metrics).To(HaveLen(10))
-			Expect(metrics[0].MetricValue.Tags).To(HaveLen(2))
+
+			Expect(metrics).To(ContainMetric("app.disk.configured"))
+			Expect(metrics).To(ContainMetric("app.disk.provisioned"))
+			Expect(metrics).To(ContainMetric("app.memory.configured"))
+			Expect(metrics).To(ContainMetric("app.memory.provisioned"))
+			Expect(metrics).To(ContainMetric("app.instances"))
+			Expect(metrics).To(ContainMetric("app.cpu.pct"))
+			Expect(metrics).To(ContainMetric("app.disk.used"))
+			Expect(metrics).To(ContainMetric("app.disk.quota"))
+			Expect(metrics).To(ContainMetric("app.memory.used"))
+			Expect(metrics).To(ContainMetric("app.memory.quota"))
+
+			for _, metric := range metrics {
+				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:guid1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("guid:guid1"))
+			}
 		})
 	})
 
 	Context("custom tags", func() {
-		It("sends attaches custom tags if present", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log)
+		It("attaches custom tags if present", func() {
+			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{"custom:tag", "foo:bar"})
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -120,7 +139,7 @@ var _ = Describe("AppMetrics", func() {
 				Ip:         proto.String("10.0.1.2"),
 			}
 
-			metrics, err := a.ParseAppMetric(event, []string{"custom:tag", "foo:bar"})
+			metrics, err := a.ParseAppMetric(event)
 
 			Expect(err).To(BeNil())
 			Expect(metrics).To(HaveLen(10))
@@ -135,6 +154,39 @@ var _ = Describe("AppMetrics", func() {
 	})
 
 })
+
+type containMetric struct {
+	needle   string
+	haystack []metrics.MetricPackage
+}
+
+func ContainMetric(name string) types.GomegaMatcher {
+	return &containMetric{
+		needle: name,
+	}
+}
+
+func (m *containMetric) Match(actual interface{}) (success bool, err error) {
+	var ok bool
+	m.haystack, ok = actual.([]metrics.MetricPackage)
+	if !ok {
+		return false, errors.New("Actual must be of type []metrics.MetricPackage")
+	}
+	for _, pkg := range m.haystack {
+		if pkg.MetricKey.Name == m.needle {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *containMetric) FailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected %#v to contain a metric named %s", m.haystack, m.needle)
+}
+
+func (m *containMetric) NegatedFailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Did not expect %#v to contain a metric named %s", m.haystack, m.needle)
+}
 
 func newFakeApps(guids []string) map[string]*App {
 	apps := map[string]*App{}

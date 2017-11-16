@@ -90,6 +90,7 @@ func (d *DatadogFirehoseNozzle) createClient(customTags []string) *datadogclient
 			d.config.InsecureSSLSkipVerify,
 			d.config.GrabInterval,
 			d.log,
+			d.config.CustomTags,
 		)
 		if err != nil {
 			d.appMetrics = false

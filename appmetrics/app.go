@@ -70,6 +70,27 @@ func (a *App) getMetrics(customTags []string) []metrics.MetricPackage {
 	return a.mkMetrics(names, ms, customTags)
 }
 
+func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags []string) ([]metrics.MetricPackage, error) {
+	var names = []string{
+		"app.cpu.pct",
+		"app.disk.used",
+		"app.disk.quota",
+		"app.memory.used",
+		"app.memory.quota",
+	}
+	var ms = []float64{
+		float64(message.GetCpuPercentage()),
+		float64(message.GetDiskBytes()),
+		float64(message.GetDiskBytesQuota()),
+		float64(message.GetMemoryBytes()),
+		float64(message.GetMemoryBytesQuota()),
+	}
+	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
+	tags = append(tags, customTags...)
+
+	return a.mkMetrics(names, ms, tags), nil
+}
+
 func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metrics.MetricPackage {
 	metricsPackages := []metrics.MetricPackage{}
 	var host string
@@ -81,6 +102,7 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 
 	tags := a.getTags()
 	tags = append(tags, moreTags...)
+
 	for i, name := range names {
 		key := metrics.MetricKey{
 			Name:     name,
@@ -104,33 +126,13 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 	return metricsPackages
 }
 
-func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags []string) ([]metrics.MetricPackage, error) {
-	var names = []string{
-		"app.cpu.pct",
-		"app.disk.used",
-		"app.disk.quota",
-		"app.memory.used",
-		"app.memory.quota",
-	}
-	var ms = []float64{
-		float64(message.GetCpuPercentage()),
-		float64(message.GetDiskBytes()),
-		float64(message.GetDiskBytesQuota()),
-		float64(message.GetMemoryBytes()),
-		float64(message.GetMemoryBytesQuota()),
-	}
-	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
-	tags = append(tags, customTags...)
-
-	return a.mkMetrics(names, ms, tags), nil
-}
-
 func (a *App) getTags() []string {
 	if a.Tags != nil && len(a.Tags) > 0 {
 		return a.Tags
 	}
 
-	return a.generateTags()
+	a.Tags = a.generateTags()
+	return a.Tags
 }
 
 func (a *App) generateTags() []string {
@@ -168,8 +170,6 @@ func (a *App) generateTags() []string {
 	if a.DockerImage != "" {
 		tags = append(tags, fmt.Sprintf("image:%v", a.DockerImage))
 	}
-
-	a.Tags = tags
 
 	return tags
 }
