@@ -16,8 +16,9 @@ func (c *Client) ParseInfraMetric(envelope *events.Envelope) ([]metrics.MetricPa
 		return metricsPackages, fmt.Errorf("not an infra metric")
 	}
 
-	tags := parseTags(envelope)
 	host := parseHost(envelope)
+	tags := parseTags(envelope)
+	tags = append(tags, c.customTags...)
 
 	key := metrics.MetricKey{
 		EventType: envelope.GetEventType(),

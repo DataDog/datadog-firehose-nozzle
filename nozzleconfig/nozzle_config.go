@@ -34,6 +34,7 @@ type NozzleConfig struct {
 	AppMetrics              bool
 	NumWorkers              int
 	GrabInterval            int
+	CustomTags              []string
 }
 
 func Parse(configPath string) (*NozzleConfig, error) {
