@@ -52,8 +52,9 @@ var _ = Describe("DatadogClient", func() {
 			"test-deployment",
 			"dummy-ip",
 			time.Second,
-			1500,
+			2000,
 			gosteno.NewLogger("datadogclient test"),
+			[]string{},
 		)
 	})
 
@@ -70,8 +71,9 @@ var _ = Describe("DatadogClient", func() {
 				"test-deployment",
 				"dummy-ip",
 				time.Millisecond,
-				1500,
+				2000,
 				gosteno.NewLogger("datadogclient test"),
+				[]string{},
 			)
 		})
 

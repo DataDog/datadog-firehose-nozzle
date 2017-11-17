@@ -4,36 +4,28 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"io/ioutil"
 
-	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
 )
 
 const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 
 type Client struct {
-	apiURL                string
-	apiKey                string
-	metricPoints          map[metrics.MetricKey]metrics.MetricValue
-	mLock                 sync.RWMutex
-	prefix                string
-	deployment            string
-	ip                    string
-	tagsHash              string
-	totalMessagesReceived uint64
-	totalMetricsSent      uint64
-	httpClient            *http.Client
-	maxPostBytes          uint32
-	log                   *gosteno.Logger
-	formatter             Formatter
-	appMetrics            *appmetrics.AppMetrics
+	apiURL       string
+	apiKey       string
+	prefix       string
+	deployment   string
+	ip           string
+	customTags   []string
+	httpClient   *http.Client
+	maxPostBytes uint32
+	log          *gosteno.Logger
+	formatter    Formatter
 }
 
 type Payload struct {
@@ -49,12 +41,8 @@ func New(
 	writeTimeout time.Duration,
 	maxPostBytes uint32,
 	log *gosteno.Logger,
+	customTags []string,
 ) *Client {
-	ourTags := []string{
-		"deployment:" + deployment,
-		"ip:" + ip,
-	}
-
 	httpClient := &http.Client{
 		Timeout: writeTimeout,
 	}
@@ -62,12 +50,11 @@ func New(
 	return &Client{
 		apiURL:       apiURL,
 		apiKey:       apiKey,
-		metricPoints: make(map[metrics.MetricKey]metrics.MetricValue),
 		prefix:       prefix,
 		deployment:   deployment,
 		ip:           ip,
 		log:          log,
-		tagsHash:     utils.HashTags(ourTags),
+		customTags:   customTags,
 		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
 		formatter: Formatter{
@@ -76,68 +63,10 @@ func New(
 	}
 }
 
-func (c *Client) AlertSlowConsumerError() {
-	c.addInternalMetric("slowConsumerAlert", uint64(1))
-}
+func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
+	c.log.Infof("Posting %d metrics", len(metrics))
 
-func (c *Client) SetAppMetrics(appMetrics *appmetrics.AppMetrics) {
-	c.appMetrics = appMetrics
-}
-
-func (c *Client) ProcessMetric(envelope *events.Envelope) {
-	c.mLock.Lock()
-	c.totalMessagesReceived++
-	c.mLock.Unlock()
-
-	var err error
-	var metricsPackages []metrics.MetricPackage
-
-	metricsPackages, err = c.ParseInfraMetric(envelope)
-	if err == nil {
-		for _, m := range metricsPackages {
-			c.AddMetric(*m.MetricKey, *m.MetricValue)
-		}
-		// it can only be one or the other
-		return
-	}
-
-	metricsPackages, err = c.ParseAppMetric(envelope)
-	if err == nil {
-		for _, m := range metricsPackages {
-			c.AddMetric(*m.MetricKey, *m.MetricValue)
-		}
-	}
-}
-
-func (c *Client) AddMetric(key metrics.MetricKey, value metrics.MetricValue) {
-	c.mLock.Lock()
-	defer c.mLock.Unlock()
-
-	mVal, ok := c.metricPoints[key]
-	if !ok {
-		mVal = value
-	} else {
-		mVal.Points = append(mVal.Points, value.Points...)
-	}
-
-	c.metricPoints[key] = mVal
-}
-
-func (c *Client) PostMetrics() error {
-	c.populateInternalMetrics()
-
-	c.mLock.Lock()
-	metricPoints := c.metricPoints
-	c.metricPoints = make(map[metrics.MetricKey]metrics.MetricValue)
-
-	numMetrics := len(metricPoints)
-	c.log.Infof("Posting %d metrics", numMetrics)
-
-	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metricPoints)
-
-	c.totalMetricsSent += uint64(len(metricPoints))
-	c.mLock.Unlock()
-
+	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
 			c.log.Infof("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
@@ -181,49 +110,27 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) populateInternalMetrics() {
-	c.mLock.RLock()
-	totalMessagesReceived := c.totalMessagesReceived
-	totalMetricsSent := c.totalMetricsSent
-	c.mLock.RUnlock()
-
-	c.addInternalMetric("totalMessagesReceived", totalMessagesReceived)
-	c.addInternalMetric("totalMetricsSent", totalMetricsSent)
-
-	if !c.containsSlowConsumerAlert() {
-		c.addInternalMetric("slowConsumerAlert", uint64(0))
-	}
-}
-
-func (c *Client) containsSlowConsumerAlert() bool {
-	key := metrics.MetricKey{
-		Name:     "slowConsumerAlert",
-		TagsHash: c.tagsHash,
-	}
-	_, ok := c.metricPoints[key]
-	return ok
-}
-
-func (c *Client) addInternalMetric(name string, value uint64) {
-	key := metrics.MetricKey{
-		Name:     name,
-		TagsHash: c.tagsHash,
-	}
-
+func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
 	point := metrics.Point{
 		Timestamp: time.Now().Unix(),
 		Value:     float64(value),
 	}
 
+	tags := []string{
+		fmt.Sprintf("deployment:%s", c.deployment),
+		fmt.Sprintf("ip:%s", c.ip),
+	}
+	tags = append(tags, c.customTags...)
+
+	key := metrics.MetricKey{
+		Name:     name,
+		TagsHash: utils.HashTags(tags),
+	}
+
 	mValue := metrics.MetricValue{
-		Tags: []string{
-			fmt.Sprintf("ip:%s", c.ip),
-			fmt.Sprintf("deployment:%s", c.deployment),
-		},
+		Tags:   tags,
 		Points: []metrics.Point{point},
 	}
 
-	c.mLock.Lock()
-	c.metricPoints[key] = mValue
-	c.mLock.Unlock()
+	return key, mValue
 }

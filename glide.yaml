@@ -1,10 +1,13 @@
 package: github.com/DataDog/datadog-firehose-nozzle
 import:
 - package: code.cloudfoundry.org/localip
+  version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
 - package: github.com/cloudfoundry-incubator/uaago
+  version: 62f94a1e205fd1523746191c8adb816007fa73bb
 - package: github.com/cloudfoundry/gosteno
+  version: 0c8581caea35ac903728230e447792e2365dcc34
 - package: github.com/cloudfoundry/noaa
-  version: ~2.0.0
+  version: ~2.1.0
   subpackages:
   - consumer
   - errors
@@ -18,7 +21,7 @@ import:
 - package: github.com/cloudfoundry-community/go-cfclient
   version: dbe382d68b57a2345f60b71935eb6e8cfa7e5895
 - package: github.com/gorilla/websocket
-  version: ~1.1.0
+  version: ~1.2.0
 testImport:
 - package: github.com/onsi/ginkgo
   version: ~1.3.1

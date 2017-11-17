@@ -1,4 +1,4 @@
-package datadogclient
+package metricProcessor
 
 import (
 	"fmt"
@@ -7,11 +7,11 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-func (c *Client) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
+func (p *Processor) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
 	metricsPackages := []metrics.MetricPackage{}
 	var err error
 
-	if c.appMetrics == nil {
+	if p.appMetrics == nil {
 		return metricsPackages, fmt.Errorf("app metrics are not configured")
 	}
 
@@ -19,7 +19,7 @@ func (c *Client) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPack
 		return metricsPackages, fmt.Errorf("not an app metric")
 	}
 
-	metricsPackages, err = c.appMetrics.ParseAppMetric(envelope)
+	metricsPackages, err = p.appMetrics.ParseAppMetric(envelope)
 
 	return metricsPackages, err
 }

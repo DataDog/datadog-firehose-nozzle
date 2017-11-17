@@ -147,15 +147,15 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				}))
 			} else if metric.Metric == "cloudfoundry.nozzle.totalMessagesReceived" {
 				Expect(metric.Tags).To(HaveLen(2))
-				Expect(metric.Tags[0]).To(HavePrefix("ip:"))
-				Expect(metric.Tags[1]).To(HavePrefix("deployment:"))
+				Expect(metric.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(metric.Tags[1]).To(HavePrefix("ip:"))
 
 				Expect(metric.Points).To(HaveLen(1))
 				Expect(metric.Points[0].Value).To(Equal(3.0))
 			} else if metric.Metric == "cloudfoundry.nozzle.totalMetricsSent" {
 				Expect(metric.Tags).To(HaveLen(2))
-				Expect(metric.Tags[0]).To(HavePrefix("ip:"))
-				Expect(metric.Tags[1]).To(HavePrefix("deployment:"))
+				Expect(metric.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(metric.Tags[1]).To(HavePrefix("ip:"))
 
 				Expect(metric.Points).To(HaveLen(1))
 				Expect(metric.Points[0].Value).To(Equal(0.0))
