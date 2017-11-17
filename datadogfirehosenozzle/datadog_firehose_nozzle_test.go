@@ -37,6 +37,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	)
 
 	BeforeEach(func() {
+		time.Sleep(1)
+
 		fakeUAA = NewFakeUAA("bearer", "123456789")
 		fakeToken := fakeUAA.AuthToken()
 		fakeFirehose = NewFakeFirehose(fakeToken)
@@ -55,7 +57,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			MetricPrefix:         "datadog.nozzle.",
 			Deployment:           "nozzle-deployment",
 			AppMetrics:           false,
-			NumWorkers:           4,
+			NumWorkers:           1,
 		}
 		content := make([]byte, 1024)
 		logContent = bytes.NewBuffer(content)
@@ -81,9 +83,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeDatadogAPI.Close()
 	})
 
-	It("receives data from the firehose", func(done Done) {
-		defer close(done)
-
+	It("receives data from the firehose", func() {
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -117,8 +117,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
 	})
 
-	It("adds internal metrics and generates aggregate messages when idle", func(done Done) {
-		defer close(done)
+	It("adds internal metrics and generates aggregate messages when idle", func() {
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -158,8 +157,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		validateMetrics(payload, 10, 23)
 	}, 3)
 
-	It("reports a slow-consumer error when the server disconnects abnormally", func(done Done) {
-		defer close(done)
+	It("reports a slow-consumer error when the server disconnects abnormally", func() {
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -197,9 +195,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
 	}, 2)
 
-	It("doesn't report a slow-consumer error when closed for other reasons", func(done Done) {
-		defer close(done)
-
+	It("doesn't report a slow-consumer error when closed for other reasons", func() {
 		fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "Weird things happened."))
 		go nozzle.Start()
 
@@ -257,8 +253,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	})
 
 	Context("reports a slow-consumer error", func() {
-		It("unsets the error after sending it", func(done Done) {
-			defer close(done)
+		It("unsets the error after sending it", func() {
 			envelope := events.Envelope{
 				Origin:    proto.String("doppler"),
 				Timestamp: proto.Int64(1000000000),
