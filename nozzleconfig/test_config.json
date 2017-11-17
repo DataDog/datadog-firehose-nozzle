@@ -18,5 +18,5 @@
   "CloudControllerEndpoint": "string",
   "AppMetrics": true,
   "NumWorkers": 1,
-  "CustomTags": []
+  "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ]
 }

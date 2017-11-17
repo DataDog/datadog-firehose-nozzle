@@ -63,6 +63,10 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		authToken = d.authTokenFetcher.FetchAuthToken()
 	}
 
+	if d.config.CustomTags == nil {
+		d.config.CustomTags = []string{}
+	}
+
 	d.log.Info("Starting DataDog Firehose Nozzle...")
 	d.client = d.createClient()
 	d.processor = d.createProcessor()
@@ -74,7 +78,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	return err
 }
 
-func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
+func (d *DatadogFirehoseNozzle) createClient(customTags []string) *datadogclient.Client {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
@@ -89,6 +93,7 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
 		d.config.FlushMaxBytes,
 		d.log,
+		d.config.CustomTags,
 	)
 
 	return client
@@ -105,6 +110,7 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 			d.config.InsecureSSLSkipVerify,
 			d.config.GrabInterval,
 			d.log,
+			d.config.CustomTags,
 		)
 		if err != nil {
 			d.appMetrics = false

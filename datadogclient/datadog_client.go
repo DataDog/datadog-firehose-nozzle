@@ -21,7 +21,7 @@ type Client struct {
 	prefix       string
 	deployment   string
 	ip           string
-	tagsHash     string
+	customTags   []string
 	httpClient   *http.Client
 	maxPostBytes uint32
 	log          *gosteno.Logger
@@ -41,12 +41,8 @@ func New(
 	writeTimeout time.Duration,
 	maxPostBytes uint32,
 	log *gosteno.Logger,
+	customTags []string,
 ) *Client {
-	ourTags := []string{
-		"deployment:" + deployment,
-		"ip:" + ip,
-	}
-
 	httpClient := &http.Client{
 		Timeout: writeTimeout,
 	}
@@ -58,7 +54,7 @@ func New(
 		deployment:   deployment,
 		ip:           ip,
 		log:          log,
-		tagsHash:     utils.HashTags(ourTags),
+		customTags:   customTags,
 		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
 		formatter: Formatter{
@@ -115,21 +111,24 @@ func (c *Client) seriesURL() string {
 }
 
 func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
-	key := metrics.MetricKey{
-		Name:     name,
-		TagsHash: c.tagsHash,
-	}
-
 	point := metrics.Point{
 		Timestamp: time.Now().Unix(),
 		Value:     float64(value),
 	}
 
+	tags := []string{
+		fmt.Sprintf("deployment:%s", c.deployment),
+		fmt.Sprintf("ip:%s", c.ip),
+	}
+	tags = append(tags, c.customTags...)
+
+	key := metrics.MetricKey{
+		Name:     name,
+		TagsHash: utils.HashTags(tags),
+	}
+
 	mValue := metrics.MetricValue{
-		Tags: []string{
-			fmt.Sprintf("ip:%s", c.ip),
-			fmt.Sprintf("deployment:%s", c.deployment),
-		},
+		Tags:   tags,
 		Points: []metrics.Point{point},
 	}
 

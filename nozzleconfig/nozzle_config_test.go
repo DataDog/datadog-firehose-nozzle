@@ -14,7 +14,7 @@ var _ = Describe("NozzleConfig", func() {
 	})
 
 	It("successfully parses a valid config", func() {
-		conf, err := nozzleconfig.Parse("../config/datadog-firehose-nozzle.json")
+		conf, err := nozzleconfig.Parse("test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut.cf-app.com"))
 		Expect(conf.Client).To(Equal("user"))
@@ -23,12 +23,18 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DataDogAPIKey).To(Equal("<enter api key>"))
 		Expect(conf.DataDogTimeoutSeconds).To(BeEquivalentTo(5))
 		Expect(conf.FlushDurationSeconds).To(BeEquivalentTo(15))
+		Expect(conf.FlushMaxBytes).To(BeEquivalentTo(57671680))
 		Expect(conf.InsecureSSLSkipVerify).To(Equal(true))
 		Expect(conf.MetricPrefix).To(Equal("datadogclient"))
 		Expect(conf.Deployment).To(Equal("deployment-name"))
 		Expect(conf.DeploymentFilter).To(Equal("deployment-filter"))
 		Expect(conf.DisableAccessControl).To(Equal(false))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
+		Expect(conf.CustomTags).To(BeEquivalentTo([]string{
+			"nozzle:foobar",
+			"env:prod",
+			"role:db",
+		}))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -39,6 +45,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DATADOGAPIKEY", "envapi-key>")
 		os.Setenv("NOZZLE_DATADOGTIMEOUTSECONDS", "10")
 		os.Setenv("NOZZLE_FLUSHDURATIONSECONDS", "25")
+		os.Setenv("NOZZLE_FLUSHMAXBYTES", "12345678")
 		os.Setenv("NOZZLE_INSECURESSLSKIPVERIFY", "false")
 		os.Setenv("NOZZLE_METRICPREFIX", "env-datadogclient")
 		os.Setenv("NOZZLE_DEPLOYMENT", "env-deployment-name")
@@ -46,7 +53,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DISABLEACCESSCONTROL", "true")
 		os.Setenv("NOZZLE_IDLETIMEOUTSECONDS", "30")
 
-		conf, err := nozzleconfig.Parse("../config/datadog-firehose-nozzle.json")
+		conf, err := nozzleconfig.Parse("test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
 		Expect(conf.Client).To(Equal("env-user"))
@@ -55,6 +62,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
 		Expect(conf.DataDogTimeoutSeconds).To(BeEquivalentTo(10))
 		Expect(conf.FlushDurationSeconds).To(BeEquivalentTo(25))
+		Expect(conf.FlushMaxBytes).To(BeEquivalentTo(12345678))
 		Expect(conf.InsecureSSLSkipVerify).To(Equal(false))
 		Expect(conf.MetricPrefix).To(Equal("env-datadogclient"))
 		Expect(conf.Deployment).To(Equal("env-deployment-name"))

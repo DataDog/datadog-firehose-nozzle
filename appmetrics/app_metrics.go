@@ -19,6 +19,7 @@ type AppMetrics struct {
 	Apps         map[string]*App
 	appLock      sync.RWMutex
 	grabInterval int
+	customTags   []string
 }
 
 func New(
@@ -28,6 +29,7 @@ func New(
 	insecureSSLSkipVerify bool,
 	grabInterval int,
 	log *gosteno.Logger,
+	customTags []string,
 ) (*AppMetrics, error) {
 
 	if ccEndpoint == "" {
@@ -51,6 +53,7 @@ func New(
 		log:          log,
 		Apps:         make(map[string]*App),
 		grabInterval: grabInterval,
+		customTags:   customTags,
 	}
 
 	go appMetrics.clearCacheLoop()
@@ -207,7 +210,7 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 		am.log.Errorf("there was an error grabbing the space data for app %v: %v", resolvedApp.Guid, err)
 	}
 
-	app.generateTags()
+	app.Tags = app.generateTags()
 	return app, nil
 }
 
@@ -217,18 +220,18 @@ func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.Metri
 
 	guid := message.GetApplicationId()
 	app, err := am.getAppData(guid)
-	app.lock.Lock()
-	defer app.lock.Unlock()
-
-	if err != nil {
+	if err != nil || app == nil {
 		am.log.Errorf("there was an error grabbing data for app %v: %v", guid, err)
 		return metricsPackages, err
 	}
 
+	app.lock.Lock()
+	defer app.lock.Unlock()
+
 	app.Host = envelope.GetOrigin()
 
-	metricsPackages = app.getMetrics()
-	containerMetrics, err := app.parseContainerMetric(message)
+	metricsPackages = app.getMetrics(am.customTags)
+	containerMetrics, err := app.parseContainerMetric(message, am.customTags)
 	if err != nil {
 		return metricsPackages, err
 	}

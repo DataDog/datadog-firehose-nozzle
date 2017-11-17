@@ -27,10 +27,8 @@ var (
 
 var _ = Describe("DatadogClient", func() {
 	var (
-		ts        *httptest.Server
-		c         *datadogclient.Client
-		metricPts metrics.MetricsMap
-		mchan     chan metrics.MetricPackage
+		ts *httptest.Server
+		c  *datadogclient.Client
 	)
 
 	BeforeEach(func() {
@@ -39,19 +37,16 @@ var _ = Describe("DatadogClient", func() {
 		responseCode = http.StatusOK
 		responseBody = []byte("some-response-body")
 		ts = httptest.NewServer(http.HandlerFunc(handlePost))
-		metricPts = make(metrics.MetricsMap)
-		mchan = make(chan metrics.MetricPackage, 2500)
-
 		c = datadogclient.New(
 			ts.URL,
 			"dummykey",
-			mchan,
 			"datadog.nozzle.",
 			"test-deployment",
 			"dummy-ip",
 			time.Second,
-			1500,
+			2000,
 			gosteno.NewLogger("datadogclient test"),
+			[]string{},
 		)
 	})
 
@@ -64,13 +59,13 @@ var _ = Describe("DatadogClient", func() {
 			c = datadogclient.New(
 				ts.URL,
 				"dummykey",
-				mchan,
 				"datadog.nozzle.",
 				"test-deployment",
 				"dummy-ip",
 				time.Millisecond,
-				1024,
+				2000,
 				gosteno.NewLogger("datadogclient test"),
+				[]string{},
 			)
 		})
 
@@ -89,15 +84,8 @@ var _ = Describe("DatadogClient", func() {
 
 			errs := make(chan error)
 
-			for i := 0; i < 2; i++ { // Recall that each metric gets sent twice
-				select {
-				case metric := <-mchan:
-					metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-				}
-			}
-
 			go func() {
-				errs <- c.PostMetrics(metricPts)
+				errs <- c.PostMetrics()
 			}()
 			Eventually(errs).Should(Receive(HaveOccurred()))
 		})
@@ -116,14 +104,7 @@ var _ = Describe("DatadogClient", func() {
 			Ip:         proto.String("10.0.1.2"),
 		})
 
-		for i := 0; i < 2; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 		var req *http.Request
 		Eventually(reqs).Should(Receive(&req))
@@ -131,7 +112,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
 	})
 
-	It("sends tags", func() {
+	It("sends (regular) tags", func() {
 		c.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("test-origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -150,14 +131,7 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		for i := 0; i < 2; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -173,9 +147,10 @@ var _ = Describe("DatadogClient", func() {
 			"job:doppler",
 			"index:1",
 			"ip:10.0.1.2",
-			"protocol:http",
 			"name:test-origin",
 			"origin:test-origin",
+
+			"protocol:http",
 			"request_id:a1f5-deadbeef",
 		))
 		Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
@@ -184,11 +159,126 @@ var _ = Describe("DatadogClient", func() {
 			"job:doppler",
 			"index:1",
 			"ip:10.0.1.2",
-			"protocol:http",
 			"name:test-origin",
 			"origin:test-origin",
+
+			"protocol:http",
 			"request_id:a1f5-deadbeef",
 		))
+	})
+
+	Context("user configures custom tags", func() {
+		BeforeEach(func() {
+			c = datadogclient.New(
+				ts.URL,
+				"dummykey",
+				"datadog.nozzle.",
+				"test-deployment",
+				"dummy-ip",
+				time.Millisecond,
+				2000,
+				gosteno.NewLogger("datadogclient test"),
+
+				// custom tags
+				[]string{"environment:foo", "foundry:bar"},
+			)
+		})
+
+		It("sends custom tags on infra metrics", func() {
+			c.ProcessMetric(&events.Envelope{
+				Origin:    proto.String("test-origin"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_ValueMetric.Enum(),
+
+				// fields that gets sent as tags
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+				Index:      proto.String("1"),
+				Ip:         proto.String("10.0.1.2"),
+
+				// additional tags
+				Tags: map[string]string{
+					"protocol":   "http",
+					"request_id": "a1f5-deadbeef",
+				},
+			})
+
+			err := c.PostMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(bodies).Should(HaveLen(1))
+			var payload datadogclient.Payload
+			err = json.Unmarshal(bodies[0], &payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(5))
+
+			var metric metrics.Series
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.test-origin.", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"deployment:deployment-name",
+				"job:doppler",
+				"index:1",
+				"ip:10.0.1.2",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"deployment:deployment-name",
+				"job:doppler",
+				"index:1",
+				"ip:10.0.1.2",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+
+				"environment:foo",
+				"foundry:bar",
+			))
+		})
+
+		It("sends custom tags on internal metrics", func() {
+			err := c.PostMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(bodies).Should(HaveLen(1))
+			var payload datadogclient.Payload
+			err = json.Unmarshal(bodies[0], &payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(3))
+
+			var metric metrics.Series
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.totalMessagesReceived", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.totalMetricsSent", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series).To(ContainMetric("datadog.nozzle.slowConsumerAlert", &metric))
+			Expect(metric.Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+		})
+
+		// custom tags on app metrics tested in app_metrics_test.go
+
 	})
 
 	It("uses tags as an identifier for batching purposes", func() {
@@ -228,14 +318,7 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		for i := 0; i < 4; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(bodies).Should(HaveLen(1))
 		var payload datadogclient.Payload
@@ -317,9 +400,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		Consistently(mchan).ShouldNot(Receive())
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -332,7 +413,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("generates aggregate messages even when idle", func() {
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -343,7 +424,7 @@ var _ = Describe("DatadogClient", func() {
 
 		validateMetrics(payload, 0, 0)
 
-		err = c.PostMetrics(metricPts)
+		err = c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(2))
@@ -379,14 +460,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		for i := 0; i < 4; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -440,14 +514,7 @@ var _ = Describe("DatadogClient", func() {
 			})
 		}
 
-		for i := 0; i < 2000; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -470,14 +537,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("doppler"),
 		})
 
-		for i := 0; i < 2; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
@@ -512,14 +572,7 @@ var _ = Describe("DatadogClient", func() {
 			Job:        proto.String("gorouter"),
 		})
 
-		for i := 0; i < 4; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -562,7 +615,7 @@ var _ = Describe("DatadogClient", func() {
 		validateMetrics(payload, 2, 0)
 	})
 
-	It("posts CounterEvents in JSON format", func() {
+	It("posts CounterEvents in JSON format and empties map after post", func() {
 		c.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -585,14 +638,7 @@ var _ = Describe("DatadogClient", func() {
 			},
 		})
 
-		for i := 0; i < 4; i++ {
-			select {
-			case metric := <-mchan:
-				metricPts.Add(*metric.MetricKey, *metric.MetricValue)
-			}
-		}
-
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -621,12 +667,23 @@ var _ = Describe("DatadogClient", func() {
 		}
 		Expect(counterNameFound).To(BeTrue())
 		validateMetrics(payload, 2, 0)
+
+		err = c.PostMetrics()
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(bodies).Should(HaveLen(2))
+
+		err = json.Unmarshal(bodies[1], &payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(payload.Series).To(HaveLen(3))
+
+		validateMetrics(payload, 2, 5)
 	})
 
 	It("sends a value 1 for the slowConsumerAlert metric when consumer error is set", func() {
 		c.AlertSlowConsumerError()
 
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -643,7 +700,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sends a value 0 for the slowConsumerAlert metric when consumer error is not set", func() {
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -662,7 +719,7 @@ var _ = Describe("DatadogClient", func() {
 	It("unsets the slow consumer error once it publishes the alert to datadog", func() {
 		c.AlertSlowConsumerError()
 
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
@@ -674,7 +731,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(errMetric).NotTo(BeNil())
 		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(1))
 
-		err = c.PostMetrics(metricPts)
+		err = c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(2))
@@ -689,18 +746,18 @@ var _ = Describe("DatadogClient", func() {
 	It("returns an error when datadog responds with a non 200 response code", func() {
 		responseCode = http.StatusBadRequest // 400
 		responseBody = []byte("something went horribly wrong")
-		err := c.PostMetrics(metricPts)
+		err := c.PostMetrics()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
 		Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
 
 		responseCode = http.StatusSwitchingProtocols // 101
-		err = c.PostMetrics(metricPts)
+		err = c.PostMetrics()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
 
 		responseCode = http.StatusAccepted // 201
-		err = c.PostMetrics(metricPts)
+		err = c.PostMetrics()
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
@@ -728,7 +785,7 @@ func validateMetrics(payload datadogclient.Payload, totalMessagesReceived int, t
 			Expect(metric.Points).To(HaveLen(1))
 			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
 			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
-			Expect(metric.Tags).To(Equal([]string{"ip:dummy-ip", "deployment:test-deployment"}))
+			Expect(metric.Tags).To(Equal([]string{"deployment:test-deployment", "ip:dummy-ip"}))
 		}
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())
