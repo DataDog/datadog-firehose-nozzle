@@ -1,4 +1,4 @@
-package datadogclient
+package metricProcessor
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-func (c *Client) ParseInfraMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
+func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
 	metricsPackages := []metrics.MetricPackage{}
 
 	if envelope.GetEventType() != events.Envelope_ValueMetric && envelope.GetEventType() != events.Envelope_CounterEvent {
