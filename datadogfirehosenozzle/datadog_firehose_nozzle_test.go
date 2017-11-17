@@ -476,7 +476,7 @@ func validateMetrics(payload datadogclient.Payload, totalMessagesReceived int, t
 			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
 			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
 			ip, _ := localip.LocalIP()
-			Expect(metric.Tags).To(Equal([]string{"ip:" + ip, "deployment:nozzle-deployment"}))
+			Expect(metric.Tags).To(Equal([]string{"deployment:nozzle-deployment", "ip:" + ip}))
 		}
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())

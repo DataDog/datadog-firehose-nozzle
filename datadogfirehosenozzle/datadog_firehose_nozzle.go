@@ -78,7 +78,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	return err
 }
 
-func (d *DatadogFirehoseNozzle) createClient(customTags []string) *datadogclient.Client {
+func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
@@ -100,7 +100,7 @@ func (d *DatadogFirehoseNozzle) createClient(customTags []string) *datadogclient
 }
 
 func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
-	processor := metricProcessor.New(d.processedMetrics)
+	processor := metricProcessor.New(d.processedMetrics, d.config.CustomTags)
 
 	if d.appMetrics {
 		appMetrics, err := appmetrics.New(

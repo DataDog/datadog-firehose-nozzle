@@ -17,7 +17,7 @@ var (
 var _ = Describe("MetricProcessor", func() {
 	BeforeEach(func() {
 		mchan = make(chan []metrics.MetricPackage, 1500)
-		p = New(mchan)
+		p = New(mchan, []string{})
 	})
 
 	It("processes value & counter metrics", func() {
@@ -172,5 +172,53 @@ var _ = Describe("MetricProcessor", func() {
 				"request_id:a1f5-deadbeef",
 			}))
 		}
+	})
+
+	Context("custom tags", func() {
+		BeforeEach(func() {
+			mchan = make(chan []metrics.MetricPackage, 1500)
+			p = New(mchan, []string{"environment:foo", "foundry:bar"})
+		})
+
+		It("adds custom tags to infra metrics", func() {
+			p.ProcessMetric(&events.Envelope{
+				Origin:    proto.String("test-origin"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_ValueMetric.Enum(),
+
+				// fields that gets sent as tags
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+				Index:      proto.String("1"),
+				Ip:         proto.String("10.0.1.2"),
+
+				// additional tags
+				Tags: map[string]string{
+					"protocol":   "http",
+					"request_id": "a1f5-deadbeef",
+				},
+			})
+
+			var metricPkg []metrics.MetricPackage
+			Eventually(mchan).Should(Receive(&metricPkg))
+
+			Expect(metricPkg).To(HaveLen(2))
+			for _, metric := range metricPkg {
+				Expect(metric.MetricValue.Tags).To(Equal([]string{
+					"deployment:deployment-name",
+					"environment:foo",
+					"foundry:bar",
+					"index:1",
+					"ip:10.0.1.2",
+					"job:doppler",
+					"name:test-origin",
+					"origin:test-origin",
+					"protocol:http",
+					"request_id:a1f5-deadbeef",
+				}))
+			}
+		})
+		// custom tags on app metrics tested in app_metrics_test
+		// custom tags on internal metrics tested in datadogclient_test
 	})
 })

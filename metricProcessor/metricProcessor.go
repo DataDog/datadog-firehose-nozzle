@@ -9,10 +9,11 @@ import (
 type Processor struct {
 	processedMetrics chan<- []metrics.MetricPackage
 	appMetrics       *appmetrics.AppMetrics
+	customTags       []string
 }
 
-func New(pm chan<- []metrics.MetricPackage) *Processor {
-	return &Processor{processedMetrics: pm}
+func New(pm chan<- []metrics.MetricPackage, customTags []string) *Processor {
+	return &Processor{processedMetrics: pm, customTags: customTags}
 }
 
 func (p *Processor) SetAppMetrics(appMetrics *appmetrics.AppMetrics) {

@@ -123,6 +123,68 @@ var _ = Describe("DatadogClient", func() {
 		))
 	})
 
+	It("creates internal metrics", func() {
+		k, v := c.MakeInternalMetric("totalMessagesReceived", 15)
+		metricsMap[k] = v
+
+		err := c.PostMetrics(metricsMap)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(bodies).Should(HaveLen(1))
+		var payload datadogclient.Payload
+		err = json.Unmarshal(bodies[0], &payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(payload.Series).To(HaveLen(1))
+
+		Expect(payload.Series[0].Metric).To(Equal("datadog.nozzle.totalMessagesReceived"))
+		Expect(payload.Series[0].Tags).To(ConsistOf(
+			"ip:dummy-ip",
+			"deployment:test-deployment",
+		))
+		Expect(payload.Series[0].Points).To(HaveLen(1))
+		Expect(payload.Series[0].Points[0].Value).To(Equal(float64(15)))
+	})
+
+	Context("user configures custom tags", func() {
+		BeforeEach(func() {
+			c = datadogclient.New(
+				ts.URL,
+				"dummykey",
+				"datadog.nozzle.",
+				"test-deployment",
+				"dummy-ip",
+				time.Second,
+				2000,
+				gosteno.NewLogger("datadogclient test"),
+				[]string{"environment:foo", "foundry:bar"},
+			)
+		})
+
+		It("adds custom tags to internal metrics", func() {
+			k, v := c.MakeInternalMetric("slowConsumerAlert", 0)
+			metricsMap[k] = v
+
+			err := c.PostMetrics(metricsMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(bodies).Should(HaveLen(1))
+			var payload datadogclient.Payload
+			err = json.Unmarshal(bodies[0], &payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(1))
+
+			Expect(payload.Series[0].Metric).To(Equal("datadog.nozzle.slowConsumerAlert"))
+			Expect(payload.Series[0].Tags).To(ConsistOf(
+				"ip:dummy-ip",
+				"deployment:test-deployment",
+				"environment:foo",
+				"foundry:bar",
+			))
+			Expect(payload.Series[0].Points).To(HaveLen(1))
+			Expect(payload.Series[0].Points[0].Value).To(Equal(float64(0)))
+		})
+	})
+
 	It("uses tags as an identifier for batching purposes (registers metrics with same name and different tags as separate)", func() {
 		for i := 0; i < 5; i++ {
 			k, v := makeFakeMetric("metricName", 1000, uint64(i), events.Envelope_ValueMetric, []string{"test_tag:1"})
