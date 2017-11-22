@@ -1,6 +1,7 @@
 package datadogclient_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
 )
 
@@ -52,6 +54,7 @@ var _ = Describe("DatadogClient", func() {
 			"test-deployment",
 			"dummy-ip",
 			time.Second,
+			2*time.Second,
 			2000,
 			gosteno.NewLogger("datadogclient test"),
 			[]string{},
@@ -59,11 +62,24 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	Context("datadog does not respond", func() {
+		var fakeBuffer *testhelpers.FakeBufferSink
+
 		BeforeEach(func() {
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var nilChan chan struct{}
 				<-nilChan
 			}))
+
+			logContent := bytes.NewBuffer(make([]byte, 1024))
+			fakeBuffer = testhelpers.NewFakeBufferSink(logContent)
+			config := &gosteno.Config{
+				Sinks: []gosteno.Sink{
+					fakeBuffer,
+				},
+				Level: gosteno.LOG_DEBUG,
+			}
+			gosteno.Init(config)
+
 			c = datadogclient.New(
 				ts.URL,
 				"dummykey",
@@ -71,6 +87,7 @@ var _ = Describe("DatadogClient", func() {
 				"test-deployment",
 				"dummy-ip",
 				time.Millisecond,
+				100*time.Millisecond,
 				2000,
 				gosteno.NewLogger("datadogclient test"),
 				[]string{},
@@ -86,6 +103,26 @@ var _ = Describe("DatadogClient", func() {
 				errs <- c.PostMetrics(metricsMap)
 			}()
 			Eventually(errs).Should(Receive(HaveOccurred()))
+		})
+
+		It("attempts to retry the connection", func() {
+			k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
+			metricsMap.Add(k, v)
+
+			errs := make(chan error)
+			go func() {
+				errs <- c.PostMetrics(metricsMap)
+			}()
+
+			var err error
+			Eventually(errs).Should(Receive(&err))
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempts"))
+
+			logOutput := fakeBuffer.GetContent()
+			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
+			Expect(logOutput).To(ContainSubstring("(2 left)"))
+			Expect(logOutput).To(ContainSubstring("(1 left)"))
 		})
 	})
 
@@ -154,6 +191,7 @@ var _ = Describe("DatadogClient", func() {
 				"test-deployment",
 				"dummy-ip",
 				time.Second,
+				2*time.Second,
 				2000,
 				gosteno.NewLogger("datadogclient test"),
 				[]string{"environment:foo", "foundry:bar"},
