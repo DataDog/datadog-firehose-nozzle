@@ -18,7 +18,7 @@ func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.Metri
 
 	host := parseHost(envelope)
 	tags := parseTags(envelope)
-	tags = append(tags, c.customTags...)
+	tags = append(tags, p.customTags...)
 
 	key := metrics.MetricKey{
 		EventType: envelope.GetEventType(),

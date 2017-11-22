@@ -3,8 +3,10 @@ package datadogfirehosenozzle_test
 import (
 	"bytes"
 
+	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -19,7 +21,6 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
 
@@ -36,6 +37,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	)
 
 	BeforeEach(func() {
+		time.Sleep(1)
+
 		fakeUAA = NewFakeUAA("bearer", "123456789")
 		fakeToken := fakeUAA.AuthToken()
 		fakeFirehose = NewFakeFirehose(fakeToken)
@@ -80,11 +83,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeDatadogAPI.Close()
 	})
 
-	It("receives data from the firehose", func(done Done) {
-		defer close(done)
-
-		go nozzle.Start()
-
+	It("receives data from the firehose", func() {
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -101,19 +100,64 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.AddEvent(envelope)
 		}
 
+		go nozzle.Start()
+
 		var contents []byte
 		Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
 
 		var payload datadogclient.Payload
 		err := json.Unmarshal(contents, &payload)
 		Expect(err).ToNot(HaveOccurred())
-		// +3 internal metrics that show totalMessagesReceived, totalMetricSent, and slowConsumerAlert
-		Expect(payload.Series).To(HaveLen(23))
-
+		Expect(payload.Series).To(HaveLen(23)) // +3 is because of the internal metrics
 	}, 2)
 
-	It("sends a server disconnected metric when the server disconnects abnormally", func(done Done) {
-		defer close(done)
+	It("gets a valid authentication token", func() {
+		go nozzle.Start()
+		Eventually(fakeFirehose.Requested).Should(BeTrue())
+		Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
+	})
+
+	It("adds internal metrics and generates aggregate messages when idle", func() {
+		for i := 0; i < 10; i++ {
+			envelope := events.Envelope{
+				Origin:    proto.String("origin"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_ValueMetric.Enum(),
+				ValueMetric: &events.ValueMetric{
+					Name:  proto.String(fmt.Sprintf("metricName-%d", i)),
+					Value: proto.Float64(float64(i)),
+					Unit:  proto.String("gauge"),
+				},
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+			}
+			fakeFirehose.AddEvent(envelope)
+		}
+
+		go nozzle.Start()
+
+		var contents []byte
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+
+		var payload datadogclient.Payload
+		err := json.Unmarshal(contents, &payload)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(payload.Series).To(HaveLen(23))
+
+		validateMetrics(payload, 10, 0)
+
+		// post again, without having received any new messages
+		nozzle.PostMetrics()
+
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+		err = json.Unmarshal(contents, &payload)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(payload.Series).To(HaveLen(3)) // only internal metrics
+
+		validateMetrics(payload, 10, 23)
+	}, 3)
+
+	It("reports a slow-consumer error when the server disconnects abnormally", func() {
 		for i := 0; i < 10; i++ {
 			envelope := events.Envelope{
 				Origin:    proto.String("origin"),
@@ -131,7 +175,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}
 
 		fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "Client did not respond to ping before keep-alive timeout expired."))
-
 		go nozzle.Start()
 
 		var contents []byte
@@ -152,11 +195,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
 	}, 2)
 
-	It("does not report slow consumer error when closed for other reasons", func(done Done) {
-		defer close(done)
-
+	It("doesn't report a slow-consumer error when closed for other reasons", func() {
 		fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "Weird things happened."))
-
 		go nozzle.Start()
 
 		var contents []byte
@@ -166,9 +206,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		err := json.Unmarshal(contents, &payload)
 		Expect(err).ToNot(HaveOccurred())
 
-		errMetric := findSlowConsumerMetric(payload)
-		Expect(errMetric).NotTo(BeNil())
-		Expect(errMetric.Points[0].Value).To(BeEquivalentTo(0))
+		slowConsumerMetric := findSlowConsumerMetric(payload)
+		Expect(slowConsumerMetric).NotTo(BeNil())
+		Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+		Expect(slowConsumerMetric.Points).To(HaveLen(1))
+		Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(0))
 
 		logOutput := fakeBuffer.GetContent()
 		Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
@@ -176,14 +218,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		Expect(logOutput).NotTo(ContainSubstring("Disconnected because nozzle couldn't keep up."))
 	}, 2)
 
-	It("gets a valid authentication token", func() {
-		go nozzle.Start()
-		Eventually(fakeFirehose.Requested).Should(BeTrue())
-		Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
-	})
-
-	Context("receives a truncatingbuffer.droppedmessage value metric,", func() {
-		It("sets a slow-consumer error", func() {
+	Context("receives a truncatingbuffer.droppedmessage value metric", func() {
+		It("reports a slow-consumer error", func() {
 			slowConsumerError := events.Envelope{
 				Origin:    proto.String("doppler"),
 				Timestamp: proto.Int64(1000000000),
@@ -207,10 +243,64 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			err := json.Unmarshal(contents, &payload)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(findSlowConsumerMetric(payload)).NotTo(BeNil())
-
+			slowConsumerMetric := findSlowConsumerMetric(payload)
+			Expect(slowConsumerMetric).NotTo(BeNil())
+			Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+			Expect(slowConsumerMetric.Points).To(HaveLen(1))
+			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
 			Expect(fakeBuffer.GetContent()).To(ContainSubstring("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle."))
 		})
+	})
+
+	Context("reports a slow-consumer error", func() {
+		It("unsets the error after sending it", func() {
+			envelope := events.Envelope{
+				Origin:    proto.String("doppler"),
+				Timestamp: proto.Int64(1000000000),
+				EventType: events.Envelope_CounterEvent.Enum(),
+				CounterEvent: &events.CounterEvent{
+					Name:  proto.String("TruncatingBuffer.DroppedMessages"),
+					Delta: proto.Uint64(1),
+					Total: proto.Uint64(1),
+				},
+				ValueMetric: &events.ValueMetric{
+					Name:  proto.String(fmt.Sprintf("metricName-%d", 1)),
+					Value: proto.Float64(float64(1)),
+					Unit:  proto.String("gauge"),
+				},
+				Deployment: proto.String("deployment-name"),
+				Job:        proto.String("doppler"),
+			}
+			fakeFirehose.AddEvent(envelope)
+
+			go nozzle.Start()
+
+			var contents []byte
+			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+
+			var payload datadogclient.Payload
+			err := json.Unmarshal(contents, &payload)
+			Expect(err).ToNot(HaveOccurred())
+
+			slowConsumerMetric := findSlowConsumerMetric(payload)
+			Expect(slowConsumerMetric).NotTo(BeNil())
+			Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+			Expect(slowConsumerMetric.Points).To(HaveLen(1))
+			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
+			Expect(fakeBuffer.GetContent()).To(ContainSubstring("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle."))
+
+			nozzle.PostMetrics()
+
+			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+			err = json.Unmarshal(contents, &payload)
+			Expect(err).ToNot(HaveOccurred())
+
+			slowConsumerMetric = findSlowConsumerMetric(payload)
+			Expect(slowConsumerMetric).NotTo(BeNil())
+			Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+			Expect(slowConsumerMetric.Points).To(HaveLen(1))
+			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(0))
+		}, 2)
 	})
 
 	Context("when the DisableAccessControl is set to true", func() {
@@ -326,6 +416,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Consistently(rxContents).ShouldNot(Receive())
 		})
 	})
+
 })
 
 func findSlowConsumerMetric(payload datadogclient.Payload) *metrics.Series {
@@ -348,4 +439,42 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 		}
 	}()
 	return result
+}
+
+func validateMetrics(payload datadogclient.Payload, totalMessagesReceived int, totalMetricsSent int) {
+	totalMessagesReceivedFound := false
+	totalMetricsSentFound := false
+	slowConsumerAlertFound := false
+	for _, metric := range payload.Series {
+		Expect(metric.Type).To(Equal("gauge"))
+
+		internalMetric := false
+		var metricValue int
+		if metric.Metric == "datadog.nozzle.totalMessagesReceived" {
+			totalMessagesReceivedFound = true
+			internalMetric = true
+			metricValue = totalMessagesReceived
+		}
+		if metric.Metric == "datadog.nozzle.totalMetricsSent" {
+			totalMetricsSentFound = true
+			internalMetric = true
+			metricValue = totalMetricsSent
+		}
+		if metric.Metric == "datadog.nozzle.slowConsumerAlert" {
+			slowConsumerAlertFound = true
+			internalMetric = true
+			metricValue = 0
+		}
+
+		if internalMetric {
+			Expect(metric.Points).To(HaveLen(1))
+			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
+			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
+			ip, _ := localip.LocalIP()
+			Expect(metric.Tags).To(Equal([]string{"deployment:nozzle-deployment", "ip:" + ip}))
+		}
+	}
+	Expect(totalMessagesReceivedFound).To(BeTrue())
+	Expect(totalMetricsSentFound).To(BeTrue())
+	Expect(slowConsumerAlertFound).To(BeTrue())
 }
