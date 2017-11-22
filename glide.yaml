@@ -22,6 +22,8 @@ import:
   version: dbe382d68b57a2345f60b71935eb6e8cfa7e5895
 - package: github.com/gorilla/websocket
   version: ~1.2.0
+- package: github.com/hashicorp/go-retryablehttp
+  version: 794af36148bf63c118d6db80eb902a136b907e71
 testImport:
 - package: github.com/onsi/ginkgo
   version: ~1.3.1
