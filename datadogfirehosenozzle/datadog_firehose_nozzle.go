@@ -91,6 +91,7 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		d.config.Deployment,
 		ipAddress,
 		time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
+		time.Duration(d.config.FlushDurationSeconds)*time.Second,
 		d.config.FlushMaxBytes,
 		d.log,
 		d.config.CustomTags,

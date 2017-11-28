@@ -3,6 +3,7 @@ package datadogclient
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
 	"github.com/cloudfoundry/gosteno"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
 const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
@@ -22,7 +24,7 @@ type Client struct {
 	deployment   string
 	ip           string
 	customTags   []string
-	httpClient   *http.Client
+	httpClient   *retryablehttp.Client
 	maxPostBytes uint32
 	log          *gosteno.Logger
 	formatter    Formatter
@@ -39,12 +41,33 @@ func New(
 	deployment string,
 	ip string,
 	writeTimeout time.Duration,
+	flushDuration time.Duration,
 	maxPostBytes uint32,
-	log *gosteno.Logger,
+	logger *gosteno.Logger,
 	customTags []string,
 ) *Client {
-	httpClient := &http.Client{
+	httpClient := retryablehttp.NewClient()
+	httpClient.HTTPClient = &http.Client{
 		Timeout: writeTimeout,
+	}
+
+	// Set reasonable retry parameters
+	// Total time for retry should be <= flushDuration & each retry multiplies the wait time by 2
+	httpClient.RetryWaitMin = flushDuration / 7
+	httpClient.RetryWaitMax = flushDuration / 2
+	httpClient.RetryMax = 3
+
+	// Discard the http client's log and attach our hook for logging request retry attempts
+	buffer := new(bytes.Buffer)
+	httpClient.Logger = log.New(buffer, "", log.Lshortfile)
+	httpClient.RequestLogHook = func(l *log.Logger, req *http.Request, attemptNum int) {
+		if attemptNum == 0 {
+			return
+		}
+		retriesLeft := httpClient.RetryMax - attemptNum
+		timeToWait := httpClient.Backoff(httpClient.RetryWaitMin, httpClient.RetryWaitMax, attemptNum-1, nil)
+		msg := fmt.Sprintf("Error: %s %s request failed. Wait before retrying: %s (%v left)", req.Method, req.URL, timeToWait, retriesLeft)
+		logger.Debug(msg)
 	}
 
 	return &Client{
@@ -53,12 +76,12 @@ func New(
 		prefix:       prefix,
 		deployment:   deployment,
 		ip:           ip,
-		log:          log,
+		log:          logger,
 		customTags:   customTags,
 		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
 		formatter: Formatter{
-			log: log,
+			log: logger,
 		},
 	}
 }
@@ -74,10 +97,7 @@ func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
 		}
 
 		if err := c.postMetrics(data); err != nil {
-			// Retry the request once
-			if err := c.postMetrics(data); err != nil {
-				return err
-			}
+			return err
 		}
 	}
 
@@ -86,14 +106,22 @@ func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
 	url := c.seriesURL()
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(seriesBytes))
+
+	req, err := retryablehttp.NewRequest("POST", url, bytes.NewReader(seriesBytes))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
+
+	// If an error is returned by the client (connection errors, etc.), or if a 500-range
+	// response code is received, then a retry is invoked on this request after a wait period
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
+	// Handle errors that occurred even after the retries
 	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {

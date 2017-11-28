@@ -1,5 +1,5 @@
-hash: 479fd3e99e748f014237f8267bc39e4743cfaed94a5a316e7431b7a12baa476d
-updated: 2017-11-16T15:58:00.013823511-05:00
+hash: 953f1a377c1321b3d5016cfa33223b2a138aa336f278bd43a78039d8e961b34f
+updated: 2017-11-28T10:58:07.88090796+01:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
@@ -28,11 +28,15 @@ imports:
   - proto
   - protoc-gen-gogo/descriptor
 - name: github.com/golang/protobuf
-  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
   subpackages:
   - proto
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+- name: github.com/hashicorp/go-cleanhttp
+  version: 3573b8b52aa7b37b9358d966a898feb387f62437
+- name: github.com/hashicorp/go-retryablehttp
+  version: 794af36148bf63c118d6db80eb902a136b907e71
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: golang.org/x/net
@@ -45,7 +49,7 @@ imports:
   - clientcredentials
   - internal
 - name: google.golang.org/appengine
-  version: d9a072cfa7b9736e44311ef77b3e09d804bfa599
+  version: 9d8544a6b2c7df9cff240fcf92d7b2f59bc13416
   subpackages:
   - internal
   - internal/base
@@ -92,7 +96,7 @@ testImports:
   - matchers/support/goraph/util
   - types
 - name: golang.org/x/sys
-  version: 9d4e42a20653790449273b3c85e67d6d8bae6e2e
+  version: 39e3dc274464e7d2f663aa606a830611bae5f1db
   subpackages:
   - unix
 - name: gopkg.in/yaml.v2
