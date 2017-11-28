@@ -14,7 +14,6 @@ before_install:
 - go get -v github.com/onsi/gomega
 - go get -v github.com/golang/lint/golint
 - go get -v github.com/Masterminds/glide
-- go get -v github.com/hashicorp/go-retryablehttp
 - go install -v github.com/onsi/ginkgo/ginkgo
 - go install -v github.com/Masterminds/glide
 
