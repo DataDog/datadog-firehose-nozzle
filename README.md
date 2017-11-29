@@ -21,7 +21,7 @@ properties:
 
 ### Dependencies
 
-We manage dependencies using Glide. So, in order to build, install or run tests, you should first [install glide](https://github.com/Masterminds/glide). Then, `glide install`. 
+We manage dependencies using Glide. So, in order to build, install or run tests, you should first [install glide](https://github.com/Masterminds/glide). Then, `glide install`.
 
 ### Running
 
@@ -45,7 +45,14 @@ The nozzle determines the value of `datadog.nozzle.slowConsumerAlert` with the f
 
 3. **Otherwise, the nozzle publishes `0`.**
 
+### Using Proxies
 
+If you need a proxy to connect to the Internet, you can use the `HTTPProxyURL` and `HTTPSProxyURL` fields in your configuration file in order to configure the nozzle to do this.
+For example:
+  - HTTPProxyURL: "http(s)://user:password@proxy_for_http:port"
+  - HTTPSProxyURL: "http(s)://user:password@proxy_for_https:port"  
+
+Alternatively, you can use environment variables (`HTTP_PROXY` and `HTTPS_PROXY`).
 
 ### Tests
 

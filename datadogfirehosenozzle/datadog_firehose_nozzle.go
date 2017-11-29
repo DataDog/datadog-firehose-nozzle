@@ -84,6 +84,14 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		panic(err)
 	}
 
+	var proxy *datadogclient.Proxy
+	if d.config.HTTPProxyURL != "" || d.config.HTTPSProxyURL != "" {
+		proxy = &datadogclient.Proxy{
+			HTTP:  d.config.HTTPProxyURL,
+			HTTPS: d.config.HTTPSProxyURL,
+		}
+	}
+
 	client := datadogclient.New(
 		d.config.DataDogURL,
 		d.config.DataDogAPIKey,
@@ -95,6 +103,7 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		d.config.FlushMaxBytes,
 		d.log,
 		d.config.CustomTags,
+		proxy,
 	)
 
 	return client

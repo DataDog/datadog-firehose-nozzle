@@ -6,6 +6,8 @@
   "FirehoseSubscriptionID": "datadog-nozzle",
   "DataDogURL": "https://app.datadoghq.com/api/v1/series",
   "DataDogAPIKey": "<enter api key>",
+  "HTTPProxyURL": "",
+  "HTTPSProxyURL": "",
   "DataDogTimeoutSeconds": 5,
   "FlushDurationSeconds": 15,
   "FlushMaxBytes": 57671680,

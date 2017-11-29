@@ -58,6 +58,7 @@ var _ = Describe("DatadogClient", func() {
 			2000,
 			gosteno.NewLogger("datadogclient test"),
 			[]string{},
+			nil,
 		)
 	})
 
@@ -91,6 +92,7 @@ var _ = Describe("DatadogClient", func() {
 				2000,
 				gosteno.NewLogger("datadogclient test"),
 				[]string{},
+				nil,
 			)
 		})
 
@@ -195,6 +197,7 @@ var _ = Describe("DatadogClient", func() {
 				2000,
 				gosteno.NewLogger("datadogclient test"),
 				[]string{"environment:foo", "foundry:bar"},
+				nil,
 			)
 		})
 
@@ -419,6 +422,60 @@ var _ = Describe("DatadogClient", func() {
 		responseCode = http.StatusAccepted // 201
 		err = c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
+		proxy := &datadogclient.Proxy{
+			HTTP:  "http://user:password@host.com:port",
+			HTTPS: "https://user:password@host.com:port",
+		}
+
+		rHTTP, _ := http.NewRequest("GET", "http://test.com", nil)
+		rHTTPS, _ := http.NewRequest("GET", "https://test.com", nil)
+
+		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+
+		proxyURL, err := proxyFunc(rHTTP)
+		Expect(err).To(BeNil())
+		Expect(proxyURL.String()).To(Equal("http://user:password@host.com:port"))
+		proxyURL, err = proxyFunc(rHTTPS)
+		Expect(err).To(BeNil())
+		Expect(proxyURL.String()).To(Equal("https://user:password@host.com:port"))
+	})
+
+	It("errors when a bad proxy URL is set", func() {
+		proxy := &datadogclient.Proxy{
+			HTTP:  "1234://bad_url",
+			HTTPS: "1234s://still_a_bad_url",
+		}
+
+		rHTTP, _ := http.NewRequest("GET", "http://test.com", nil)
+		rHTTPS, _ := http.NewRequest("GET", "https://test.com", nil)
+
+		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+
+		proxyURL, err := proxyFunc(rHTTP)
+		Expect(err).ToNot(BeNil())
+		Expect(proxyURL).To(BeNil())
+
+		proxyURL, err = proxyFunc(rHTTPS)
+		Expect(err).ToNot(BeNil())
+		Expect(proxyURL).To(BeNil())
+	})
+
+	It("doesn't set a proxy when an unsupported scheme is used", func() {
+		proxy := &datadogclient.Proxy{
+			HTTP:  "http://user@password@host.com@port",
+			HTTPS: "https://user@password@host.com@port",
+		}
+
+		rWS, _ := http.NewRequest("GET", "ws://test.com", nil)
+
+		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+
+		proxyURL, err := proxyFunc(rWS)
+		Expect(err).To(BeNil())
+		Expect(proxyURL).To(BeNil())
 	})
 })
 
