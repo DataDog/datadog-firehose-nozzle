@@ -103,6 +103,9 @@ var _ = Describe("DatadogClient", func() {
 				errs <- c.PostMetrics(metricsMap)
 			}()
 			Eventually(errs).Should(Receive(HaveOccurred()))
+
+			logOutput := fakeBuffer.GetContent()
+			Expect(logOutput).To(ContainSubstring("request canceled (Client.Timeout exceeded while awaiting headers)"))
 		})
 
 		It("attempts to retry the connection", func() {
@@ -120,9 +123,9 @@ var _ = Describe("DatadogClient", func() {
 			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempts"))
 
 			logOutput := fakeBuffer.GetContent()
-			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
-			Expect(logOutput).To(ContainSubstring("(2 left)"))
-			Expect(logOutput).To(ContainSubstring("(1 left)"))
+			Expect(logOutput).To(ContainSubstring("retrying in 14.285714ms (3 left)"))
+			Expect(logOutput).To(ContainSubstring("retrying in 28.571428ms (2 left)"))
+			Expect(logOutput).To(ContainSubstring("retrying in 50ms (1 left)"))
 		})
 	})
 

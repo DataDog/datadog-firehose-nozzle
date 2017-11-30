@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"io/ioutil"
@@ -57,17 +58,24 @@ func New(
 	httpClient.RetryWaitMax = flushDuration / 2
 	httpClient.RetryMax = 3
 
-	// Discard the http client's log and attach our hook for logging request retry attempts
+	// Attach our own logger to the client's logging hook
 	buffer := new(bytes.Buffer)
 	httpClient.Logger = log.New(buffer, "", log.Lshortfile)
 	httpClient.RequestLogHook = func(l *log.Logger, req *http.Request, attemptNum int) {
-		if attemptNum == 0 {
-			return
+
+		logData := strings.Split(buffer.String(), "\n")
+		buffer.Reset()
+		for _, line := range logData {
+			if strings.Contains(line, "[DEBUG]") {
+				// buffer lines have a prefix containing the line number
+				// we want to strip this because our logger takes care of that
+				parts := strings.Split(line, "[DEBUG]")
+				logger.Debug(strings.TrimPrefix(parts[1], "[DEBUG]"))
+			} else if strings.Contains(line, "[ERR]") {
+				parts := strings.Split(line, "[ERR]")
+				logger.Error(strings.TrimPrefix(parts[1], "[ERR]"))
+			}
 		}
-		retriesLeft := httpClient.RetryMax - attemptNum
-		timeToWait := httpClient.Backoff(httpClient.RetryWaitMin, httpClient.RetryWaitMax, attemptNum-1, nil)
-		msg := fmt.Sprintf("Error: %s %s request failed. Wait before retrying: %s (%v left)", req.Method, req.URL, timeToWait, retriesLeft)
-		logger.Debug(msg)
 	}
 
 	return &Client{
