@@ -21,6 +21,8 @@ type NozzleConfig struct {
 	FirehoseSubscriptionID  string
 	DataDogURL              string
 	DataDogAPIKey           string
+	HTTPProxyURL            string
+	HTTPSProxyURL           string
 	CloudControllerEndpoint string
 	DataDogTimeoutSeconds   uint32
 	FlushDurationSeconds    uint32
@@ -56,6 +58,8 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvVar("NOZZLE_FIREHOSESUBSCRIPTIONID", &config.FirehoseSubscriptionID)
 	overrideWithEnvVar("NOZZLE_DATADOGURL", &config.DataDogURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)
+	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
+	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
 	overrideWithEnvUint32("NOZZLE_DATADOGTIMEOUTSECONDS", &config.DataDogTimeoutSeconds)
 	overrideWithEnvVar("NOZZLE_METRICPREFIX", &config.MetricPrefix)
 	overrideWithEnvVar("NOZZLE_DEPLOYMENT", &config.Deployment)

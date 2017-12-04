@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"io/ioutil"
@@ -34,6 +35,11 @@ type Payload struct {
 	Series []metrics.Series `json:"series"`
 }
 
+type Proxy struct {
+	HTTP  string
+	HTTPS string
+}
+
 func New(
 	apiURL string,
 	apiKey string,
@@ -45,10 +51,18 @@ func New(
 	maxPostBytes uint32,
 	logger *gosteno.Logger,
 	customTags []string,
+	proxy *Proxy,
 ) *Client {
 	httpClient := retryablehttp.NewClient()
 	httpClient.HTTPClient = &http.Client{
 		Timeout: writeTimeout,
+	}
+
+	// Add a proxy, if it was configured
+	if proxy != nil {
+		httpClient.HTTPClient.Transport = &http.Transport{
+			Proxy: GetProxyTransportFunc(proxy, logger),
+		}
 	}
 
 	// Set reasonable retry parameters
@@ -161,4 +175,37 @@ func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKe
 	}
 
 	return key, mValue
+}
+
+func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Request) (*url.URL, error) {
+	return func(r *http.Request) (*url.URL, error) {
+		var proxyURL string
+		if r.URL.Scheme == "http" {
+			proxyURL = proxy.HTTP
+		} else if r.URL.Scheme == "https" {
+			proxyURL = proxy.HTTPS
+		} else {
+			logger.Warnf("Proxy configuration does not support scheme '%s'", r.URL.Scheme)
+			return nil, nil // no proxy set
+		}
+
+		parsedURL, err := url.Parse(proxyURL)
+		if err != nil {
+			logger.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
+			return nil, fmt.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
+		}
+
+		// Clean up the proxy URL for logging
+		userInfo := ""
+		if parsedURL.User != nil {
+			if _, isSet := parsedURL.User.Password(); isSet {
+				userInfo = "*****:*****@"
+			} else {
+				userInfo = "*****@"
+			}
+		}
+
+		logger.Debugf("Using proxy %s://%s%s for URL '%s'", parsedURL.Scheme, userInfo, parsedURL.Host, r.URL)
+		return parsedURL, nil
+	}
 }
