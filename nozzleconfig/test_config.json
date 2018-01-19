@@ -20,5 +20,6 @@
   "CloudControllerEndpoint": "string",
   "AppMetrics": true,
   "NumWorkers": 1,
-  "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ]
+  "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ],
+  "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ]
 }

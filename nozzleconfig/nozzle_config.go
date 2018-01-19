@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -23,6 +24,7 @@ type NozzleConfig struct {
 	DataDogAPIKey           string
 	HTTPProxyURL            string
 	HTTPSProxyURL           string
+	NoProxy                 []string
 	CloudControllerEndpoint string
 	DataDogTimeoutSeconds   uint32
 	FlushDurationSeconds    uint32
@@ -71,6 +73,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvBool("NOZZLE_INSECURESSLSKIPVERIFY", &config.InsecureSSLSkipVerify)
 	overrideWithEnvBool("NOZZLE_DISABLEACCESSCONTROL", &config.DisableAccessControl)
 	overrideWithEnvUint32("NOZZLE_IDLETIMEOUTSECONDS", &config.IdleTimeoutSeconds)
+	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 
 	if config.MetricPrefix == "" {
 		config.MetricPrefix = "cloudfoundry.nozzle."
@@ -123,4 +126,9 @@ func overrideWithEnvBool(name string, value *bool) {
 			panic(err)
 		}
 	}
+}
+
+func overrideWithEnvSliceStrings(name string, value *[]string) {
+	envValue := os.Getenv(name)
+	*value = strings.Split(envValue, ",")
 }

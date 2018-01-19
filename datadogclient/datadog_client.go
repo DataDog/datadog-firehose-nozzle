@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"io/ioutil"
@@ -36,8 +37,9 @@ type Payload struct {
 }
 
 type Proxy struct {
-	HTTP  string
-	HTTPS string
+	HTTP    string
+	HTTPS   string
+	NoProxy []string
 }
 
 func New(
@@ -180,6 +182,7 @@ func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKe
 func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Request) (*url.URL, error) {
 	return func(r *http.Request) (*url.URL, error) {
 		var proxyURL string
+		var requestHost = r.URL.Hostname()
 		if r.URL.Scheme == "http" {
 			proxyURL = proxy.HTTP
 		} else if r.URL.Scheme == "https" {
@@ -187,6 +190,32 @@ func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Requ
 		} else {
 			logger.Warnf("Proxy configuration does not support scheme '%s'", r.URL.Scheme)
 			return nil, nil // no proxy set
+		}
+
+		// This is lightly adapted from https://golang.org/src/net/http/transport.go
+		for _, p := range proxy.NoProxy {
+			p = strings.ToLower(strings.TrimSpace(p))
+			if len(p) == 0 {
+				continue
+			}
+			if hasPort(p) {
+				p = p[:strings.LastIndex(p, ":")]
+			}
+			if requestHost == p {
+				return nil, nil
+			}
+			if len(p) == 0 {
+				// There is no host part, likely the entry is malformed; ignore.
+				continue
+			}
+			if p[0] == '.' && (strings.HasSuffix(requestHost, p) || requestHost == p[1:]) {
+				// no_proxy ".foo.com" matches "bar.foo.com" or "foo.com"
+				return nil, nil
+			}
+			if p[0] != '.' && strings.HasSuffix(requestHost, p) && requestHost[len(requestHost)-len(p)-1] == '.' {
+				// no_proxy "foo.com" matches "bar.foo.com"
+				return nil, nil
+			}
 		}
 
 		parsedURL, err := url.Parse(proxyURL)
@@ -208,4 +237,9 @@ func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Requ
 		logger.Debugf("Using proxy %s://%s%s for URL '%s'", parsedURL.Scheme, userInfo, parsedURL.Host, r.URL)
 		return parsedURL, nil
 	}
+}
+
+// This utility function is taken from https://golang.org/src/net/http/http.go
+func hasPort(s string) bool {
+	return strings.LastIndex(s, ":") > strings.LastIndex(s, "]")
 }

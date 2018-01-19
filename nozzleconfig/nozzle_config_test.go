@@ -56,6 +56,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DEPLOYMENT_FILTER", "env-deployment-filter")
 		os.Setenv("NOZZLE_DISABLEACCESSCONTROL", "true")
 		os.Setenv("NOZZLE_IDLETIMEOUTSECONDS", "30")
+		os.Setenv("NO_PROXY", "google.com,datadoghq.com")
 
 		conf, err := nozzleconfig.Parse("test_config.json")
 		Expect(err).ToNot(HaveOccurred())
@@ -66,6 +67,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
 		Expect(conf.HTTPProxyURL).To(Equal("http://test:proxy"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://test:proxy"))
+		Expect(conf.NoProxy).To(BeEquivalentTo([]string{"google.com", "datadoghq.com"}))
 		Expect(conf.DataDogTimeoutSeconds).To(BeEquivalentTo(10))
 		Expect(conf.FlushDurationSeconds).To(BeEquivalentTo(25))
 		Expect(conf.FlushMaxBytes).To(BeEquivalentTo(12345678))
