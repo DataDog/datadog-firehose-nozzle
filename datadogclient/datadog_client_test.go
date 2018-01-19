@@ -425,13 +425,17 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
+		println("proxy test")
 		proxy := &datadogclient.Proxy{
-			HTTP:  "http://user:password@host.com:port",
-			HTTPS: "https://user:password@host.com:port",
+			HTTP:    "http://user:password@host.com:port",
+			HTTPS:   "https://user:password@host.com:port",
+			NoProxy: []string{"datadoghq.com"},
 		}
 
 		rHTTP, _ := http.NewRequest("GET", "http://test.com", nil)
 		rHTTPS, _ := http.NewRequest("GET", "https://test.com", nil)
+		rHTTPNoProxy, _ := http.NewRequest("GET", "http://datadoghq.com", nil)
+		rHTTPSNoProxy, _ := http.NewRequest("GET", "https://datadoghq.com", nil)
 
 		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
 
@@ -441,6 +445,13 @@ var _ = Describe("DatadogClient", func() {
 		proxyURL, err = proxyFunc(rHTTPS)
 		Expect(err).To(BeNil())
 		Expect(proxyURL.String()).To(Equal("https://user:password@host.com:port"))
+
+		proxyURL, err = proxyFunc(rHTTPNoProxy)
+		Expect(err).To(BeNil())
+		Expect(proxyURL).To(BeNil())
+		proxyURL, err = proxyFunc(rHTTPSNoProxy)
+		Expect(err).To(BeNil())
+		Expect(proxyURL).To(BeNil())
 	})
 
 	It("errors when a bad proxy URL is set", func() {
