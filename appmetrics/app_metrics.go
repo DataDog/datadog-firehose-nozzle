@@ -23,29 +23,14 @@ type AppMetrics struct {
 }
 
 func New(
-	ccEndpoint string,
-	client string,
-	clientSecret string,
-	insecureSSLSkipVerify bool,
+	cfClient *cfclient.Client,
 	grabInterval int,
 	log *gosteno.Logger,
 	customTags []string,
 ) (*AppMetrics, error) {
 
-	if ccEndpoint == "" {
-		return nil, fmt.Errorf("The CC Endpoint needs to be set in order to set up appmetrics")
-	}
-
-	cfg := cfclient.Config{
-		ApiAddress:        ccEndpoint,
-		ClientID:          client,
-		ClientSecret:      clientSecret,
-		SkipSslValidation: insecureSSLSkipVerify,
-		UserAgent:         "datadog-firehose-nozzle",
-	}
-	cfClient, err := cfclient.NewClient(&cfg)
-	if err != nil {
-		return nil, err
+	if cfClient == nil {
+		return nil, fmt.Errorf("The CF Client needs to be properly set up to use appmetrics")
 	}
 
 	appMetrics := &AppMetrics{

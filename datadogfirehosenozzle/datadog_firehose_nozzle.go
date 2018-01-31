@@ -2,6 +2,7 @@ package datadogfirehosenozzle
 
 import (
 	"crypto/tls"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
+	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
@@ -27,6 +29,7 @@ type DatadogFirehoseNozzle struct {
 	consumer              *consumer.Consumer
 	client                *datadogclient.Client
 	processor             *metricProcessor.Processor
+	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
 	log                   *gosteno.Logger
 	appMetrics            bool
@@ -69,10 +72,14 @@ func (d *DatadogFirehoseNozzle) Start() error {
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
 	d.client = d.createClient()
+	d.cfClient = d.createCfClient()
 	d.processor = d.createProcessor()
-	d.consumeFirehose(authToken)
+	err := d.consumeFirehose(authToken)
+	if err != nil {
+		return err
+	}
 	d.startWorkers()
-	err := d.postToDatadog()
+	err = d.postToDatadog()
 	d.stopWorkers()
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
 	return err
@@ -110,15 +117,34 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 	return client
 }
 
+func (d *DatadogFirehoseNozzle) createCfClient() *cfclient.Client {
+	if d.config.CloudControllerEndpoint == "" {
+		d.log.Warnf("The Cloud Controller Endpoint needs to be set in order to set up the cf client")
+		return nil
+	}
+
+	cfg := cfclient.Config{
+		ApiAddress:        d.config.CloudControllerEndpoint,
+		ClientID:          d.config.Client,
+		ClientSecret:      d.config.ClientSecret,
+		SkipSslValidation: d.config.InsecureSSLSkipVerify,
+		UserAgent:         "datadog-firehose-nozzle",
+	}
+	cfClient, err := cfclient.NewClient(&cfg)
+	if err != nil {
+		d.log.Warnf("Encountered an error while setting up the cf client: %v", err)
+		return nil
+	}
+
+	return cfClient
+}
+
 func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 	processor := metricProcessor.New(d.processedMetrics, d.config.CustomTags)
 
 	if d.appMetrics {
 		appMetrics, err := appmetrics.New(
-			d.config.CloudControllerEndpoint,
-			d.config.Client,
-			d.config.ClientSecret,
-			d.config.InsecureSSLSkipVerify,
+			d.cfClient,
 			d.config.GrabInterval,
 			d.log,
 			d.config.CustomTags,
@@ -135,13 +161,23 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 	return processor
 }
 
-func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) {
+func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
+	if d.config.TrafficControllerURL == "" {
+		if d.cfClient != nil {
+			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
+		} else {
+			return fmt.Errorf("Either the TrafficController URL or the CC URL needs to be set")
+		}
+	}
+
 	d.consumer = consumer.New(
 		d.config.TrafficControllerURL,
 		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
 		nil)
 	d.consumer.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
 	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, authToken)
+
+	return nil
 }
 
 func (d *DatadogFirehoseNozzle) postToDatadog() error {
