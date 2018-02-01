@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/boltdb/bolt"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
 )
 
 var clearCacheDuration = 60
@@ -53,6 +53,9 @@ func New(
 }
 
 func (am *AppMetrics) updateCacheLoop() {
+	// First, create the cache db or grab the app cache from it
+	am.reloadCache()
+
 	// If an app hasn't sent a metric in a while,
 	// assume that it's either been taken down or
 	// that the loggregator is routing it to a different nozzle and remove it from the cache

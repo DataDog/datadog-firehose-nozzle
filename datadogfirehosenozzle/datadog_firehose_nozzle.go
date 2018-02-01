@@ -13,12 +13,12 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
+	"github.com/boltdb/bolt"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
 	"github.com/gorilla/websocket"
 )
 
@@ -72,7 +72,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	db, err := bolt.Open("firehose_nozzle.db", 0600, nil)
+	db, err := bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
 	if err != nil {
 		return err
 	}

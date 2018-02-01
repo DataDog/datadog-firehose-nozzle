@@ -7,8 +7,8 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	"github.com/boltdb/bolt"
 	cfclient "github.com/cloudfoundry-community/go-cfclient"
-	bolt "github.com/coreos/bbolt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,9 +26,20 @@ var _ = Describe("AppMetrics", func() {
 		fakeCfClient           *cfclient.Client
 		db                     *bolt.DB
 	)
+	BeforeSuite(func() {
+		var err error
+		db, err = bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
+		if err != nil {
+			println(err)
+		}
+		println(db.IsReadOnly())
+	}, 0)
+
+	AfterSuite(func() {
+		db.Close()
+	}, 0)
 
 	BeforeEach(func() {
-		var err error
 		log = gosteno.NewLogger("datadogclient test")
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
