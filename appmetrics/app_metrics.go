@@ -45,6 +45,7 @@ func New(
 		grabInterval: grabInterval,
 		customTags:   customTags,
 		appBucket:    []byte("CloudFoundryApps"),
+		db:           db,
 	}
 
 	go appMetrics.updateCacheLoop()
@@ -102,7 +103,6 @@ func (am *AppMetrics) updateCacheLoop() {
 }
 
 func (am *AppMetrics) reloadCache() error {
-
 	// Create Apps Bucket
 	err := am.db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(am.appBucket)

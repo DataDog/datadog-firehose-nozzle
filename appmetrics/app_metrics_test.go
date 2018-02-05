@@ -3,6 +3,7 @@ package appmetrics
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
@@ -26,20 +27,9 @@ var _ = Describe("AppMetrics", func() {
 		fakeCfClient           *cfclient.Client
 		db                     *bolt.DB
 	)
-	BeforeSuite(func() {
-		var err error
-		db, err = bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
-		if err != nil {
-			println(err)
-		}
-		println(db.IsReadOnly())
-	}, 0)
-
-	AfterSuite(func() {
-		db.Close()
-	}, 0)
 
 	BeforeEach(func() {
+		var err error
 		log = gosteno.NewLogger("datadogclient test")
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
@@ -60,7 +50,8 @@ var _ = Describe("AppMetrics", func() {
 	}, 0)
 	AfterEach(func() {
 		db.Close()
-	}, 0)
+		os.Remove("firehose_nozzle.db")
+	})
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
