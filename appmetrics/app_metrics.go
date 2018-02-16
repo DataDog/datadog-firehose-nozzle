@@ -90,7 +90,7 @@ func (am *AppMetrics) updateCacheLoop() {
 			// since this won't affect the app map, no need to continue touching it
 			am.db.Batch(func(tx *bolt.Tx) error {
 				for _, guid := range toRemove {
-					_, err := tx.CreateBucketIfNotExists(am.appBucket)
+					b, err := tx.CreateBucketIfNotExists(am.appBucket)
 					if err != nil {
 						return fmt.Errorf("create bucket: %s", err)
 					}
