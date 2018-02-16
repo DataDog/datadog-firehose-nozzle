@@ -87,6 +87,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		return err
 	}
 	defer db.Close()
+	d.db = db
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
 	d.client = d.createClient()
