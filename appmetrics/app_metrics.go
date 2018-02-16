@@ -48,6 +48,8 @@ func New(
 		db:           db,
 	}
 
+	log.Infof("database: %v", db)
+
 	// First, create the cache db or grab the app cache from it
 	appMetrics.reloadCache()
 	go appMetrics.updateCacheLoop()
