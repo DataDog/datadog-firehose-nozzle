@@ -80,7 +80,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		dbPath = d.config.DBPath
 	}
 
-	db, err = bolt.Open(dbPath, 0600, &bolt.Options{})
+	db, err = bolt.Open(dbPath, 0666, &bolt.Options{})
 	if err != nil {
 		return err
 	}
