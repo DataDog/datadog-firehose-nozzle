@@ -48,8 +48,6 @@ func New(
 		db:           db,
 	}
 
-	log.Infof("database: %v", db)
-
 	// First, create the cache db or grab the app cache from it
 	appMetrics.reloadCache()
 	go appMetrics.updateCacheLoop()
@@ -107,8 +105,23 @@ func (am *AppMetrics) updateCacheLoop() {
 }
 
 func (am *AppMetrics) reloadCache() error {
-	// Create Apps Bucket
-	err := am.db.Update(func(tx *bolt.Tx) error {
+	// // Create Apps Bucket
+	// err := am.db.Update(func(tx *bolt.Tx) error {
+	// 	b, err := tx.CreateBucketIfNotExists(am.appBucket)
+	// 	if err != nil {
+	// 		return fmt.Errorf("create bucket: %s", err)
+	// 	}
+	// 	if b == nil {
+	// 		return fmt.Errorf("bucket not created")
+	// 	}
+	// 	println("finished update function")
+	// 	return nil
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+
+	err := am.db.Batch(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(am.appBucket)
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
@@ -116,15 +129,6 @@ func (am *AppMetrics) reloadCache() error {
 		if b == nil {
 			return fmt.Errorf("bucket not created")
 		}
-		println("finished update function")
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	err = am.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(am.appBucket)
 
 		am.appLock.Lock()
 		defer am.appLock.Unlock()
