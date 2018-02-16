@@ -74,7 +74,13 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	db, err = bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
+	var dbPath string = "firehose_nozzle.db"
+
+	if d.config.DBPath != "" {
+		dbPath = d.config.DBPath
+	}
+
+	db, err = bolt.Open(dbPath, 0600, &bolt.Options{})
 	if err != nil {
 		return err
 	}
