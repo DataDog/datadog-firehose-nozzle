@@ -63,6 +63,8 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 
 func (d *DatadogFirehoseNozzle) Start() error {
 	var authToken string
+	var err error
+	var db *bolt.DB
 
 	if !d.config.DisableAccessControl {
 		authToken = d.authTokenFetcher.FetchAuthToken()
@@ -72,7 +74,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	db, err := bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
+	db, err = bolt.Open("firehose_nozzle.db", 0600, &bolt.Options{})
 	if err != nil {
 		return err
 	}
@@ -82,7 +84,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.client = d.createClient()
 	d.cfClient = d.createCfClient()
 	d.processor = d.createProcessor()
-	err := d.consumeFirehose(authToken)
+	err = d.consumeFirehose(authToken)
 	if err != nil {
 		return err
 	}
