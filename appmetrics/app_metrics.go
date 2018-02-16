@@ -107,10 +107,14 @@ func (am *AppMetrics) updateCacheLoop() {
 func (am *AppMetrics) reloadCache() error {
 	// Create Apps Bucket
 	err := am.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(am.appBucket)
+		b, err := tx.CreateBucketIfNotExists(am.appBucket)
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
 		}
+		if b == nil {
+			return fmt.Errorf("bucket not created")
+		}
+		println("finished update function")
 		return nil
 	})
 	if err != nil {
