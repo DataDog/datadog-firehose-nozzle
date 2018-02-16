@@ -8,8 +8,8 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
-	"github.com/boltdb/bolt"
 	cfclient "github.com/cloudfoundry-community/go-cfclient"
+	bolt "github.com/coreos/bbolt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
