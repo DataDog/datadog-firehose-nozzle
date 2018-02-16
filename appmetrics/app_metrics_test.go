@@ -7,6 +7,7 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	cfclient "github.com/cloudfoundry-community/go-cfclient"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,23 +22,34 @@ var _ = Describe("AppMetrics", func() {
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
+		fakeCfClient           *cfclient.Client
 	)
 
 	BeforeEach(func() {
 		log = gosteno.NewLogger("datadogclient test")
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
+
 		ccAPIURL = fakeCloudControllerAPI.URL()
+		cfg := cfclient.Config{
+			ApiAddress:        ccAPIURL,
+			ClientID:          "bearer",
+			ClientSecret:      "123456789",
+			SkipSslValidation: true,
+			UserAgent:         "datadog-firehose-nozzle",
+		}
+		fakeCfClient, _ = cfclient.NewClient(&cfg)
+
 	}, 0)
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := New("http://localhost", "", "", true, 10, log, []string{})
+			_, err := New(nil, 10, log, []string{})
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
+			a, err := New(fakeCfClient, 10, log, []string{})
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -45,13 +57,13 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
-			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
+			a, _ := New(fakeCfClient, 10, log, []string{})
 			_, err := a.getAppData("guid")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("grabs from the cache when it should be", func() {
-			a, _ := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
+			a, _ := New(fakeCfClient, 10, log, []string{})
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
 			app, err := a.getAppData("guid1")
@@ -62,7 +74,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("metric evaluation test", func() {
 		It("parses an event properly", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{})
+			a, err := New(fakeCfClient, 10, log, []string{})
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -113,7 +125,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := New(ccAPIURL, "bearer", "123456789", true, 10, log, []string{"custom:tag", "foo:bar"})
+			a, err := New(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"})
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
