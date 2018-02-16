@@ -50,6 +50,9 @@ var _ = Describe("AppMetrics", func() {
 	}, 0)
 	AfterEach(func() {
 		db.Close()
+	})
+
+	AfterSuite(func() {
 		os.Remove("firehose_nozzle.db")
 	})
 
