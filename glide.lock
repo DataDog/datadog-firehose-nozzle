@@ -1,5 +1,5 @@
-hash: ff7c7f98bd29345069f8f7e2c171f12d46dff4c9dee144709ca8b47ce97279a0
-updated: 2018-02-16T16:23:17.646635967-05:00
+hash: 7d0f8323b1e68417f57a3339c4cf0b47bf16c3d73dd797a625da6539bb8769c0
+updated: 2018-02-16T16:50:18.224027713-05:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
@@ -13,10 +13,13 @@ imports:
   version: 62f94a1e205fd1523746191c8adb816007fa73bb
 - name: github.com/cloudfoundry/gosteno
   version: 0c8581caea35ac903728230e447792e2365dcc34
+  subpackages:
+  - syslog
 - name: github.com/cloudfoundry/noaa
   version: a1d4a94e2be6711111893c59538976d07ef7ea98
   subpackages:
   - consumer
+  - consumer/internal
   - errors
 - name: github.com/cloudfoundry/sonde-go
   version: 78019103037ae46207993c8816e970d85bf1a9e4
@@ -29,16 +32,80 @@ imports:
 - name: github.com/gogo/protobuf
   version: 100ba4e885062801d56799d78530b73b178a78f3
   subpackages:
+  - gogoproto
+  - proto
+  - protoc-gen-gogo/descriptor
+- name: github.com/golang/protobuf
+  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
+  subpackages:
   - proto
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+- name: github.com/hashicorp/go-cleanhttp
+  version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/go-retryablehttp
   version: 794af36148bf63c118d6db80eb902a136b907e71
+- name: github.com/pkg/errors
+  version: c605e284fe17294bda444b34710735b29d1a9d90
+- name: golang.org/x/net
+  version: db8e4de5b2d6653f66aea53094624468caad15d2
+  subpackages:
+  - context
+- name: golang.org/x/oauth2
+  version: b5adcc2dcdf009d0391547edc6ecbaff889f5bb9
+  subpackages:
+  - clientcredentials
+  - internal
+- name: golang.org/x/sys
+  version: 39e3dc274464e7d2f663aa606a830611bae5f1db
+  subpackages:
+  - unix
+- name: google.golang.org/appengine
+  version: 9d8544a6b2c7df9cff240fcf92d7b2f59bc13416
+  subpackages:
+  - internal
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/remote_api
+  - internal/urlfetch
+  - urlfetch
 testImports:
 - name: github.com/onsi/ginkgo
-  version: ""
-- name: github.com/onsi/gomega
-  version: ""
+  version: 77a8c1e5c40d6bb6c5eb4dd4bdce9763564f6298
   subpackages:
-  - gexec
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/spec_iterator
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - reporters/stenographer/support/go-colorable
+  - reporters/stenographer/support/go-isatty
   - types
+- name: github.com/onsi/gomega
+  version: 334b8f472b3af5d541c5642701c1e29e2126f486
+  subpackages:
+  - format
+  - gbytes
+  - gexec
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
+- name: gopkg.in/yaml.v2
+  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
