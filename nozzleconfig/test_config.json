@@ -21,5 +21,6 @@
   "AppMetrics": true,
   "NumWorkers": 1,
   "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ],
-  "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ]
+  "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ],
+  "DBPath": "/var/vcap/nozzle.db"
 }

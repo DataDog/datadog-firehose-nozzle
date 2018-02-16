@@ -48,15 +48,14 @@ func New(
 		db:           db,
 	}
 
+	// First, create the cache db or grab the app cache from it
+	appMetrics.reloadCache()
 	go appMetrics.updateCacheLoop()
 
 	return appMetrics, nil
 }
 
 func (am *AppMetrics) updateCacheLoop() {
-	// First, create the cache db or grab the app cache from it
-	am.reloadCache()
-
 	// If an app hasn't sent a metric in a while,
 	// assume that it's either been taken down or
 	// that the loggregator is routing it to a different nozzle and remove it from the cache

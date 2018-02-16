@@ -77,5 +77,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DeploymentFilter).To(Equal("env-deployment-filter"))
 		Expect(conf.DisableAccessControl).To(Equal(true))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(30))
+		Expect(conf.DBPath).To(BeEquivalentTo("/var/vcap/nozzle.db"))
 	})
 })
