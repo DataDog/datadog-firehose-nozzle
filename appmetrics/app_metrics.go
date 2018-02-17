@@ -48,8 +48,9 @@ func New(
 		db:           db,
 	}
 
-	// First, create the cache db or grab the app cache from it
+	// create the cache db or grab the app cache from it
 	appMetrics.reloadCache()
+	// start the background loop to keep the cache up to date
 	go appMetrics.updateCacheLoop()
 
 	return appMetrics, nil
@@ -64,12 +65,12 @@ func (am *AppMetrics) updateCacheLoop() {
 		select {
 		case <-ticker.C:
 			var toRemove = []string{}
-			var tenMinutesAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
+			var oneHourAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
 			am.appLock.Lock()
 			updatedApps := make(map[string][]byte)
 			for guid, app := range am.Apps {
 				app.lock.RLock()
-				if app.updated < tenMinutesAgo {
+				if app.updated < oneHourAgo {
 					toRemove = append(toRemove, guid)
 				} else {
 					jsonApp, err := json.Marshal(app)
@@ -105,22 +106,6 @@ func (am *AppMetrics) updateCacheLoop() {
 }
 
 func (am *AppMetrics) reloadCache() error {
-	// // Create Apps Bucket
-	// err := am.db.Update(func(tx *bolt.Tx) error {
-	// 	b, err := tx.CreateBucketIfNotExists(am.appBucket)
-	// 	if err != nil {
-	// 		return fmt.Errorf("create bucket: %s", err)
-	// 	}
-	// 	if b == nil {
-	// 		return fmt.Errorf("bucket not created")
-	// 	}
-	// 	println("finished update function")
-	// 	return nil
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
 	err := am.db.Batch(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(am.appBucket)
 		if err != nil {
