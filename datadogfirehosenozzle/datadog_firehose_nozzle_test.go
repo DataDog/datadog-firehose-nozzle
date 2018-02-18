@@ -2,6 +2,7 @@ package datadogfirehosenozzle_test
 
 import (
 	"bytes"
+	"os"
 
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
@@ -69,6 +70,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}
 		gosteno.Init(c)
 		log = gosteno.NewLogger("test")
+		os.Remove("firehose_nozzle.db")
 	})
 
 	JustBeforeEach(func() {
@@ -81,6 +83,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeUAA.Close()
 		fakeFirehose.Close()
 		fakeDatadogAPI.Close()
+		os.Remove("firehose_nozzle.db")
 	})
 
 	It("receives data from the firehose", func() {
@@ -328,6 +331,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 
 			nozzle = datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
+			os.Remove("firehose_nozzle.db")
 		})
 
 		AfterEach(func() {
@@ -335,6 +339,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
+			os.Remove("firehose_nozzle.db")
 		})
 
 		It("can still tries to connect to the firehose", func() {
@@ -373,9 +378,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := &FakeTokenFetcher{}
 			nozzle = datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
+			os.Remove("firehose_nozzle.db")
 		})
 		AfterEach(func() {
 			fakeIdleFirehose.Close()
+			os.Remove("firehose_nozzle.db")
 		})
 
 		It("Start returns an error", func() {
@@ -388,6 +395,10 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	Context("with DeploymentFilter provided", func() {
 		BeforeEach(func() {
 			config.DeploymentFilter = "good-deployment-name"
+			os.Remove("firehose_nozzle.db")
+		})
+		AfterEach(func() {
+			os.Remove("firehose_nozzle.db")
 		})
 
 		JustBeforeEach(func() {

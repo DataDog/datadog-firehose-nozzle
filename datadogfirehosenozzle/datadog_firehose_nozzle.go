@@ -18,6 +18,7 @@ import (
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
+	bolt "github.com/coreos/bbolt"
 	"github.com/gorilla/websocket"
 )
 
@@ -32,6 +33,7 @@ type DatadogFirehoseNozzle struct {
 	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
 	log                   *gosteno.Logger
+	db                    *bolt.DB
 	appMetrics            bool
 	stopper               chan bool
 	workersStopper        chan bool
@@ -61,6 +63,8 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 
 func (d *DatadogFirehoseNozzle) Start() error {
 	var authToken string
+	var err error
+	var db *bolt.DB
 
 	if !d.config.DisableAccessControl {
 		authToken = d.authTokenFetcher.FetchAuthToken()
@@ -70,11 +74,26 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
+	var dbPath string = "firehose_nozzle.db"
+
+	if d.config.DBPath != "" {
+		dbPath = d.config.DBPath
+	}
+
+	db, err = bolt.Open(dbPath, 0666, &bolt.Options{
+		ReadOnly: false,
+	})
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	d.db = db
+
 	d.log.Info("Starting DataDog Firehose Nozzle...")
 	d.client = d.createClient()
 	d.cfClient = d.createCfClient()
 	d.processor = d.createProcessor()
-	err := d.consumeFirehose(authToken)
+	err = d.consumeFirehose(authToken)
 	if err != nil {
 		return err
 	}
@@ -148,6 +167,7 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 			d.config.GrabInterval,
 			d.log,
 			d.config.CustomTags,
+			d.db,
 		)
 		if err != nil {
 			d.appMetrics = false

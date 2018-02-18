@@ -32,9 +32,9 @@ type App struct {
 	TotalMemoryProvisioned int
 	ErrorGrabbing          bool
 	GrabAgain              bool
+	Tags                   []string
 	updated                int64
 	lock                   sync.RWMutex
-	Tags                   []string
 }
 
 type Instance struct {

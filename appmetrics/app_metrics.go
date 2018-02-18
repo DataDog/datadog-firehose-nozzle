@@ -1,6 +1,7 @@
 package appmetrics
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	bolt "github.com/coreos/bbolt"
 )
 
 var clearCacheDuration = 60
@@ -18,8 +20,10 @@ type AppMetrics struct {
 	log          *gosteno.Logger
 	Apps         map[string]*App
 	appLock      sync.RWMutex
+	db           *bolt.DB
 	grabInterval int
 	customTags   []string
+	appBucket    []byte
 }
 
 func New(
@@ -27,6 +31,7 @@ func New(
 	grabInterval int,
 	log *gosteno.Logger,
 	customTags []string,
+	db *bolt.DB,
 ) (*AppMetrics, error) {
 
 	if cfClient == nil {
@@ -39,14 +44,19 @@ func New(
 		Apps:         make(map[string]*App),
 		grabInterval: grabInterval,
 		customTags:   customTags,
+		appBucket:    []byte("CloudFoundryApps"),
+		db:           db,
 	}
 
-	go appMetrics.clearCacheLoop()
+	// create the cache db or grab the app cache from it
+	appMetrics.reloadCache()
+	// start the background loop to keep the cache up to date
+	go appMetrics.updateCacheLoop()
 
 	return appMetrics, nil
 }
 
-func (am *AppMetrics) clearCacheLoop() {
+func (am *AppMetrics) updateCacheLoop() {
 	// If an app hasn't sent a metric in a while,
 	// assume that it's either been taken down or
 	// that the loggregator is routing it to a different nozzle and remove it from the cache
@@ -55,12 +65,19 @@ func (am *AppMetrics) clearCacheLoop() {
 		select {
 		case <-ticker.C:
 			var toRemove = []string{}
-			var tenMinutesAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
+			var oneHourAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
 			am.appLock.Lock()
+			updatedApps := make(map[string][]byte)
 			for guid, app := range am.Apps {
 				app.lock.RLock()
-				if app.updated < tenMinutesAgo {
+				if app.updated < oneHourAgo {
 					toRemove = append(toRemove, guid)
+				} else {
+					jsonApp, err := json.Marshal(app)
+					if err != nil {
+						am.log.Infof("Error marshalling app for database: %v", err)
+					}
+					updatedApps[guid] = jsonApp
 				}
 				app.lock.RUnlock()
 			}
@@ -68,8 +85,53 @@ func (am *AppMetrics) clearCacheLoop() {
 				delete(am.Apps, guid)
 			}
 			am.appLock.Unlock()
+
+			// update the database after closing the app map
+			// since this won't affect the app map, no need to continue touching it
+			am.db.Batch(func(tx *bolt.Tx) error {
+				for _, guid := range toRemove {
+					b, err := tx.CreateBucketIfNotExists(am.appBucket)
+					if err != nil {
+						return fmt.Errorf("create bucket: %s", err)
+					}
+					b.Delete([]byte(guid))
+					for guid, jsonApp := range updatedApps {
+						b.Put([]byte(guid), jsonApp)
+					}
+				}
+				return nil
+			})
 		}
 	}
+}
+
+func (am *AppMetrics) reloadCache() error {
+	err := am.db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(am.appBucket)
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		if b == nil {
+			return fmt.Errorf("bucket not created")
+		}
+
+		am.appLock.Lock()
+		defer am.appLock.Unlock()
+
+		return b.ForEach(func(k []byte, v []byte) error {
+			guid := string(k)
+			var app *App
+			err := json.Unmarshal(v, app)
+			if err != nil {
+				return err
+			}
+			am.Apps[guid] = app
+
+			return nil
+		})
+	})
+
+	return err
 }
 
 func (am *AppMetrics) getAppData(guid string) (*App, error) {
