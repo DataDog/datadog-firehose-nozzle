@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-var (
-	DefaultWorkers int = 4
+const (
+	defaultWorkers int = 4
 )
 
 type NozzleConfig struct {
@@ -18,7 +18,6 @@ type NozzleConfig struct {
 	Client                  string
 	ClientSecret            string
 	TrafficControllerURL    string
-	DopplerEndpoint         string
 	FirehoseSubscriptionID  string
 	DataDogURL              string
 	DataDogAPIKey           string
@@ -82,7 +81,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	}
 
 	if config.NumWorkers == 0 {
-		config.NumWorkers = DefaultWorkers
+		config.NumWorkers = defaultWorkers
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
