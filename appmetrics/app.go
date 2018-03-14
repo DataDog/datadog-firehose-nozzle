@@ -113,9 +113,10 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 			Host: host,
 		}
 		p := metrics.Point{
-			Timestamp: time.Now().Unix(),
+			Timestamp: int32(time.Now().Unix()),
 			Value:     float64(ms[i]),
 		}
+
 		mVal.Points = append(mVal.Points, p)
 		metricsPackages = append(metricsPackages, metrics.MetricPackage{
 			MetricKey:   &key,

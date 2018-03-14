@@ -511,7 +511,7 @@ func makeFakeMetric(name string, timeStamp, value uint64, eventType events.Envel
 	}
 
 	point := metrics.Point{
-		Timestamp: int64(timeStamp),
+		Timestamp: int32(timeStamp),
 		Value:     float64(value),
 	}
 

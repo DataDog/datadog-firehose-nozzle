@@ -8,7 +8,7 @@ import (
 )
 
 type Point struct {
-	Timestamp int64
+	Timestamp int32
 	Value     float64
 }
 
@@ -56,7 +56,7 @@ func (p Point) MarshalJSON() ([]byte, error) {
 }
 
 func (p *Point) UnmarshalJSON(in []byte) error {
-	var timestamp int64
+	var timestamp int32
 	var value float64
 
 	parsed, err := fmt.Sscanf(string(in), `[%d,%f]`, &timestamp, &value)

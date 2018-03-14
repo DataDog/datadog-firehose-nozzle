@@ -156,7 +156,7 @@ func (c *Client) seriesURL() string {
 
 func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
 	point := metrics.Point{
-		Timestamp: time.Now().Unix(),
+		Timestamp: int32(time.Now().Unix()),
 		Value:     float64(value),
 	}
 

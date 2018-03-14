@@ -32,7 +32,7 @@ func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.Metri
 	mVal.Host = host
 	mVal.Tags = tags
 	mVal.Points = append(mVal.Points, metrics.Point{
-		Timestamp: envelope.GetTimestamp() / int64(time.Second),
+		Timestamp: int32(envelope.GetTimestamp() / int64(time.Second)),
 		Value:     value,
 	})
 
