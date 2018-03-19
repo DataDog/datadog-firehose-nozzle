@@ -229,6 +229,8 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 		metricsMap[k] = v
 	}
 	totalMessagesReceived := d.totalMessagesReceived
+	d.totalMetricsSent += uint64(len(metricsMap))
+	d.metricsMap = make(metrics.MetricsMap)
 	d.mapLock.Unlock()
 
 	// Add internal metrics
@@ -239,16 +241,13 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
 	metricsMap[k] = v
 
-	err := d.client.PostMetrics(metricsMap)
-	if err != nil {
-		d.log.Errorf("Error posting metrics: %s\n\n", err)
-		return
-	}
+	go func() {
+		err := d.client.PostMetrics(metricsMap)
+		if err != nil {
+			d.log.Errorf("Error posting metrics: %s\n\n", err)
+		}
+	}()
 
-	d.totalMetricsSent += uint64(len(metricsMap))
-	d.mapLock.Lock()
-	d.metricsMap = make(metrics.MetricsMap)
-	d.mapLock.Unlock()
 	d.ResetSlowConsumerError()
 }
 
