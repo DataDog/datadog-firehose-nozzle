@@ -146,6 +146,8 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 		return fmt.Errorf("datadog request returned HTTP response: %s\nResponse Body: %s", resp.Status, body)
 	}
 
+	c.log.Debugf("Finished posting metrics")
+
 	return nil
 }
 
