@@ -37,12 +37,12 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		fakeFirehose.Start()
 		fakeDatadogAPI.Start()
 
-		os.Setenv("NOZZLE_FLUSHDURATIONSECONDS", "2")
+		os.Setenv("NOZZLE_FLUSHDURATIONSECONDS", "1")
 		os.Setenv("NOZZLE_FLUSHMAXBYTES", "10240")
 		os.Setenv("NOZZLE_UAAURL", fakeUAA.URL())
 		os.Setenv("NOZZLE_DATADOGURL", fakeDatadogAPI.URL())
 		os.Setenv("NOZZLE_TRAFFICCONTROLLERURL", strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1))
-		os.Setenv("NOZZLE_NUM_WORKERS", "2")
+		os.Setenv("NOZZLE_NUM_WORKERS", "1")
 
 		var err error
 		nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", "fixtures/test-config.json")
@@ -62,7 +62,6 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 	})
 
 	It("forwards metrics in a batch", func(done Done) {
-
 		fakeFirehose.AddEvent(events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -104,8 +103,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 
 		// eventually receive a batch from fake DD
 		var messageBytes []byte
-		Eventually(fakeDatadogAPI.ReceivedContents, "10s").Should(Receive(&messageBytes))
-
+		Eventually(fakeDatadogAPI.ReceivedContents, "120s").Should(Receive(&messageBytes))
 		// Break JSON blob into a list of blobs, one for each metric
 		var payload datadogclient.Payload
 		err := json.Unmarshal(messageBytes, &payload)
