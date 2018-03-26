@@ -1,6 +1,7 @@
 package datadogfirehosenozzle
 
 import (
+	"github.com/DataDog/datadog-firehose-nozzle/datadogfirehosenozzle/nozzlestats"
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
@@ -43,7 +44,7 @@ func (d *DatadogFirehoseNozzle) readProcessedMetrics() {
 		select {
 		case pkg := <-d.processedMetrics:
 			d.mapLock.Lock()
-			d.totalMessagesReceived++
+			nozzlestats.TotalMessagesReceived.Add(1)
 			for _, m := range pkg {
 				d.metricsMap.Add(*m.MetricKey, *m.MetricValue)
 			}

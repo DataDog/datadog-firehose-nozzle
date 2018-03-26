@@ -11,6 +11,10 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/logger"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
+
+	// this imports expvar, but the nozzle doesn't and shouldn't run a server
+	// it's used purely for internal metrics
+	_ "expvar"
 )
 
 const flushMinBytes uint32 = 1024

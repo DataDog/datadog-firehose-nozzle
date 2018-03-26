@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/datadogfirehosenozzle/nozzlestats"
 	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
@@ -23,25 +24,23 @@ import (
 )
 
 type DatadogFirehoseNozzle struct {
-	config                *nozzleconfig.NozzleConfig
-	errs                  <-chan error
-	messages              <-chan *events.Envelope
-	authTokenFetcher      AuthTokenFetcher
-	consumer              *consumer.Consumer
-	client                *datadogclient.Client
-	processor             *metricProcessor.Processor
-	cfClient              *cfclient.Client
-	processedMetrics      chan []metrics.MetricPackage
-	log                   *gosteno.Logger
-	db                    *bolt.DB
-	appMetrics            bool
-	stopper               chan bool
-	workersStopper        chan bool
-	mapLock               sync.RWMutex
-	metricsMap            metrics.MetricsMap // modified by workers & main thread
-	totalMessagesReceived uint64             // modified by workers, read by main thread
-	slowConsumerAlert     uint64             // modified by workers, read by main thread
-	totalMetricsSent      uint64
+	config            *nozzleconfig.NozzleConfig
+	errs              <-chan error
+	messages          <-chan *events.Envelope
+	authTokenFetcher  AuthTokenFetcher
+	consumer          *consumer.Consumer
+	client            *datadogclient.Client
+	processor         *metricProcessor.Processor
+	cfClient          *cfclient.Client
+	processedMetrics  chan []metrics.MetricPackage
+	log               *gosteno.Logger
+	db                *bolt.DB
+	appMetrics        bool
+	stopper           chan bool
+	workersStopper    chan bool
+	mapLock           sync.RWMutex
+	metricsMap        metrics.MetricsMap // modified by workers & main thread
+	slowConsumerAlert uint64
 }
 
 type AuthTokenFetcher interface {
@@ -228,28 +227,30 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	for k, v := range d.metricsMap {
 		metricsMap[k] = v
 	}
-	totalMessagesReceived := d.totalMessagesReceived
+	d.metricsMap = make(metrics.MetricsMap)
 	d.mapLock.Unlock()
 
 	// Add internal metrics
+	totalMessagesReceived := uint64(nozzlestats.TotalMessagesReceived.Value())
 	k, v := d.client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived)
 	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent)
+	totalMetricsSent := uint64(nozzlestats.TotalMetricsSent.Value())
+	k, v = d.client.MakeInternalMetric("totalMetricsSent", totalMetricsSent)
 	metricsMap[k] = v
 	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
 	metricsMap[k] = v
 
-	err := d.client.PostMetrics(metricsMap)
-	if err != nil {
-		d.log.Errorf("Error posting metrics: %s\n\n", err)
-		return
-	}
+	go func() {
+		err := d.client.PostMetrics(metricsMap)
+		if err != nil {
+			d.log.Errorf("Error posting metrics: %s\n\n", err)
+			return
+		}
 
-	d.totalMetricsSent += uint64(len(metricsMap))
-	d.mapLock.Lock()
-	d.metricsMap = make(metrics.MetricsMap)
-	d.mapLock.Unlock()
-	d.ResetSlowConsumerError()
+		nozzlestats.TotalMetricsSent.Add(int64(len(metricsMap)))
+
+		d.ResetSlowConsumerError()
+	}()
 }
 
 func (d *DatadogFirehoseNozzle) handleError(err error) {
