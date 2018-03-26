@@ -1,6 +1,8 @@
 package integration_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -24,4 +26,5 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
+	os.Remove("firehose_nozzle.db")
 })

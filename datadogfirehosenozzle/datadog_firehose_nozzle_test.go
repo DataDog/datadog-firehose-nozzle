@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/localip"
+	"github.com/DataDog/datadog-firehose-nozzle/datadogfirehosenozzle/nozzlestats"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/gogo/protobuf/proto"
@@ -76,6 +77,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	JustBeforeEach(func() {
 		tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 		nozzle = datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
+		nozzlestats.TotalMessagesReceived.Set(0)
+		nozzlestats.TotalMetricsSent.Set(0)
 	})
 
 	AfterEach(func() {

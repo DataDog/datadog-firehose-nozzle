@@ -42,7 +42,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		os.Setenv("NOZZLE_UAAURL", fakeUAA.URL())
 		os.Setenv("NOZZLE_DATADOGURL", fakeDatadogAPI.URL())
 		os.Setenv("NOZZLE_TRAFFICCONTROLLERURL", strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1))
-		os.Setenv("NOZZLE_NUM_WORKERS", "1")
+		os.Setenv("NOZZLE_NUM_WORKERS", "2")
 
 		var err error
 		nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", "fixtures/test-config.json")

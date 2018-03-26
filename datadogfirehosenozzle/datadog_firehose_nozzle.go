@@ -40,7 +40,7 @@ type DatadogFirehoseNozzle struct {
 	workersStopper    chan bool
 	mapLock           sync.RWMutex
 	metricsMap        metrics.MetricsMap // modified by workers & main thread
-	slowConsumerAlert uint64
+	slowConsumerAlert int64
 }
 
 type AuthTokenFetcher interface {
@@ -231,13 +231,14 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	d.mapLock.Unlock()
 
 	// Add internal metrics
-	totalMessagesReceived := uint64(nozzlestats.TotalMessagesReceived.Value())
+	totalMessagesReceived := nozzlestats.TotalMessagesReceived.Value()
 	k, v := d.client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived)
 	metricsMap[k] = v
-	totalMetricsSent := uint64(nozzlestats.TotalMetricsSent.Value())
+	totalMetricsSent := nozzlestats.TotalMetricsSent.Value()
 	k, v = d.client.MakeInternalMetric("totalMetricsSent", totalMetricsSent)
 	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
+	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadInt64(&d.slowConsumerAlert))
+
 	metricsMap[k] = v
 
 	go func() {
@@ -285,9 +286,9 @@ func (d *DatadogFirehoseNozzle) keepMessage(envelope *events.Envelope) bool {
 }
 
 func (d *DatadogFirehoseNozzle) ResetSlowConsumerError() {
-	atomic.StoreUint64(&d.slowConsumerAlert, 0)
+	atomic.StoreInt64(&d.slowConsumerAlert, 0)
 }
 
 func (d *DatadogFirehoseNozzle) AlertSlowConsumerError() {
-	atomic.StoreUint64(&d.slowConsumerAlert, 1)
+	atomic.StoreInt64(&d.slowConsumerAlert, 1)
 }

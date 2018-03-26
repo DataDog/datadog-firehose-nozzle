@@ -66,6 +66,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvVar("NOZZLE_METRICPREFIX", &config.MetricPrefix)
 	overrideWithEnvVar("NOZZLE_DEPLOYMENT", &config.Deployment)
 	overrideWithEnvVar("NOZZLE_DEPLOYMENT_FILTER", &config.DeploymentFilter)
+	overrideWithEnvVar("NOZZLE_CLOUD_CONTROLLER_URL", &config.CloudControllerEndpoint)
 
 	overrideWithEnvUint32("NOZZLE_FLUSHDURATIONSECONDS", &config.FlushDurationSeconds)
 	overrideWithEnvUint32("NOZZLE_FLUSHMAXBYTES", &config.FlushMaxBytes)

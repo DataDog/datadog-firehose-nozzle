@@ -154,7 +154,7 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
+func (c *Client) MakeInternalMetric(name string, value int64) (metrics.MetricKey, metrics.MetricValue) {
 	point := metrics.Point{
 		Timestamp: time.Now().Unix(),
 		Value:     float64(value),
