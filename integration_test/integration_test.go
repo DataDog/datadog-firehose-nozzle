@@ -103,7 +103,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 
 		// eventually receive a batch from fake DD
 		var messageBytes []byte
-		Eventually(fakeDatadogAPI.ReceivedContents, "1200s", "10ms").Should(Receive(&messageBytes))
+		Eventually(fakeDatadogAPI.ReceivedContents, "10s", "10ms").Should(Receive(&messageBytes))
 		// Break JSON blob into a list of blobs, one for each metric
 		var payload datadogclient.Payload
 		err := json.Unmarshal(messageBytes, &payload)
@@ -165,5 +165,5 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		}
 
 		close(done)
-	}, 2.0)
+	}, 20.0)
 })
