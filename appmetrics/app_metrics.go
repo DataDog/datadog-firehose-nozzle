@@ -183,6 +183,8 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 	}
 	if resolvedApp.Buildpack != "" {
 		app.Buildpack = resolvedApp.Buildpack
+	} else if resolvedApp.DetectedBuildpack != "" {
+		app.Buildpack = resolvedApp.DetectedBuildpack
 	} else if app.Buildpack == "" {
 		app.GrabAgain = true
 	}
