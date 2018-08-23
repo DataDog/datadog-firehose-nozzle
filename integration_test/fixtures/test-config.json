@@ -5,7 +5,7 @@
   "TrafficControllerURL": "ws://localhost:8086",
   "FirehoseSubscriptionID": "datadog-nozzle",
   "DataDogURL": "http://localhost:8087",
-  "DataDogAPIKey": "some-key",
+  "DataDogAPIKeys": ["some-key"],
   "FlushDurationSeconds": 1,
   "InsecureSSLSkipVerify": true,
   "MetricPrefix": "",

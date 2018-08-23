@@ -29,7 +29,7 @@ type DatadogFirehoseNozzle struct {
 	messages              <-chan *events.Envelope
 	authTokenFetcher      AuthTokenFetcher
 	consumer              *consumer.Consumer
-	client                *datadogclient.Client
+	clients               []*datadogclient.Client
 	processor             *metricProcessor.Processor
 	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
@@ -91,8 +91,11 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.db = db
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
-	d.client = d.createClient()
-	d.cfClient = d.createCfClient()
+	d.clients, err = d.createClient()
+	if err != nil {
+		return err
+	}
+	d.cfClient = d.createCFClient()
 	d.processor = d.createProcessor()
 	err = d.consumeFirehose(authToken)
 	if err != nil {
@@ -105,7 +108,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	return err
 }
 
-func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
+func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
@@ -119,25 +122,30 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 			NoProxy: d.config.NoProxy,
 		}
 	}
+	if len(d.config.DataDogAPIKeys) == 0 {
+		return nil, fmt.Errorf("at least one Datadog Api Key must be provided")
+	}
+	var ddClients []*datadogclient.Client
+	for i := 0; i < len(d.config.DataDogAPIKeys); i++ {
+		ddClients = append(ddClients, datadogclient.New(
+			d.config.DataDogURL,
+			d.config.DataDogAPIKeys[i],
+			d.config.MetricPrefix,
+			d.config.Deployment,
+			ipAddress,
+			time.Duration(d.config.DataDogTimeoutSeconds) * time.Second,
+			time.Duration(d.config.FlushDurationSeconds) * time.Second,
+			d.config.FlushMaxBytes,
+			d.log,
+			d.config.CustomTags,
+			proxy,
+		))
+	}
 
-	client := datadogclient.New(
-		d.config.DataDogURL,
-		d.config.DataDogAPIKey,
-		d.config.MetricPrefix,
-		d.config.Deployment,
-		ipAddress,
-		time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
-		time.Duration(d.config.FlushDurationSeconds)*time.Second,
-		d.config.FlushMaxBytes,
-		d.log,
-		d.config.CustomTags,
-		proxy,
-	)
-
-	return client
+	return ddClients, nil
 }
 
-func (d *DatadogFirehoseNozzle) createCfClient() *cfclient.Client {
+func (d *DatadogFirehoseNozzle) createCFClient() *cfclient.Client {
 	if d.config.CloudControllerEndpoint == "" {
 		d.log.Warnf("The Cloud Controller Endpoint needs to be set in order to set up the cf client")
 		return nil
@@ -232,18 +240,21 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	totalMessagesReceived := d.totalMessagesReceived
 	d.mapLock.Unlock()
 
-	// Add internal metrics
-	k, v := d.client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived)
-	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent)
-	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
-	metricsMap[k] = v
+	for i := range d.config.DataDogAPIKeys {
+		timestamp := time.Now().Unix()
+		// Add internal metrics
+		k, v := d.clients[i].MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
+		metricsMap[k] = v
+		k, v = d.clients[i].MakeInternalMetric("totalMetricsSent", d.totalMetricsSent, timestamp)
+		metricsMap[k] = v
+		k, v = d.clients[i].MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
+		metricsMap[k] = v
 
-	err := d.client.PostMetrics(metricsMap)
-	if err != nil {
-		d.log.Errorf("Error posting metrics: %s\n\n", err)
-		return
+		err := d.clients[0].PostMetrics(metricsMap)
+		if err != nil {
+			d.log.Errorf("Error posting metrics: %s\n\n", err)
+			return
+		}
 	}
 
 	d.totalMetricsSent += uint64(len(metricsMap))

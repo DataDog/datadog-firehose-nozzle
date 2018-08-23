@@ -5,7 +5,7 @@
   "TrafficControllerURL": "wss://doppler.walnut.cf-app.com:4443",
   "FirehoseSubscriptionID": "datadog-nozzle",
   "DataDogURL": "https://app.datadoghq.com/api/v1/series",
-  "DataDogAPIKey": "<enter api key>",
+  "DataDogAPIKeys": ["api-key1", "api-key2"],
   "HTTPProxyURL": "http://user:password@host.com:port",
   "HTTPSProxyURL": "https://user:password@host.com:port",
   "DataDogTimeoutSeconds": 5,

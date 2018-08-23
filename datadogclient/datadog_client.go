@@ -149,9 +149,9 @@ func (c *Client) seriesURL() string {
 	return fmt.Sprintf("%s?api_key=%s", c.apiURL, c.apiKey)
 }
 
-func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
+func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) (metrics.MetricKey, metrics.MetricValue) {
 	point := metrics.Point{
-		Timestamp: time.Now().Unix(),
+		Timestamp: timestamp,
 		Value:     float64(value),
 	}
 

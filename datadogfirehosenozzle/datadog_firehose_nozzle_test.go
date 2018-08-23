@@ -52,6 +52,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			FlushDurationSeconds: 10,
 			FlushMaxBytes:        10240,
 			DataDogURL:           fakeDatadogAPI.URL(),
+			DataDogAPIKeys:       []string{"apikey"},
 			TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
 			DisableAccessControl: false,
 			MetricPrefix:         "datadog.nozzle.",
@@ -323,6 +324,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				FlushDurationSeconds: 1,
 				FlushMaxBytes:        10240,
 				DataDogURL:           fakeDatadogAPI.URL(),
+				DataDogAPIKeys:       []string{"apikey"},
 				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
 				DisableAccessControl: true,
 				NumWorkers:           1,
@@ -366,6 +368,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			config = &nozzleconfig.NozzleConfig{
 				DataDogURL:           fakeDatadogAPI.URL(),
+				DataDogAPIKeys:       []string{"apikey"},
 				TrafficControllerURL: strings.Replace(fakeIdleFirehose.URL(), "http:", "ws:", 1),
 				DisableAccessControl: true,
 				IdleTimeoutSeconds:   1,
