@@ -250,7 +250,7 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 		k, v = d.clients[i].MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
-		err := d.clients[0].PostMetrics(metricsMap)
+		err := d.clients[i].PostMetrics(metricsMap)
 		if err != nil {
 			d.log.Errorf("Error posting metrics: %s\n\n", err)
 			return
