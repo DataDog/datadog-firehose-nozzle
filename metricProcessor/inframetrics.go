@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudfoundry/sonde-go/events"
+
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
-	"github.com/cloudfoundry/sonde-go/events"
 )
 
 func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
-	metricsPackages := []metrics.MetricPackage{}
+	var metricsPackages []metrics.MetricPackage
 
 	if envelope.GetEventType() != events.Envelope_ValueMetric && envelope.GetEventType() != events.Envelope_CounterEvent {
 		return metricsPackages, fmt.Errorf("not an infra metric")

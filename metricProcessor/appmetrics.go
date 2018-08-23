@@ -3,12 +3,13 @@ package metricProcessor
 import (
 	"fmt"
 
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/sonde-go/events"
+
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
 func (p *Processor) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
-	metricsPackages := []metrics.MetricPackage{}
+	var metricsPackages []metrics.MetricPackage
 	var err error
 
 	if p.appMetrics == nil {

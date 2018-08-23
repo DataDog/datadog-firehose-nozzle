@@ -1,12 +1,12 @@
 package metricProcessor
 
 import (
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
 var (
@@ -55,19 +55,9 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(metricPkgs).To(HaveLen(4))
 		for _, metric := range metricPkgs {
 			if metric.MetricKey.Name == "valueName" || metric.MetricKey.Name == "origin.valueName" {
-				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{
-					metrics.Point{
-						Timestamp: 1,
-						Value:     5.0,
-					},
-				}))
+				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{{Timestamp: 1, Value: 5.0}}))
 			} else if metric.MetricKey.Name == "counterName" || metric.MetricKey.Name == "origin.counterName" {
-				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{
-					metrics.Point{
-						Timestamp: 2,
-						Value:     11.0,
-					},
-				}))
+				Expect(metric.MetricValue.Points).To(Equal([]metrics.Point{{Timestamp: 2, Value: 11.0}}))
 			} else {
 				panic("unknown metric in package: " + metric.MetricKey.Name)
 			}

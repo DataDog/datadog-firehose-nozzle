@@ -6,23 +6,23 @@ import (
 	"os"
 	"time"
 
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
-	cfclient "github.com/cloudfoundry-community/go-cfclient"
-	bolt "github.com/coreos/bbolt"
+	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/coreos/bbolt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 )
 
 var _ = Describe("AppMetrics", func() {
 	var (
 		log                    *gosteno.Logger
-		fakeCloudControllerAPI *FakeCloudControllerAPI
+		fakeCloudControllerAPI *testhelpers.FakeCloudControllerAPI
 		ccAPIURL               string
 		fakeCfClient           *cfclient.Client
 		db                     *bolt.DB
@@ -31,7 +31,7 @@ var _ = Describe("AppMetrics", func() {
 	BeforeEach(func() {
 		var err error
 		log = gosteno.NewLogger("datadogclient test")
-		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
+		fakeCloudControllerAPI = testhelpers.NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
@@ -196,7 +196,7 @@ func (m *containMetric) Match(actual interface{}) (success bool, err error) {
 	var ok bool
 	m.haystack, ok = actual.([]metrics.MetricPackage)
 	if !ok {
-		return false, errors.New("Actual must be of type []metrics.MetricPackage")
+		return false, errors.New("actual must be of type []metrics.MetricPackage")
 	}
 	for _, pkg := range m.haystack {
 		if pkg.MetricKey.Name == m.needle {

@@ -1,10 +1,10 @@
 package nozzleconfig_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestNozzleConfig(t *testing.T) {

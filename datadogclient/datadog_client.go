@@ -3,21 +3,19 @@ package datadogclient
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"io/ioutil"
+	"github.com/cloudfoundry/gosteno"
+	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
-	"github.com/cloudfoundry/gosteno"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
-
-const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 
 type Client struct {
 	apiURL       string
@@ -121,9 +119,7 @@ func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
-	url := c.seriesURL()
-
-	req, err := retryablehttp.NewRequest("POST", url, bytes.NewReader(seriesBytes))
+	req, err := retryablehttp.NewRequest("POST", c.seriesURL(), bytes.NewReader(seriesBytes))
 	if err != nil {
 		return err
 	}
@@ -150,8 +146,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 }
 
 func (c *Client) seriesURL() string {
-	url := fmt.Sprintf("%s?api_key=%s", c.apiURL, c.apiKey)
-	return url
+	return fmt.Sprintf("%s?api_key=%s", c.apiURL, c.apiKey)
 }
 
 func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
@@ -221,7 +216,7 @@ func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Requ
 		parsedURL, err := url.Parse(proxyURL)
 		if err != nil {
 			logger.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
-			return nil, fmt.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
+			return nil, fmt.Errorf("could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
 		}
 
 		// Clean up the proxy URL for logging

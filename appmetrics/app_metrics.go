@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
+	"github.com/coreos/bbolt"
+
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
 var clearCacheDuration = 60
@@ -35,7 +36,7 @@ func New(
 ) (*AppMetrics, error) {
 
 	if cfClient == nil {
-		return nil, fmt.Errorf("The CF Client needs to be properly set up to use appmetrics")
+		return nil, fmt.Errorf("the CF Client needs to be properly set up to use appmetrics")
 	}
 
 	appMetrics := &AppMetrics{
@@ -64,7 +65,7 @@ func (am *AppMetrics) updateCacheLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			var toRemove = []string{}
+			var toRemove []string
 			var oneHourAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
 			am.appLock.Lock()
 			updatedApps := make(map[string][]byte)
@@ -264,7 +265,7 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 }
 
 func (am *AppMetrics) ParseAppMetric(envelope *events.Envelope) ([]metrics.MetricPackage, error) {
-	metricsPackages := []metrics.MetricPackage{}
+	var metricsPackages []metrics.MetricPackage
 	message := envelope.GetContainerMetric()
 
 	guid := message.GetApplicationId()

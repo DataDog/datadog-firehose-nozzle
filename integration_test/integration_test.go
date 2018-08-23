@@ -2,36 +2,35 @@ package integration_test
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
-
-	"os"
-	"strings"
-
-	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 )
 
 var _ = Describe("DatadogFirehoseNozzle", func() {
 	var (
-		fakeUAA        *FakeUAA
-		fakeFirehose   *FakeFirehose
-		fakeDatadogAPI *FakeDatadogAPI
+		fakeUAA        *testhelpers.FakeUAA
+		fakeFirehose   *testhelpers.FakeFirehose
+		fakeDatadogAPI *testhelpers.FakeDatadogAPI
 
 		nozzleSession *gexec.Session
 	)
 
 	BeforeEach(func() {
-		fakeUAA = NewFakeUAA("bearer", "123456789")
+		fakeUAA = testhelpers.NewFakeUAA("bearer", "123456789")
 		fakeToken := fakeUAA.AuthToken()
-		fakeFirehose = NewFakeFirehose(fakeToken)
-		fakeDatadogAPI = NewFakeDatadogAPI()
+		fakeFirehose = testhelpers.NewFakeFirehose(fakeToken)
+		fakeDatadogAPI = testhelpers.NewFakeDatadogAPI()
 
 		fakeUAA.Start()
 		fakeFirehose.Start()
@@ -119,17 +118,11 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				if metric.Tags[1] == "job:doppler" {
 					Expect(metric.Points).To(Equal([]metrics.Point{
-						metrics.Point{
-							Timestamp: 1,
-							Value:     5.0,
-						},
+						{Timestamp: 1, Value: 5.0},
 					}))
 				} else if metric.Tags[1] == "job:gorouter" {
 					Expect(metric.Points).To(Equal([]metrics.Point{
-						metrics.Point{
-							Timestamp: 2,
-							Value:     10.0,
-						},
+						{Timestamp: 2, Value: 10.0},
 					}))
 				} else {
 					panic("Unknown tag")
@@ -140,10 +133,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(metric.Tags[1]).To(Equal("job:doppler"))
 
 				Expect(metric.Points).To(Equal([]metrics.Point{
-					metrics.Point{
-						Timestamp: 3,
-						Value:     15.0,
-					},
+					{Timestamp: 3, Value: 15.0},
 				}))
 			} else if metric.Metric == "cloudfoundry.nozzle.totalMessagesReceived" {
 				Expect(metric.Tags).To(HaveLen(2))

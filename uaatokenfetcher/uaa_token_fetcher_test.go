@@ -1,12 +1,12 @@
 package uaatokenfetcher_test
 
 import (
-	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
 	"github.com/cloudfoundry/gosteno"
-
-	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
 )
 
 var _ = Describe("UaaTokenFetcher", func() {

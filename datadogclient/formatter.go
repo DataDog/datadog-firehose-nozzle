@@ -3,8 +3,9 @@ package datadogclient
 import (
 	"encoding/json"
 
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/gosteno"
+
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
 type Formatter struct {
@@ -31,7 +32,7 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metrics.M
 }
 
 func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metrics.MetricValue) []byte {
-	s := []metrics.Series{}
+	var s []metrics.Series
 	for key, mVal := range data {
 		m := metrics.Series{
 			Metric: prefix + key.Name,

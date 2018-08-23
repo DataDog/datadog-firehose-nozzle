@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/localip"
-	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
-	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
-	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
+	"github.com/coreos/bbolt"
 	"github.com/gorilla/websocket"
+
+	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
+	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
+	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
+	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 )
 
 type DatadogFirehoseNozzle struct {
@@ -74,7 +75,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	var dbPath string = "firehose_nozzle.db"
+	var dbPath = "firehose_nozzle.db"
 
 	if d.config.DBPath != "" {
 		dbPath = d.config.DBPath
@@ -186,7 +187,7 @@ func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
 		if d.cfClient != nil {
 			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
 		} else {
-			return fmt.Errorf("Either the TrafficController URL or the CC URL needs to be set")
+			return fmt.Errorf("either the TrafficController URL or the CC URL needs to be set")
 		}
 	}
 

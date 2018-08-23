@@ -1,9 +1,10 @@
 package metricProcessor
 
 import (
+	"github.com/cloudfoundry/sonde-go/events"
+
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	"github.com/cloudfoundry/sonde-go/events"
 )
 
 type Processor struct {

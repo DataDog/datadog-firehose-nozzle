@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultWorkers int = 4
+	defaultWorkers = 4
 )
 
 type NozzleConfig struct {
@@ -45,12 +45,12 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	configBytes, err := ioutil.ReadFile(configPath)
 	var config NozzleConfig
 	if err != nil {
-		return nil, fmt.Errorf("Can not read config file [%s]: %s", configPath, err)
+		return nil, fmt.Errorf("can not read config file [%s]: %s", configPath, err)
 	}
 
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
-		return nil, fmt.Errorf("Can not parse config file %s: %s", configPath, err)
+		return nil, fmt.Errorf("can not parse config file %s: %s", configPath, err)
 	}
 
 	overrideWithEnvVar("NOZZLE_UAAURL", &config.UAAURL)
