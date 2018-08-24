@@ -25,23 +25,32 @@ import (
 
 type DatadogFirehoseNozzle struct {
 	config                *nozzleconfig.NozzleConfig
+	authToken			  string
+	log                   *gosteno.Logger
+	// appMetrics defined if nozzle should collect application metrics or not
+	appMetrics            bool
+	// consumer instance collecting events from the firehose
+	consumer              *consumer.Consumer
+	// cfClient is the cloudfoundry client used to connect to the Cloud Controller
+	cfClient              *cfclient.Client
+	// errs and messages correspond to raw elements consumed by the consumer
 	errs                  <-chan error
 	messages              <-chan *events.Envelope
-	authTokenFetcher      AuthTokenFetcher
-	consumer              *consumer.Consumer
-	clients               []*datadogclient.Client
+	// processor transforms messages into processedMetrics using multiple workers
 	processor             *metricProcessor.Processor
-	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
-	log                   *gosteno.Logger
-	db                    *bolt.DB
-	appMetrics            bool
-	stopper               chan bool
-	workersStopper        chan bool
+	// metricsMap corresponds to transformed processedMetrics ready to be submitted to Datadog
+	// Note that workers transform messages into processedMetrics using 1 or multiple worker and only one worker
+	// transform processedMetrics into metricsMap
 	mapLock               sync.RWMutex
 	metricsMap            metrics.MetricsMap // modified by workers & main thread
+	// clients are Datadog clients submitting metrics to Datadog
+	clients               []*datadogclient.Client
+	db                    *bolt.DB
+	stopper               chan bool
+	workersStopper        chan bool
 	totalMessagesReceived uint64             // modified by workers, read by main thread
-	slowConsumerAlert     uint64             // modified by workers, read by main thread
+	slowConsumerAlert     uint64             // modified by workers & main thread
 	totalMetricsSent      uint64
 }
 
@@ -49,27 +58,22 @@ type AuthTokenFetcher interface {
 	FetchAuthToken() string
 }
 
-func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher AuthTokenFetcher, log *gosteno.Logger) *DatadogFirehoseNozzle {
+func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, authToken string, log *gosteno.Logger) *DatadogFirehoseNozzle {
 	return &DatadogFirehoseNozzle{
 		config:           config,
-		authTokenFetcher: tokenFetcher,
-		metricsMap:       make(metrics.MetricsMap),
-		processedMetrics: make(chan []metrics.MetricPackage),
+		authToken:		  authToken,
 		log:              log,
 		appMetrics:       config.AppMetrics,
+		metricsMap:       make(metrics.MetricsMap),
+		processedMetrics: make(chan []metrics.MetricPackage),
 		stopper:          make(chan bool),
 		workersStopper:   make(chan bool),
 	}
 }
 
 func (d *DatadogFirehoseNozzle) Start() error {
-	var authToken string
 	var err error
 	var db *bolt.DB
-
-	if !d.config.DisableAccessControl {
-		authToken = d.authTokenFetcher.FetchAuthToken()
-	}
 
 	if d.config.CustomTags == nil {
 		d.config.CustomTags = []string{}
@@ -91,20 +95,30 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.db = db
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
+	// Create Datadog client instances
 	d.clients, err = d.createClient()
 	if err != nil {
 		return err
 	}
+	// Create Cloud Foundry client instance
 	d.cfClient = d.createCFClient()
+	// Create metric processor instance
 	d.processor = d.createProcessor()
-	err = d.consumeFirehose(authToken)
+	// Start consumer from the Firehose
+	err = d.consumeFirehose()
 	if err != nil {
 		return err
 	}
+	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
+	// and then grouped into metricsMap
 	d.startWorkers()
+	// Start infinite loop to periodically submit metrics (metricsMap) to Datadog
 	err = d.postToDatadog()
-	d.stopWorkers()
+
+	// Whenever a stop signal is received the infinite loop within postToDatadog is stopped and then we stop all workers
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
+	d.stopWorkers()
+
 	return err
 }
 
@@ -190,7 +204,7 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 	return processor
 }
 
-func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
+func (d *DatadogFirehoseNozzle) consumeFirehose() error {
 	if d.config.TrafficControllerURL == "" {
 		if d.cfClient != nil {
 			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
@@ -204,7 +218,7 @@ func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
 		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
 		nil)
 	d.consumer.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
-	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, authToken)
+	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, d.authToken)
 
 	return nil
 }
@@ -240,20 +254,19 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	totalMessagesReceived := d.totalMessagesReceived
 	d.mapLock.Unlock()
 
-	for i := range d.config.DataDogAPIKeys {
-		timestamp := time.Now().Unix()
+	timestamp := time.Now().Unix()
+	for _, client := range d.clients {
 		// Add internal metrics
-		k, v := d.clients[i].MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
+		k, v := client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
 		metricsMap[k] = v
-		k, v = d.clients[i].MakeInternalMetric("totalMetricsSent", d.totalMetricsSent, timestamp)
+		k, v = client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = d.clients[i].MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
+		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
-		err := d.clients[i].PostMetrics(metricsMap)
+		err := client.PostMetrics(metricsMap)
 		if err != nil {
 			d.log.Errorf("Error posting metrics: %s\n\n", err)
-			return
 		}
 	}
 

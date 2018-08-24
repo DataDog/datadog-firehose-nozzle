@@ -41,14 +41,17 @@ func main() {
 		config.InsecureSSLSkipVerify,
 		log,
 	)
-
 	threadDumpChan := registerGoRoutineDumpSignalChannel()
 	defer close(threadDumpChan)
 	go dumpGoRoutine(threadDumpChan)
 
 	log.Infof("Targeting datadog API URL: %s \n", config.DataDogURL)
-	datadog_nozzle := datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
-	datadog_nozzle.Start()
+	var authToken string
+	if !config.DisableAccessControl {
+		authToken = tokenFetcher.FetchAuthToken()
+	}
+	datadogNozzle := datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, authToken, log)
+	datadogNozzle.Start()
 }
 
 func registerGoRoutineDumpSignalChannel() chan os.Signal {
