@@ -25,7 +25,7 @@ import (
 
 type DatadogFirehoseNozzle struct {
 	config                *nozzleconfig.NozzleConfig
-	authToken			  string
+	authTokenFetcher      AuthTokenFetcher
 	log                   *gosteno.Logger
 	// appMetrics defined if nozzle should collect application metrics or not
 	appMetrics            bool
@@ -58,10 +58,10 @@ type AuthTokenFetcher interface {
 	FetchAuthToken() string
 }
 
-func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, authToken string, log *gosteno.Logger) *DatadogFirehoseNozzle {
+func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher AuthTokenFetcher, log *gosteno.Logger) *DatadogFirehoseNozzle {
 	return &DatadogFirehoseNozzle{
 		config:           config,
-		authToken:		  authToken,
+		authTokenFetcher: tokenFetcher,
 		log:              log,
 		appMetrics:       config.AppMetrics,
 		metricsMap:       make(metrics.MetricsMap),
@@ -72,8 +72,13 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, authToken strin
 }
 
 func (d *DatadogFirehoseNozzle) Start() error {
+	var authToken string
 	var err error
 	var db *bolt.DB
+
+	if !d.config.DisableAccessControl {
+		authToken = d.authTokenFetcher.FetchAuthToken()
+	}
 
 	if d.config.CustomTags == nil {
 		d.config.CustomTags = []string{}
@@ -105,7 +110,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	// Create metric processor instance
 	d.processor = d.createProcessor()
 	// Start consumer from the Firehose
-	err = d.consumeFirehose()
+	err = d.consumeFirehose(authToken)
 	if err != nil {
 		return err
 	}
@@ -204,7 +209,7 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 	return processor
 }
 
-func (d *DatadogFirehoseNozzle) consumeFirehose() error {
+func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
 	if d.config.TrafficControllerURL == "" {
 		if d.cfClient != nil {
 			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
@@ -218,7 +223,7 @@ func (d *DatadogFirehoseNozzle) consumeFirehose() error {
 		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
 		nil)
 	d.consumer.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
-	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, d.authToken)
+	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, authToken)
 
 	return nil
 }

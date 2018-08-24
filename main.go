@@ -46,11 +46,7 @@ func main() {
 	go dumpGoRoutine(threadDumpChan)
 
 	log.Infof("Targeting datadog API URL: %s \n", config.DataDogURL)
-	var authToken string
-	if !config.DisableAccessControl {
-		authToken = tokenFetcher.FetchAuthToken()
-	}
-	datadogNozzle := datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, authToken, log)
+	datadogNozzle := datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
 	datadogNozzle.Start()
 }
 
