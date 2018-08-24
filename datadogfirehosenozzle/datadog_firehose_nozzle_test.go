@@ -52,7 +52,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			FlushDurationSeconds: 10,
 			FlushMaxBytes:        10240,
 			DataDogURL:           fakeDatadogAPI.URL(),
-			DataDogAPIKeys:       []string{"apikey"},
+			DataDogAPIKeys:       []string{""},
 			TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
 			DisableAccessControl: false,
 			MetricPrefix:         "datadog.nozzle.",
