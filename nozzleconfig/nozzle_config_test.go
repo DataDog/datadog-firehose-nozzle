@@ -3,10 +3,9 @@ package nozzleconfig_test
 import (
 	"os"
 
+	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
 )
 
 var _ = Describe("NozzleConfig", func() {

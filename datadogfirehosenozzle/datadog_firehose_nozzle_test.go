@@ -2,47 +2,48 @@ package datadogfirehosenozzle_test
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"os"
-	"strings"
-	"time"
 
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
+	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogfirehosenozzle"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
-	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
+	"github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/gorilla/websocket"
 )
 
 var _ = Describe("Datadog Firehose Nozzle", func() {
 	var (
-		fakeUAA        *testhelpers.FakeUAA
-		fakeFirehose   *testhelpers.FakeFirehose
-		fakeDatadogAPI *testhelpers.FakeDatadogAPI
+		fakeUAA        *FakeUAA
+		fakeFirehose   *FakeFirehose
+		fakeDatadogAPI *FakeDatadogAPI
 		config         *nozzleconfig.NozzleConfig
 		nozzle         *datadogfirehosenozzle.DatadogFirehoseNozzle
 		log            *gosteno.Logger
 		logContent     *bytes.Buffer
-		fakeBuffer     *testhelpers.FakeBufferSink
+		fakeBuffer     *FakeBufferSink
 	)
 
 	BeforeEach(func() {
 		time.Sleep(1)
 
-		fakeUAA = testhelpers.NewFakeUAA("bearer", "123456789")
+		fakeUAA = NewFakeUAA("bearer", "123456789")
 		fakeToken := fakeUAA.AuthToken()
-		fakeFirehose = testhelpers.NewFakeFirehose(fakeToken)
-		fakeDatadogAPI = testhelpers.NewFakeDatadogAPI()
+		fakeFirehose = NewFakeFirehose(fakeToken)
+		fakeDatadogAPI = NewFakeDatadogAPI()
 		fakeUAA.Start()
 		fakeFirehose.Start()
 		fakeDatadogAPI.Start()
@@ -62,7 +63,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}
 		content := make([]byte, 1024)
 		logContent = bytes.NewBuffer(content)
-		fakeBuffer = testhelpers.NewFakeBufferSink(logContent)
+		fakeBuffer = NewFakeBufferSink(logContent)
 		c := &gosteno.Config{
 			Sinks: []gosteno.Sink{
 				fakeBuffer,
@@ -307,14 +308,14 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	})
 
 	Context("when the DisableAccessControl is set to true", func() {
-		var tokenFetcher *testhelpers.FakeTokenFetcher
+		var tokenFetcher *FakeTokenFetcher
 
 		BeforeEach(func() {
-			fakeUAA = testhelpers.NewFakeUAA("", "")
+			fakeUAA = NewFakeUAA("", "")
 			fakeToken := fakeUAA.AuthToken()
-			fakeFirehose = testhelpers.NewFakeFirehose(fakeToken)
-			fakeDatadogAPI = testhelpers.NewFakeDatadogAPI()
-			tokenFetcher = &testhelpers.FakeTokenFetcher{}
+			fakeFirehose = NewFakeFirehose(fakeToken)
+			fakeDatadogAPI = NewFakeDatadogAPI()
+			tokenFetcher = &FakeTokenFetcher{}
 
 			fakeUAA.Start()
 			fakeFirehose.Start()
@@ -361,9 +362,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 	})
 
 	Context("when idle timeout has expired", func() {
-		var fakeIdleFirehose *testhelpers.FakeIdleFirehose
+		var fakeIdleFirehose *FakeIdleFirehose
 		BeforeEach(func() {
-			fakeIdleFirehose = testhelpers.NewFakeIdleFirehose(time.Second * 7)
+			fakeIdleFirehose = NewFakeIdleFirehose(time.Second * 7)
 			fakeIdleFirehose.Start()
 
 			config = &nozzleconfig.NozzleConfig{
@@ -378,7 +379,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 			}
 
-			tokenFetcher := &testhelpers.FakeTokenFetcher{}
+			tokenFetcher := &FakeTokenFetcher{}
 			nozzle = datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
 			os.Remove("firehose_nozzle.db")
 		})

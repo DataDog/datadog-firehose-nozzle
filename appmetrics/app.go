@@ -5,10 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/sonde-go/events"
-
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
+	"github.com/cloudfoundry/sonde-go/events"
 )
 
 type App struct {
@@ -93,7 +92,7 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags [
 }
 
 func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metrics.MetricPackage {
-	var metricsPackages []metrics.MetricPackage
+	metricsPackages := []metrics.MetricPackage{}
 	var host string
 	if a.Host != "" {
 		host = a.Host
@@ -137,7 +136,7 @@ func (a *App) getTags() []string {
 }
 
 func (a *App) generateTags() []string {
-	var tags []string
+	var tags = []string{}
 	if a.Name != "" {
 		tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
 	}

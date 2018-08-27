@@ -1,12 +1,12 @@
 package metricProcessor
 
 import (
+	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 )
 
 var (

@@ -2,35 +2,36 @@ package integration_test
 
 import (
 	"encoding/json"
-	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
+
+	"os"
+	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
-	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	. "github.com/DataDog/datadog-firehose-nozzle/testhelpers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("DatadogFirehoseNozzle", func() {
 	var (
-		fakeUAA        *testhelpers.FakeUAA
-		fakeFirehose   *testhelpers.FakeFirehose
-		fakeDatadogAPI *testhelpers.FakeDatadogAPI
+		fakeUAA        *FakeUAA
+		fakeFirehose   *FakeFirehose
+		fakeDatadogAPI *FakeDatadogAPI
 
 		nozzleSession *gexec.Session
 	)
 
 	BeforeEach(func() {
-		fakeUAA = testhelpers.NewFakeUAA("bearer", "123456789")
+		fakeUAA = NewFakeUAA("bearer", "123456789")
 		fakeToken := fakeUAA.AuthToken()
-		fakeFirehose = testhelpers.NewFakeFirehose(fakeToken)
-		fakeDatadogAPI = testhelpers.NewFakeDatadogAPI()
+		fakeFirehose = NewFakeFirehose(fakeToken)
+		fakeDatadogAPI = NewFakeDatadogAPI()
 
 		fakeUAA.Start()
 		fakeFirehose.Start()

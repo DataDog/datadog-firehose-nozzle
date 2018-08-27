@@ -8,49 +8,39 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/localip"
-	"github.com/cloudfoundry-community/go-cfclient"
-	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/noaa/consumer"
-	noaaerrors "github.com/cloudfoundry/noaa/errors"
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/coreos/bbolt"
-	"github.com/gorilla/websocket"
-
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/metricProcessor"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
+	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/noaa/consumer"
+	noaaerrors "github.com/cloudfoundry/noaa/errors"
+	"github.com/cloudfoundry/sonde-go/events"
+	bolt "github.com/coreos/bbolt"
+	"github.com/gorilla/websocket"
 )
 
 type DatadogFirehoseNozzle struct {
 	config                *nozzleconfig.NozzleConfig
-	authTokenFetcher      AuthTokenFetcher
-	log                   *gosteno.Logger
-	// appMetrics defined if nozzle should collect application metrics or not
-	appMetrics            bool
-	// consumer instance collecting events from the firehose
-	consumer              *consumer.Consumer
-	// cfClient is the cloudfoundry client used to connect to the Cloud Controller
-	cfClient              *cfclient.Client
-	// errs and messages correspond to raw elements consumed by the consumer
 	errs                  <-chan error
 	messages              <-chan *events.Envelope
-	// processor transforms messages into processedMetrics using multiple workers
+	authTokenFetcher      AuthTokenFetcher
+	consumer              *consumer.Consumer
+	clients                []*datadogclient.Client
 	processor             *metricProcessor.Processor
+	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
-	// metricsMap corresponds to transformed processedMetrics ready to be submitted to Datadog
-	// Note that workers transform messages into processedMetrics using 1 or multiple worker and only one worker
-	// transform processedMetrics into metricsMap
-	mapLock               sync.RWMutex
-	metricsMap            metrics.MetricsMap // modified by workers & main thread
-	// clients are Datadog clients submitting metrics to Datadog
-	clients               []*datadogclient.Client
+	log                   *gosteno.Logger
 	db                    *bolt.DB
+	appMetrics            bool
 	stopper               chan bool
 	workersStopper        chan bool
+	mapLock               sync.RWMutex
+	metricsMap            metrics.MetricsMap // modified by workers & main thread
 	totalMessagesReceived uint64             // modified by workers, read by main thread
-	slowConsumerAlert     uint64             // modified by workers & main thread
+	slowConsumerAlert     uint64             // modified by workers, read by main thread
 	totalMetricsSent      uint64
 }
 
@@ -62,10 +52,10 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 	return &DatadogFirehoseNozzle{
 		config:           config,
 		authTokenFetcher: tokenFetcher,
-		log:              log,
-		appMetrics:       config.AppMetrics,
 		metricsMap:       make(metrics.MetricsMap),
 		processedMetrics: make(chan []metrics.MetricPackage),
+		log:              log,
+		appMetrics:       config.AppMetrics,
 		stopper:          make(chan bool),
 		workersStopper:   make(chan bool),
 	}
@@ -84,7 +74,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	var dbPath = "firehose_nozzle.db"
+	var dbPath string = "firehose_nozzle.db"
 
 	if d.config.DBPath != "" {
 		dbPath = d.config.DBPath
@@ -214,7 +204,7 @@ func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
 		if d.cfClient != nil {
 			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
 		} else {
-			return fmt.Errorf("either the TrafficController URL or the CC URL needs to be set")
+			return fmt.Errorf("Either the TrafficController URL or the CC URL needs to be set")
 		}
 	}
 
