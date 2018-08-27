@@ -28,7 +28,7 @@ type DatadogFirehoseNozzle struct {
 	messages              <-chan *events.Envelope
 	authTokenFetcher      AuthTokenFetcher
 	consumer              *consumer.Consumer
-	clients                []*datadogclient.Client
+	clients               []*datadogclient.Client
 	processor             *metricProcessor.Processor
 	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
