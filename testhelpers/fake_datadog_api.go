@@ -1,7 +1,6 @@
 package testhelpers
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
