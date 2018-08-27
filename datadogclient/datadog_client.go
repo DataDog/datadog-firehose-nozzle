@@ -17,8 +17,6 @@ import (
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
-const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
-
 type Client struct {
 	apiURL       string
 	apiKey       string
