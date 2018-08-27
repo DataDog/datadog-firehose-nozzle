@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"fmt"
 )
 
 type FakeDatadogAPI struct {
@@ -35,6 +36,8 @@ func (f *FakeDatadogAPI) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	go func() {
+		fmt.Println("CHECK")
+		fmt.Println(fmt.Sprintf("%s", contents))
 		f.ReceivedContents <- contents
 	}()
 }
