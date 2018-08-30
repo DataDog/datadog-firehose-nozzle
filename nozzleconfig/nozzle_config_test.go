@@ -21,13 +21,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("user_password"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("<enter api key>"))
-		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v1/series"]).To(BeEquivalentTo([]string{
-			"<apikey1>",
-			"<apikey2>",
-		}))
-		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v2/series"]).To(BeEquivalentTo([]string{
-			"<apikey3>",
-		}))
 		Expect(conf.HTTPProxyURL).To(Equal("http://user:password@host.com:port"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://user:password@host.com:port"))
 		Expect(conf.DataDogTimeoutSeconds).To(BeEquivalentTo(5))
@@ -52,12 +45,6 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_CLIENT_SECRET", "env-user-password")
 		os.Setenv("NOZZLE_DATADOGURL", "https://app.datadoghq-env.com/api/v1/series")
 		os.Setenv("NOZZLE_DATADOGAPIKEY", "envapi-key>")
-		os.Setenv("NOZZLE_DATADOGURL_1", "https://app.datadoghq-env.com/api/v1/series")
-		os.Setenv("NOZZLE_DATADOGAPIKEY_1", "envapi-key1>")
-		os.Setenv("NOZZLE_DATADOGURL_2", "https://app.datadoghq-env.com/api/v1/series")
-		os.Setenv("NOZZLE_DATADOGAPIKEY_2", "envapi-key2>")
-		os.Setenv("NOZZLE_DATADOGURL_3", "https://app.datadoghq-env.com/api/v2/series")
-		os.Setenv("NOZZLE_DATADOGAPIKEY_3", "envapi-key3>")
 		os.Setenv("HTTP_PROXY", "http://test:proxy")
 		os.Setenv("HTTPS_PROXY", "https://test:proxy")
 		os.Setenv("NOZZLE_DATADOGTIMEOUTSECONDS", "10")
@@ -78,13 +65,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("env-user-password"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq-env.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
-		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v1/series"]).To(BeEquivalentTo([]string{
-			"envapi-key1>",
-			"envapi-key2>",
-		}))
-		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v2/series"]).To(BeEquivalentTo([]string{
-			"envapi-key3>",
-		}))
 		Expect(conf.HTTPProxyURL).To(Equal("http://test:proxy"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://test:proxy"))
 		Expect(conf.NoProxy).To(BeEquivalentTo([]string{"google.com", "datadoghq.com"}))

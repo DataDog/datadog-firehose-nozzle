@@ -61,14 +61,8 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvVar("NOZZLE_FIREHOSESUBSCRIPTIONID", &config.FirehoseSubscriptionID)
 	overrideWithEnvVar("NOZZLE_DATADOGURL", &config.DataDogURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)
-	endpointIndex := 0
-	for endpointUrl, endpointKeys := range config.DataDogAdditionalEndpoints {
-		for _, endpointKey := range endpointKeys {
-			overrideWithEnvVar(fmt.Sprintf("NOZZLE_DATADOGURL_%d", endpointIndex), &endpointUrl)
-			overrideWithEnvVar(fmt.Sprintf("NOZZLE_DATADOGAPIKEY_%d", endpointIndex), &endpointKey)
-			endpointIndex += 1
-		}
-	}
+	//NOTE: Override of DataDogAdditionalEndpoints not supported
+
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
 	overrideWithEnvUint32("NOZZLE_DATADOGTIMEOUTSECONDS", &config.DataDogTimeoutSeconds)
