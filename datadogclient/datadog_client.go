@@ -17,17 +17,19 @@ import (
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
+const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
+
 type Client struct {
-	apiURL              string
-	apiKey              string
-	prefix              string
-	deployment          string
-	ip                  string
-	customTags          []string
-	httpClient          *retryablehttp.Client
-	maxPostBytes        uint32
-	log                 *gosteno.Logger
-	formatter           Formatter
+	apiURL       string
+	apiKey       string
+	prefix       string
+	deployment   string
+	ip           string
+	customTags   []string
+	httpClient   *retryablehttp.Client
+	maxPostBytes uint32
+	log          *gosteno.Logger
+	formatter    Formatter
 }
 
 type Payload struct {
@@ -85,14 +87,14 @@ func New(
 	}
 
 	return &Client{
-		apiURL: apiURL,
-		apiKey: apiKey,
-		prefix: prefix,
-		deployment: deployment,
-		ip: ip,
-		log: logger,
-		customTags: customTags,
-		httpClient: httpClient,
+		apiURL:       apiURL,
+		apiKey:       apiKey,
+		prefix:       prefix,
+		deployment:   deployment,
+		ip:           ip,
+		log:          logger,
+		customTags:   customTags,
+		httpClient:   httpClient,
 		maxPostBytes: maxPostBytes,
 		formatter: Formatter{
 			log: logger,
