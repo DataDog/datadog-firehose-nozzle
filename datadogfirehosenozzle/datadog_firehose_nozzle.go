@@ -131,24 +131,39 @@ func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) 
 			NoProxy: d.config.NoProxy,
 		}
 	}
-	if len(d.config.DataDogAPIKeys) == 0 {
-		return nil, fmt.Errorf("at least one Datadog Api Key must be provided")
-	}
+
+	// Instanciating Datadog primary client
 	var ddClients []*datadogclient.Client
-	for i := 0; i < len(d.config.DataDogAPIKeys); i++ {
-		ddClients = append(ddClients, datadogclient.New(
-			d.config.DataDogURL,
-			d.config.DataDogAPIKeys[i],
-			d.config.MetricPrefix,
-			d.config.Deployment,
-			ipAddress,
-			time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
-			time.Duration(d.config.FlushDurationSeconds)*time.Second,
-			d.config.FlushMaxBytes,
-			d.log,
-			d.config.CustomTags,
-			proxy,
-		))
+	ddClients = append(ddClients, datadogclient.New(
+		d.config.DataDogURL,
+		d.config.DataDogAPIKey,
+		d.config.MetricPrefix,
+		d.config.Deployment,
+		ipAddress,
+		time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
+		time.Duration(d.config.FlushDurationSeconds)*time.Second,
+		d.config.FlushMaxBytes,
+		d.log,
+		d.config.CustomTags,
+		proxy,
+	))
+	// Instanciating Additional Datadog endpoints
+	for endpoint, keys := range d.config.DataDogAdditionalEndpoints {
+		for keyIndex := range keys {
+			ddClients = append(ddClients, datadogclient.New(
+				endpoint,
+				keys[keyIndex],
+				d.config.MetricPrefix,
+				d.config.Deployment,
+				ipAddress,
+				time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
+				time.Duration(d.config.FlushDurationSeconds)*time.Second,
+				d.config.FlushMaxBytes,
+				d.log,
+				d.config.CustomTags,
+				proxy,
+			))
+		}
 	}
 
 	return ddClients, nil
