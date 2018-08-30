@@ -132,7 +132,7 @@ func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) 
 		}
 	}
 
-	// Instanciating Datadog primary client
+	// Instantiating Datadog primary client
 	var ddClients []*datadogclient.Client
 	ddClients = append(ddClients, datadogclient.New(
 		d.config.DataDogURL,
@@ -147,7 +147,7 @@ func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) 
 		d.config.CustomTags,
 		proxy,
 	))
-	// Instanciating Additional Datadog endpoints
+	// Instantiating Additional Datadog endpoints
 	for endpoint, keys := range d.config.DataDogAdditionalEndpoints {
 		for keyIndex := range keys {
 			ddClients = append(ddClients, datadogclient.New(

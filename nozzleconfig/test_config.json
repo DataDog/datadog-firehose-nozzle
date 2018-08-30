@@ -13,7 +13,7 @@
     ],
     "https://app.datadoghq.com/api/v2/series": [
       "<apikey3>"
-    ],
+    ]
   },
   "HTTPProxyURL": "http://user:password@host.com:port",
   "HTTPSProxyURL": "https://user:password@host.com:port",

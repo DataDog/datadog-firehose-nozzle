@@ -21,14 +21,12 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("user_password"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("<enter api key>"))
-		Expect(conf.DataDogAdditionalEndpoints).To(BeEquivalentTo(map[string][]string{
-			"https://app.datadoghq.com/api/v1/series": {
-				"<apikey1>",
-				"<apikey2>",
-			},
-			"https://app.datadoghq.com/api/v2/series": {
-				"<apikey3>",
-			},
+		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v1/series"]).To(BeEquivalentTo([]string{
+			"<apikey1>",
+			"<apikey2>",
+		}))
+		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v2/series"]).To(BeEquivalentTo([]string{
+			"<apikey3>",
 		}))
 		Expect(conf.HTTPProxyURL).To(Equal("http://user:password@host.com:port"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://user:password@host.com:port"))
@@ -80,14 +78,12 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("env-user-password"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq-env.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
-		Expect(conf.DataDogAdditionalEndpoints).To(BeEquivalentTo(map[string][]string{
-			"https://app.datadoghq.com/api/v1/series": {
-				"envapi-key1>",
-				"envapi-key2>",
-			},
-			"https://app.datadoghq.com/api/v2/series": {
-				"envapi-key3>",
-			},
+		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v1/series"]).To(BeEquivalentTo([]string{
+			"envapi-key1>",
+			"envapi-key2>",
+		}))
+		Expect(conf.DataDogAdditionalEndpoints["https://app.datadoghq.com/api/v2/series"]).To(BeEquivalentTo([]string{
+			"envapi-key3>",
 		}))
 		Expect(conf.HTTPProxyURL).To(Equal("http://test:proxy"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://test:proxy"))
