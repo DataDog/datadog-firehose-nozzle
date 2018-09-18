@@ -103,7 +103,7 @@ func New(
 }
 
 func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
-	c.log.Infof("Posting %d metrics", len(metrics))
+	c.log.Infof("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	for _, data := range seriesBytes {
