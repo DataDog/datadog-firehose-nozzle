@@ -103,7 +103,7 @@ func New(
 }
 
 func (c *Client) PostMetrics(metrics metrics.MetricsMap) error {
-	c.log.Infof("Posting %d metrics", len(metrics))
+	c.log.Infof("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	for _, data := range seriesBytes {
@@ -154,9 +154,9 @@ func (c *Client) seriesURL() string {
 	return url
 }
 
-func (c *Client) MakeInternalMetric(name string, value uint64) (metrics.MetricKey, metrics.MetricValue) {
+func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) (metrics.MetricKey, metrics.MetricValue) {
 	point := metrics.Point{
-		Timestamp: time.Now().Unix(),
+		Timestamp: timestamp,
 		Value:     float64(value),
 	}
 

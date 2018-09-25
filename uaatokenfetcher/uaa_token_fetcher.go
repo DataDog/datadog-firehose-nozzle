@@ -19,7 +19,7 @@ func New(uaaUrl string, username string, password string, sslSkipVerify bool, lo
 		username:              username,
 		password:              password,
 		insecureSSLSkipVerify: sslSkipVerify,
-		log: logger,
+		log:                   logger,
 	}
 }
 

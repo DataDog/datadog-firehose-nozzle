@@ -6,6 +6,7 @@
   "FirehoseSubscriptionID": "datadog-nozzle",
   "DataDogURL": "http://localhost:8087",
   "DataDogAPIKey": "some-key",
+  "DataDogAdditionalEndpoints": {"https://foo.datadoghq.com": ["someapikey"]},
   "FlushDurationSeconds": 1,
   "InsecureSSLSkipVerify": true,
   "MetricPrefix": "",

@@ -28,7 +28,7 @@ type DatadogFirehoseNozzle struct {
 	messages              <-chan *events.Envelope
 	authTokenFetcher      AuthTokenFetcher
 	consumer              *consumer.Consumer
-	client                *datadogclient.Client
+	clients               []*datadogclient.Client
 	processor             *metricProcessor.Processor
 	cfClient              *cfclient.Client
 	processedMetrics      chan []metrics.MetricPackage
@@ -90,21 +90,34 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.db = db
 
 	d.log.Info("Starting DataDog Firehose Nozzle...")
-	d.client = d.createClient()
-	d.cfClient = d.createCfClient()
+	// Create Datadog client instances
+	d.clients, err = d.createClient()
+	if err != nil {
+		return err
+	}
+	// Create Cloud Foundry client instance
+	d.cfClient = d.createCFClient()
+	// Create metric processor instance
 	d.processor = d.createProcessor()
+	// Start consumer from the Firehose
 	err = d.consumeFirehose(authToken)
 	if err != nil {
 		return err
 	}
+	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
+	// and then grouped into metricsMap
 	d.startWorkers()
+	// Start infinite loop to periodically submit metrics (metricsMap) to Datadog
 	err = d.postToDatadog()
-	d.stopWorkers()
+
+	// Whenever a stop signal is received the infinite loop within postToDatadog is stopped and then we stop all workers
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
+	d.stopWorkers()
+
 	return err
 }
 
-func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
+func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
@@ -119,7 +132,9 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		}
 	}
 
-	client := datadogclient.New(
+	// Instantiating Datadog primary client
+	var ddClients []*datadogclient.Client
+	ddClients = append(ddClients, datadogclient.New(
 		d.config.DataDogURL,
 		d.config.DataDogAPIKey,
 		d.config.MetricPrefix,
@@ -131,12 +146,30 @@ func (d *DatadogFirehoseNozzle) createClient() *datadogclient.Client {
 		d.log,
 		d.config.CustomTags,
 		proxy,
-	)
+	))
+	// Instantiating Additional Datadog endpoints
+	for endpoint, keys := range d.config.DataDogAdditionalEndpoints {
+		for keyIndex := range keys {
+			ddClients = append(ddClients, datadogclient.New(
+				endpoint,
+				keys[keyIndex],
+				d.config.MetricPrefix,
+				d.config.Deployment,
+				ipAddress,
+				time.Duration(d.config.DataDogTimeoutSeconds)*time.Second,
+				time.Duration(d.config.FlushDurationSeconds)*time.Second,
+				d.config.FlushMaxBytes,
+				d.log,
+				d.config.CustomTags,
+				proxy,
+			))
+		}
+	}
 
-	return client
+	return ddClients, nil
 }
 
-func (d *DatadogFirehoseNozzle) createCfClient() *cfclient.Client {
+func (d *DatadogFirehoseNozzle) createCFClient() *cfclient.Client {
 	if d.config.CloudControllerEndpoint == "" {
 		d.log.Warnf("The Cloud Controller Endpoint needs to be set in order to set up the cf client")
 		return nil
@@ -231,18 +264,20 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	totalMessagesReceived := d.totalMessagesReceived
 	d.mapLock.Unlock()
 
-	// Add internal metrics
-	k, v := d.client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived)
-	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent)
-	metricsMap[k] = v
-	k, v = d.client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert))
-	metricsMap[k] = v
+	timestamp := time.Now().Unix()
+	for _, client := range d.clients {
+		// Add internal metrics
+		k, v := client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
+		metricsMap[k] = v
+		k, v = client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent, timestamp)
+		metricsMap[k] = v
+		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
+		metricsMap[k] = v
 
-	err := d.client.PostMetrics(metricsMap)
-	if err != nil {
-		d.log.Errorf("Error posting metrics: %s\n\n", err)
-		return
+		err := client.PostMetrics(metricsMap)
+		if err != nil {
+			d.log.Errorf("Error posting metrics: %s\n\n", err)
+		}
 	}
 
 	d.totalMetricsSent += uint64(len(metricsMap))

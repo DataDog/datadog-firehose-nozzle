@@ -14,31 +14,32 @@ const (
 )
 
 type NozzleConfig struct {
-	UAAURL                  string
-	Client                  string
-	ClientSecret            string
-	TrafficControllerURL    string
-	FirehoseSubscriptionID  string
-	DataDogURL              string
-	DataDogAPIKey           string
-	HTTPProxyURL            string
-	HTTPSProxyURL           string
-	NoProxy                 []string
-	CloudControllerEndpoint string
-	DataDogTimeoutSeconds   uint32
-	FlushDurationSeconds    uint32
-	FlushMaxBytes           uint32
-	InsecureSSLSkipVerify   bool
-	MetricPrefix            string
-	Deployment              string
-	DeploymentFilter        string
-	DisableAccessControl    bool
-	IdleTimeoutSeconds      uint32
-	AppMetrics              bool
-	NumWorkers              int
-	GrabInterval            int
-	CustomTags              []string
-	DBPath                  string
+	UAAURL                     string
+	Client                     string
+	ClientSecret               string
+	TrafficControllerURL       string
+	FirehoseSubscriptionID     string
+	DataDogURL                 string
+	DataDogAPIKey              string
+	DataDogAdditionalEndpoints map[string][]string
+	HTTPProxyURL               string
+	HTTPSProxyURL              string
+	NoProxy                    []string
+	CloudControllerEndpoint    string
+	DataDogTimeoutSeconds      uint32
+	FlushDurationSeconds       uint32
+	FlushMaxBytes              uint32
+	InsecureSSLSkipVerify      bool
+	MetricPrefix               string
+	Deployment                 string
+	DeploymentFilter           string
+	DisableAccessControl       bool
+	IdleTimeoutSeconds         uint32
+	AppMetrics                 bool
+	NumWorkers                 int
+	GrabInterval               int
+	CustomTags                 []string
+	DBPath                     string
 }
 
 func Parse(configPath string) (*NozzleConfig, error) {
@@ -60,6 +61,8 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvVar("NOZZLE_FIREHOSESUBSCRIPTIONID", &config.FirehoseSubscriptionID)
 	overrideWithEnvVar("NOZZLE_DATADOGURL", &config.DataDogURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)
+	//NOTE: Override of DataDogAdditionalEndpoints not supported
+
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
 	overrideWithEnvUint32("NOZZLE_DATADOGTIMEOUTSECONDS", &config.DataDogTimeoutSeconds)

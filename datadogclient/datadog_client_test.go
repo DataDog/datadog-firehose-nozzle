@@ -163,7 +163,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("creates internal metrics", func() {
-		k, v := c.MakeInternalMetric("totalMessagesReceived", 15)
+		k, v := c.MakeInternalMetric("totalMessagesReceived", 15, time.Now().Unix())
 		metricsMap[k] = v
 
 		err := c.PostMetrics(metricsMap)
@@ -202,7 +202,7 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("adds custom tags to internal metrics", func() {
-			k, v := c.MakeInternalMetric("slowConsumerAlert", 0)
+			k, v := c.MakeInternalMetric("slowConsumerAlert", 0, time.Now().Unix())
 			metricsMap[k] = v
 
 			err := c.PostMetrics(metricsMap)
@@ -255,50 +255,20 @@ var _ = Describe("DatadogClient", func() {
 			if metric.Tags[0] == "test_tag:1" {
 				tag1Found = true
 				Expect(metric.Points).To(Equal([]metrics.Point{
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     0.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     1.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     2.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     3.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     4.0,
-					},
+					{Timestamp: 1000, Value: 0.0},
+					{Timestamp: 1000, Value: 1.0},
+					{Timestamp: 1000, Value: 2.0},
+					{Timestamp: 1000, Value: 3.0},
+					{Timestamp: 1000, Value: 4.0},
 				}))
 			} else if metric.Tags[0] == "test_tag:2" {
 				tag2Found = true
 				Expect(metric.Points).To(Equal([]metrics.Point{
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     0.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     1.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     2.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     3.0,
-					},
-					metrics.Point{
-						Timestamp: 1000,
-						Value:     4.0,
-					},
+					{Timestamp: 1000, Value: 0.0},
+					{Timestamp: 1000, Value: 1.0},
+					{Timestamp: 1000, Value: 2.0},
+					{Timestamp: 1000, Value: 3.0},
+					{Timestamp: 1000, Value: 4.0},
 				}))
 			}
 		}
@@ -327,14 +297,8 @@ var _ = Describe("DatadogClient", func() {
 		Expect(metric.Type).To(Equal("gauge"))
 		Expect(metric.Metric).To(Equal("datadog.nozzle.valueName"))
 		Expect(metric.Points).To(Equal([]metrics.Point{
-			metrics.Point{
-				Timestamp: 1,
-				Value:     5.0,
-			},
-			metrics.Point{
-				Timestamp: 2,
-				Value:     76.0,
-			},
+			{Timestamp: 1, Value: 5.0},
+			{Timestamp: 2, Value: 76.0},
 		}))
 		Expect(metric.Tags).To(Equal(defaultTags))
 	})
@@ -359,14 +323,8 @@ var _ = Describe("DatadogClient", func() {
 		Expect(metric.Type).To(Equal("gauge"))
 		Expect(metric.Metric).To(Equal("datadog.nozzle.counterName"))
 		Expect(metric.Points).To(Equal([]metrics.Point{
-			metrics.Point{
-				Timestamp: 1,
-				Value:     5.0,
-			},
-			metrics.Point{
-				Timestamp: 2,
-				Value:     11.0,
-			},
+			{Timestamp: 1, Value: 5.0},
+			{Timestamp: 2, Value: 11.0},
 		}))
 		Expect(metric.Tags).To(Equal(defaultTags))
 	})
@@ -404,7 +362,7 @@ var _ = Describe("DatadogClient", func() {
 
 	It("returns an error when datadog responds with a non 200 response code", func() {
 		// Need to add at least 1 value to metrics map for it to send a message
-		k, v := c.MakeInternalMetric("test", 5)
+		k, v := c.MakeInternalMetric("test", 5, time.Now().Unix())
 		metricsMap[k] = v
 
 		responseCode = http.StatusBadRequest // 400
