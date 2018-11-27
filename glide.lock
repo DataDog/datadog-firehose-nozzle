@@ -1,5 +1,5 @@
-hash: 7d0f8323b1e68417f57a3339c4cf0b47bf16c3d73dd797a625da6539bb8769c0
-updated: 2018-02-16T16:50:18.224027713-05:00
+hash: 9037904c768084e7010eafb4c7155b54ebe9be330793bf1763b241a945a7ba7f
+updated: 2018-11-27T12:25:40.806287-05:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
@@ -8,15 +8,19 @@ imports:
   subpackages:
   - '...'
 - name: github.com/cloudfoundry-community/go-cfclient
-  version: dbe382d68b57a2345f60b71935eb6e8cfa7e5895
+  version: b75ec7d52c9cd9b691cf80da587d076afbed4957
 - name: github.com/cloudfoundry-incubator/uaago
-  version: 62f94a1e205fd1523746191c8adb816007fa73bb
+  version: be6a0cef0130f933079e4c958abac60fadea0c85
+- name: github.com/cloudfoundry/gofileutils
+  version: 4d0c80011a0f37da1711c184028bc40137cd45af
+  subpackages:
+  - fileutils
 - name: github.com/cloudfoundry/gosteno
   version: 0c8581caea35ac903728230e447792e2365dcc34
   subpackages:
   - syslog
 - name: github.com/cloudfoundry/noaa
-  version: a1d4a94e2be6711111893c59538976d07ef7ea98
+  version: 5beab4261046115d89e363902e75155f7370849c
   subpackages:
   - consumer
   - consumer/internal
@@ -26,7 +30,7 @@ imports:
   subpackages:
   - events
 - name: github.com/coreos/bbolt
-  version: 48ea1b39c25fc1bab3506fbc712ecbaa842c4d2d
+  version: 7ee3ded59d4835e10f3e7d0f7603c42aa5e83820
   subpackages:
   - '...'
 - name: github.com/gogo/protobuf
@@ -40,17 +44,22 @@ imports:
   subpackages:
   - proto
 - name: github.com/gorilla/websocket
-  version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+  version: 66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d
 - name: github.com/hashicorp/go-cleanhttp
   version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/go-retryablehttp
   version: 794af36148bf63c118d6db80eb902a136b907e71
+- name: github.com/Masterminds/semver
+  version: c84ddcca87bf5a941b138dde832a7e20b0159ad8
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: golang.org/x/net
   version: db8e4de5b2d6653f66aea53094624468caad15d2
   subpackages:
   - context
+  - html
+  - html/atom
+  - html/charset
 - name: golang.org/x/oauth2
   version: b5adcc2dcdf009d0391547edc6ecbaff889f5bb9
   subpackages:
@@ -71,8 +80,15 @@ imports:
   - internal/urlfetch
   - urlfetch
 testImports:
+- name: github.com/hpcloud/tail
+  version: a1dbeea552b7c8df4b542c66073e393de198a800
+  subpackages:
+  - ratelimiter
+  - util
+  - watch
+  - winfile
 - name: github.com/onsi/ginkgo
-  version: 77a8c1e5c40d6bb6c5eb4dd4bdce9763564f6298
+  version: 2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f
   subpackages:
   - config
   - internal/codelocation
@@ -92,7 +108,7 @@ testImports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 334b8f472b3af5d541c5642701c1e29e2126f486
+  version: 65fb64232476ad9046e57c26cd0bff3d3a8dc6cd
   subpackages:
   - format
   - gbytes
@@ -107,5 +123,24 @@ testImports:
   - matchers/support/goraph/node
   - matchers/support/goraph/util
   - types
+- name: golang.org/x/text
+  version: 6f44c5a2ea40ee3593d98cdcc905cc1fdaa660e2
+  subpackages:
+  - encoding
+  - encoding/charmap
+  - encoding/internal
+  - encoding/internal/identifier
+  - encoding/japanese
+  - encoding/korean
+  - encoding/simplifiedchinese
+  - encoding/traditionalchinese
+  - encoding/unicode
+  - internal/utf8internal
+  - runes
+  - transform
+- name: gopkg.in/fsnotify/fsnotify.v1
+  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
+- name: gopkg.in/tomb.v1
+  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
   version: a3f3340b5840cee44f372bddb5880fcbc419b46a
