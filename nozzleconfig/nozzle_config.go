@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	defaultWorkers int = 4
+	defaultWorkers            int    = 4
+	defaultIdleTimeoutSeconds uint32 = 60
 )
 
 type NozzleConfig struct {
@@ -85,6 +86,10 @@ func Parse(configPath string) (*NozzleConfig, error) {
 
 	if config.NumWorkers == 0 {
 		config.NumWorkers = defaultWorkers
+	}
+
+	if config.IdleTimeoutSeconds == 0 {
+		config.IdleTimeoutSeconds = defaultIdleTimeoutSeconds
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)

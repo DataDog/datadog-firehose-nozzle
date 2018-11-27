@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// DatadogFirehoseNozzle is the struct that holds the state of the nozzle
 type DatadogFirehoseNozzle struct {
 	config                *nozzleconfig.NozzleConfig
 	errs                  <-chan error
@@ -44,10 +45,12 @@ type DatadogFirehoseNozzle struct {
 	totalMetricsSent      uint64
 }
 
+// AuthTokenFetcher is an interface for fetching an auth token from uaa
 type AuthTokenFetcher interface {
 	FetchAuthToken() string
 }
 
+// NewDatadogFirehoseNozzle creates a new nozzle
 func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher AuthTokenFetcher, log *gosteno.Logger) *DatadogFirehoseNozzle {
 	return &DatadogFirehoseNozzle{
 		config:           config,
@@ -61,6 +64,7 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 	}
 }
 
+// Start starts the nozzle
 func (d *DatadogFirehoseNozzle) Start() error {
 	var authToken string
 	var err error
@@ -74,7 +78,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 		d.config.CustomTags = []string{}
 	}
 
-	var dbPath string = "firehose_nozzle.db"
+	var dbPath = "firehose_nozzle.db"
 
 	if d.config.DBPath != "" {
 		dbPath = d.config.DBPath
@@ -228,7 +232,7 @@ func (d *DatadogFirehoseNozzle) consumeFirehose(authToken string) error {
 		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
 		nil)
 	d.consumer.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
-	d.messages, d.errs = d.consumer.Firehose(d.config.FirehoseSubscriptionID, authToken)
+	d.messages, d.errs = d.consumer.FilteredFirehose(d.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
 
 	return nil
 }
@@ -248,12 +252,14 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 	}
 }
 
+// Stop stops the Nozzle
 func (d *DatadogFirehoseNozzle) Stop() {
 	go func() {
 		d.stopper <- true
 	}()
 }
 
+// PostMetrics posts metrics do to datadog
 func (d *DatadogFirehoseNozzle) PostMetrics() {
 	d.mapLock.Lock()
 	// deep copy the metrics map to pass to PostMetrics so that we can unlock d.metricsMap while posting
@@ -318,10 +324,12 @@ func (d *DatadogFirehoseNozzle) keepMessage(envelope *events.Envelope) bool {
 	return d.config.DeploymentFilter == "" || d.config.DeploymentFilter == envelope.GetDeployment()
 }
 
+// ResetSlowConsumerError resets the alert
 func (d *DatadogFirehoseNozzle) ResetSlowConsumerError() {
 	atomic.StoreUint64(&d.slowConsumerAlert, 0)
 }
 
+// AlertSlowConsumerError sets the slow consumer alert
 func (d *DatadogFirehoseNozzle) AlertSlowConsumerError() {
 	atomic.StoreUint64(&d.slowConsumerAlert, 1)
 }
