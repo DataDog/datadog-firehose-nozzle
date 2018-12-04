@@ -56,7 +56,7 @@ func NewDatadogFirehoseNozzle(config *nozzleconfig.NozzleConfig, tokenFetcher Au
 		config:           config,
 		authTokenFetcher: tokenFetcher,
 		metricsMap:       make(metrics.MetricsMap),
-		processedMetrics: make(chan []metrics.MetricPackage),
+		processedMetrics: make(chan []metrics.MetricPackage, 1000),
 		log:              log,
 		appMetrics:       config.AppMetrics,
 		stopper:          make(chan bool),
