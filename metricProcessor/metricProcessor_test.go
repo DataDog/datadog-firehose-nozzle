@@ -17,7 +17,7 @@ var (
 var _ = Describe("MetricProcessor", func() {
 	BeforeEach(func() {
 		mchan = make(chan []metrics.MetricPackage, 1500)
-		p = New(mchan, []string{})
+		p = New(mchan, []string{}, "")
 	})
 
 	It("processes value & counter metrics", func() {
@@ -95,6 +95,41 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(newFound).To(BeTrue())
 	})
 
+	It("adds a new alias for `bosh-hm-forwarder` metrics", func() {
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+			ValueMetric: &events.ValueMetric{
+				Name:  proto.String("bosh-hm-forwarder.foo"),
+				Value: proto.Float64(5),
+			},
+			Deployment: proto.String("deployment-name"),
+			Job:        proto.String("doppler"),
+		})
+
+		var metricPkg []metrics.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg))
+
+		Expect(metricPkg).To(HaveLen(3))
+
+		legacyFound := false
+		newFound := false
+		boshAliasFound := false
+		for _, metric := range metricPkg {
+			if metric.MetricKey.Name == "origin.bosh-hm-forwarder.foo" {
+				legacyFound = true
+			} else if metric.MetricKey.Name == "bosh-hm-forwarder.foo" {
+				newFound = true
+			} else if metric.MetricKey.Name == "bosh.healthmonitor.foo" {
+				boshAliasFound = true
+			}
+		}
+		Expect(legacyFound).To(BeTrue())
+		Expect(newFound).To(BeTrue())
+		Expect(boshAliasFound).To(BeTrue())
+	})
+
 	It("ignores messages that aren't value metrics or counter events", func() {
 		p.ProcessMetric(&events.Envelope{
 			Origin:    proto.String("origin"),
@@ -134,9 +169,8 @@ var _ = Describe("MetricProcessor", func() {
 			EventType: events.Envelope_ValueMetric.Enum(),
 
 			// fields that gets sent as tags
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
-			Index:      proto.String("1"),
+			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
+			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
 			Ip:         proto.String("10.0.1.2"),
 
 			// additional tags
@@ -152,10 +186,50 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(metricPkg).To(HaveLen(2))
 		for _, metric := range metricPkg {
 			Expect(metric.MetricValue.Tags).To(Equal([]string{
-				"deployment:deployment-name",
+				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"ip:10.0.1.2",
+				"job:doppler",
+				"job:doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"name:test-origin",
+				"origin:test-origin",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+			}))
+		}
+
+		// Check it does the correct dogate tag replacements when env_name and index are set
+		p.environment = "env_name"
+		p.ProcessMetric(&events.Envelope{
+			Origin:    proto.String("test-origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+
+			// fields that gets sent as tags
+			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
+			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
+			Index:      proto.String("1"),
+			Ip:         proto.String("10.0.1.2"),
+
+			// additional tags
+			Tags: map[string]string{
+				"protocol":   "http",
+				"request_id": "a1f5-deadbeef",
+			},
+		})
+
+		Eventually(mchan).Should(Receive(&metricPkg))
+
+		Expect(metricPkg).To(HaveLen(2))
+		for _, metric := range metricPkg {
+			Expect(metric.MetricValue.Tags).To(Equal([]string{
+				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"deployment:deployment-name_env_name",
+				"env:env_name",
 				"index:1",
 				"ip:10.0.1.2",
 				"job:doppler",
+				"job:doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"job:doppler_z1",
 				"name:test-origin",
 				"origin:test-origin",
 				"protocol:http",
@@ -167,7 +241,7 @@ var _ = Describe("MetricProcessor", func() {
 	Context("custom tags", func() {
 		BeforeEach(func() {
 			mchan = make(chan []metrics.MetricPackage, 1500)
-			p = New(mchan, []string{"environment:foo", "foundry:bar"})
+			p = New(mchan, []string{"environment:foo", "foundry:bar"}, "")
 		})
 
 		It("adds custom tags to infra metrics", func() {
@@ -201,6 +275,7 @@ var _ = Describe("MetricProcessor", func() {
 					"index:1",
 					"ip:10.0.1.2",
 					"job:doppler",
+					"job:doppler_z1",
 					"name:test-origin",
 					"origin:test-origin",
 					"protocol:http",

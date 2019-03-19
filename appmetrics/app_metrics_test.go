@@ -58,12 +58,12 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := New(nil, 10, log, []string{}, db)
+			_, err := New(nil, 10, log, []string{}, db, "")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := New(fakeCfClient, 10, log, []string{}, db)
+			a, err := New(fakeCfClient, 10, log, []string{}, db, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -71,13 +71,13 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
-			a, _ := New(fakeCfClient, 10, log, []string{}, db)
+			a, _ := New(fakeCfClient, 10, log, []string{}, db, "")
 			_, err := a.getAppData("guid")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("grabs from the cache when it should be", func() {
-			a, _ := New(fakeCfClient, 10, log, []string{}, db)
+			a, _ := New(fakeCfClient, 10, log, []string{}, db, "")
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
 			app, err := a.getAppData("guid1")
@@ -88,7 +88,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("metric evaluation test", func() {
 		It("parses an event properly", func() {
-			a, err := New(fakeCfClient, 10, log, []string{}, db)
+			a, err := New(fakeCfClient, 10, log, []string{}, db, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -133,13 +133,14 @@ var _ = Describe("AppMetrics", func() {
 			for _, metric := range metrics {
 				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:guid1"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("guid:guid1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 			}
 		})
 	})
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := New(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, db)
+			a, err := New(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, db, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -175,6 +176,7 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("guid:guid1"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("custom:tag"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("foo:bar"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 			}
 		})
 	})

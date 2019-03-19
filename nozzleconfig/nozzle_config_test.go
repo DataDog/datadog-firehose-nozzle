@@ -37,6 +37,7 @@ var _ = Describe("NozzleConfig", func() {
 			"env:prod",
 			"role:db",
 		}))
+		Expect(conf.EnvironmentName).To(Equal("env_name"))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -57,6 +58,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DISABLEACCESSCONTROL", "true")
 		os.Setenv("NOZZLE_IDLETIMEOUTSECONDS", "30")
 		os.Setenv("NO_PROXY", "google.com,datadoghq.com")
+		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_var_env_name")
 
 		conf, err := nozzleconfig.Parse("test_config.json")
 		Expect(err).ToNot(HaveOccurred())
@@ -78,5 +80,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DisableAccessControl).To(Equal(true))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(30))
 		Expect(conf.DBPath).To(BeEquivalentTo("/var/vcap/nozzle.db"))
+		Expect(conf.EnvironmentName).To(Equal("env_var_env_name"))
 	})
 })

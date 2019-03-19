@@ -43,6 +43,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		os.Setenv("NOZZLE_DATADOGURL", fakeDatadogAPI.URL())
 		os.Setenv("NOZZLE_TRAFFICCONTROLLERURL", strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1))
 		os.Setenv("NOZZLE_NUM_WORKERS", "1")
+		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_name")
 
 		var err error
 		nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", "fixtures/test-config.json")
@@ -72,8 +73,9 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Value: proto.Float64(5),
 				Unit:  proto.String("gauge"),
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
+			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
+			Index:      proto.String("1"),
 		})
 
 		fakeFirehose.AddEvent(events.Envelope{
@@ -85,8 +87,9 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Value: proto.Float64(10),
 				Unit:  proto.String("gauge"),
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("gorouter"),
+			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
+			Job:        proto.String("gorouter-partition-aaaaaaaaaaaaaaaaaaaa"),
+			Index:      proto.String("1"),
 		})
 
 		fakeFirehose.AddEvent(events.Envelope{
@@ -98,8 +101,8 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Delta: proto.Uint64(3),
 				Total: proto.Uint64(15),
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
+			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
 		})
 
 		// eventually receive a batch from fake DD
@@ -115,13 +118,13 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 			Expect(metric.Type).To(Equal("gauge"))
 
 			if metric.Metric == "cloudfoundry.nozzle.origin.metricName" || metric.Metric == "cloudfoundry.nozzle.metricName" {
-				Expect(metric.Tags).To(HaveLen(4))
-				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
-				if metric.Tags[1] == "job:doppler" {
+				Expect(metric.Tags).To(HaveLen(9))
+				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa"))
+				if metric.Tags[4] == "job:doppler" {
 					Expect(metric.Points).To(Equal([]metrics.Point{
 						{Timestamp: 1, Value: 5.0},
 					}))
-				} else if metric.Tags[1] == "job:gorouter" {
+				} else if metric.Tags[4] == "job:gorouter" {
 					Expect(metric.Points).To(Equal([]metrics.Point{
 						{Timestamp: 2, Value: 10.0},
 					}))
@@ -129,9 +132,14 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 					panic("Unknown tag")
 				}
 			} else if metric.Metric == "cloudfoundry.nozzle.origin.counterName" || metric.Metric == "cloudfoundry.nozzle.counterName" {
-				Expect(metric.Tags).To(HaveLen(4))
-				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
-				Expect(metric.Tags[1]).To(Equal("job:doppler"))
+				Expect(metric.Tags).To(HaveLen(7))
+				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa"))
+				Expect(metric.Tags[1]).To(Equal("deployment:deployment-name_env_name"))
+				Expect(metric.Tags[2]).To(Equal("env:env_name"))
+				Expect(metric.Tags[3]).To(Equal("job:doppler"))
+				Expect(metric.Tags[4]).To(Equal("job:doppler-partition-aaaaaaaaaaaaaaaaaaaa"))
+				Expect(metric.Tags[5]).To(Equal("name:origin"))
+				Expect(metric.Tags[6]).To(Equal("origin:origin"))
 
 				Expect(metric.Points).To(Equal([]metrics.Point{
 					{Timestamp: 3, Value: 15.0},

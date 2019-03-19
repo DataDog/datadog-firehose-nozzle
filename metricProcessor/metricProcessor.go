@@ -1,19 +1,35 @@
 package metricProcessor
 
 import (
+	"regexp"
+
 	"github.com/DataDog/datadog-firehose-nozzle/appmetrics"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
+const (
+	deploymentUUIDPattern   = "-([0-9a-f]{20})"
+	jobPartitionUUIDPattern = "-partition-([0-9a-f]{20})"
+)
+
 type Processor struct {
-	processedMetrics chan<- []metrics.MetricPackage
-	appMetrics       *appmetrics.AppMetrics
-	customTags       []string
+	processedMetrics      chan<- []metrics.MetricPackage
+	appMetrics            *appmetrics.AppMetrics
+	customTags            []string
+	environment           string
+	deploymentUUIDRegex   *regexp.Regexp
+	jobPartitionUUIDRegex *regexp.Regexp
 }
 
-func New(pm chan<- []metrics.MetricPackage, customTags []string) *Processor {
-	return &Processor{processedMetrics: pm, customTags: customTags}
+func New(pm chan<- []metrics.MetricPackage, customTags []string, environment string) *Processor {
+	return &Processor{
+		processedMetrics:      pm,
+		customTags:            customTags,
+		environment:           environment,
+		deploymentUUIDRegex:   regexp.MustCompile(deploymentUUIDPattern),
+		jobPartitionUUIDRegex: regexp.MustCompile(jobPartitionUUIDPattern),
+	}
 }
 
 func (p *Processor) SetAppMetrics(appMetrics *appmetrics.AppMetrics) {

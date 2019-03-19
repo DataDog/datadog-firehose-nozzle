@@ -2,6 +2,8 @@ package metricProcessor
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
@@ -17,12 +19,13 @@ func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.Metri
 	}
 
 	host := parseHost(envelope)
-	tags := parseTags(envelope)
+	tags := parseTags(envelope, p.environment, p.deploymentUUIDRegex, p.jobPartitionUUIDRegex)
 	tags = append(tags, p.customTags...)
+	name := getName(envelope)
 
 	key := metrics.MetricKey{
 		EventType: envelope.GetEventType(),
-		Name:      getName(envelope),
+		Name:      name,
 		TagsHash:  utils.HashTags(tags),
 	}
 
@@ -40,6 +43,20 @@ func (p *Processor) ParseInfraMetric(envelope *events.Envelope) ([]metrics.Metri
 		MetricKey:   &key,
 		MetricValue: &mVal,
 	})
+
+	if strings.HasPrefix(name, "bosh-hm-forwarder") {
+		newName := strings.Replace(name, "bosh-hm-forwarder", "bosh.healthmonitor", 1)
+		newKey := metrics.MetricKey{
+			EventType: envelope.GetEventType(),
+			Name:      newName,
+			TagsHash:  utils.HashTags(tags),
+		}
+
+		metricsPackages = append(metricsPackages, metrics.MetricPackage{
+			MetricKey:   &newKey,
+			MetricValue: &mVal,
+		})
+	}
 
 	keyLegacyName := metrics.MetricKey{
 		EventType: envelope.GetEventType(),
@@ -77,7 +94,7 @@ func getValue(envelope *events.Envelope) float64 {
 	}
 }
 
-func parseTags(envelope *events.Envelope) []string {
+func parseTags(envelope *events.Envelope, environment string, deploymentUUIDPattern *regexp.Regexp, jobPartitionUUIDPattern *regexp.Regexp) []string {
 	tags := appendTagIfNotEmpty(nil, "deployment", envelope.GetDeployment())
 	tags = appendTagIfNotEmpty(tags, "job", envelope.GetJob())
 	tags = appendTagIfNotEmpty(tags, "index", envelope.GetIndex())
@@ -87,6 +104,24 @@ func parseTags(envelope *events.Envelope) []string {
 	for tname, tvalue := range envelope.GetTags() {
 		tags = appendTagIfNotEmpty(tags, tname, tvalue)
 	}
+
+	// Add an environment tag and another deployment tag with the uuid part replaced with environment name
+	if environment != "" {
+		tags = appendTagIfNotEmpty(tags, "env", environment)
+		newDeploymentTag := fmt.Sprintf("%s%s", deploymentUUIDPattern.ReplaceAllString(envelope.GetDeployment(), ""), fmt.Sprintf("_%s", environment))
+		tags = appendTagIfNotEmpty(tags, "deployment", newDeploymentTag)
+	}
+
+	// Add a new job tag with the partition uuid part replaced with its index an one with only the job name
+	if envelope.GetIndex() != "" {
+		newJobTag := fmt.Sprintf("%s%s", jobPartitionUUIDPattern.ReplaceAllString(envelope.GetJob(), ""), fmt.Sprintf("_z%s", envelope.GetIndex()))
+		tags = appendTagIfNotEmpty(tags, "job", newJobTag)
+	}
+	newJobTag := jobPartitionUUIDPattern.ReplaceAllString(envelope.GetJob(), "")
+	if newJobTag != envelope.GetJob() {
+		tags = appendTagIfNotEmpty(tags, "job", newJobTag)
+	}
+
 	return tags
 }
 
