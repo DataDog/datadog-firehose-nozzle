@@ -33,4 +33,16 @@ var _ = Describe("Formatter", func() {
 
 		Expect(result).To(HaveLen(1))
 	})
+
+	It("does not prepend prefix to `bosh.healthmonitor`", func() {
+		m := make(map[metrics.MetricKey]metrics.MetricValue)
+		m[metrics.MetricKey{Name: "bosh.healthmonitor.foo"}] = metrics.MetricValue{
+			Points: []metrics.Point{{
+				Value: 9,
+			}},
+		}
+		result := formatter.Format("some-prefix", 1024, m)
+
+		Expect(string(result[0])).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
+	})
 })

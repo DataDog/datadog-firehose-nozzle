@@ -2,6 +2,7 @@ package datadogclient
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/cloudfoundry/gosteno"
@@ -33,6 +34,10 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metrics.M
 func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metrics.MetricValue) []byte {
 	s := []metrics.Series{}
 	for key, mVal := range data {
+		// dogate feature
+		if strings.HasPrefix(key.Name, "bosh.healthmonitor") {
+			prefix = ""
+		}
 		m := metrics.Series{
 			Metric: prefix + key.Name,
 			Points: mVal.Points,

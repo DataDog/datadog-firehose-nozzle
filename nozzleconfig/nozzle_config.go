@@ -41,6 +41,7 @@ type NozzleConfig struct {
 	GrabInterval               int
 	CustomTags                 []string
 	DBPath                     string
+	EnvironmentName            string
 }
 
 func Parse(configPath string) (*NozzleConfig, error) {
@@ -79,6 +80,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvUint32("NOZZLE_IDLETIMEOUTSECONDS", &config.IdleTimeoutSeconds)
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 	overrideWithEnvVar("NOZZLE_DB_PATH", &config.DBPath)
+	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
 
 	if config.MetricPrefix == "" {
 		config.MetricPrefix = "cloudfoundry.nozzle."

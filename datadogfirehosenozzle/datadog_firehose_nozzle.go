@@ -196,7 +196,7 @@ func (d *DatadogFirehoseNozzle) createCFClient() *cfclient.Client {
 }
 
 func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
-	processor := metricProcessor.New(d.processedMetrics, d.config.CustomTags)
+	processor := metricProcessor.New(d.processedMetrics, d.config.CustomTags, d.config.EnvironmentName)
 
 	if d.appMetrics {
 		appMetrics, err := appmetrics.New(
@@ -205,6 +205,7 @@ func (d *DatadogFirehoseNozzle) createProcessor() *metricProcessor.Processor {
 			d.log,
 			d.config.CustomTags,
 			d.db,
+			d.config.EnvironmentName,
 		)
 		if err != nil {
 			d.appMetrics = false

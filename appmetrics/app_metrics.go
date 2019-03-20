@@ -32,12 +32,15 @@ func New(
 	log *gosteno.Logger,
 	customTags []string,
 	db *bolt.DB,
+	environment string,
 ) (*AppMetrics, error) {
 
 	if cfClient == nil {
 		return nil, fmt.Errorf("The CF Client needs to be properly set up to use appmetrics")
 	}
-
+	if environment != "" {
+		customTags = append(customTags, fmt.Sprintf("%s:%s", "env", environment))
+	}
 	appMetrics := &AppMetrics{
 		CFClient:     cfClient,
 		log:          log,
