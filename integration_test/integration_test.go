@@ -118,7 +118,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 			Expect(metric.Type).To(Equal("gauge"))
 
 			if metric.Metric == "cloudfoundry.nozzle.origin.metricName" || metric.Metric == "cloudfoundry.nozzle.metricName" {
-				Expect(metric.Tags).To(HaveLen(10))
+				Expect(metric.Tags).To(HaveLen(9))
 				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
 				if metric.Tags[5] == "job:doppler" {
 					Expect(metric.Points).To(Equal([]metrics.Point{

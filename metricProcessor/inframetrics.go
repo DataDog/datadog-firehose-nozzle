@@ -118,9 +118,6 @@ func parseTags(envelope *events.Envelope, environment string, deploymentUUIDPatt
 
 	// Add a new job tag with the partition uuid part replaced with its index an one with only the job name
 	newJobTag := jobPartitionUUIDPattern.ReplaceAllString(envelope.GetJob(), "")
-	if envelope.GetIndex() != "" {
-		tags = appendTagIfNotEmpty(tags, "job", fmt.Sprintf("%s_z%s", newJobTag, envelope.GetIndex()))
-	}
 	// Do not duplicate tag
 	if newJobTag != envelope.GetJob() {
 		tags = appendTagIfNotEmpty(tags, "job", newJobTag)
