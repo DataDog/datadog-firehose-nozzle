@@ -106,18 +106,22 @@ func parseTags(envelope *events.Envelope, environment string, deploymentUUIDPatt
 	}
 
 	// Add an environment tag and another deployment tag with the uuid part replaced with environment name
+	tags = appendTagIfNotEmpty(tags, "env", environment)
+	newDeploymentTag := deploymentUUIDPattern.ReplaceAllString(envelope.GetDeployment(), "")
 	if environment != "" {
-		tags = appendTagIfNotEmpty(tags, "env", environment)
-		newDeploymentTag := fmt.Sprintf("%s%s", deploymentUUIDPattern.ReplaceAllString(envelope.GetDeployment(), ""), fmt.Sprintf("_%s", environment))
+		tags = appendTagIfNotEmpty(tags, "deployment", fmt.Sprintf("%s_%s", newDeploymentTag, environment))
+	}
+	// Do not duplicate tag
+	if newDeploymentTag != envelope.GetDeployment() {
 		tags = appendTagIfNotEmpty(tags, "deployment", newDeploymentTag)
 	}
 
 	// Add a new job tag with the partition uuid part replaced with its index an one with only the job name
-	if envelope.GetIndex() != "" {
-		newJobTag := fmt.Sprintf("%s%s", jobPartitionUUIDPattern.ReplaceAllString(envelope.GetJob(), ""), fmt.Sprintf("_z%s", envelope.GetIndex()))
-		tags = appendTagIfNotEmpty(tags, "job", newJobTag)
-	}
 	newJobTag := jobPartitionUUIDPattern.ReplaceAllString(envelope.GetJob(), "")
+	if envelope.GetIndex() != "" {
+		tags = appendTagIfNotEmpty(tags, "job", fmt.Sprintf("%s_z%s", newJobTag, envelope.GetIndex()))
+	}
+	// Do not duplicate tag
 	if newJobTag != envelope.GetJob() {
 		tags = appendTagIfNotEmpty(tags, "job", newJobTag)
 	}

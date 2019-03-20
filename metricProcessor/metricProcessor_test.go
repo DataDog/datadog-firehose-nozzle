@@ -186,6 +186,7 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(metricPkg).To(HaveLen(2))
 		for _, metric := range metricPkg {
 			Expect(metric.MetricValue.Tags).To(Equal([]string{
+				"deployment:deployment-name",
 				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
 				"ip:10.0.1.2",
 				"job:doppler",
@@ -222,6 +223,7 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(metricPkg).To(HaveLen(2))
 		for _, metric := range metricPkg {
 			Expect(metric.MetricValue.Tags).To(Equal([]string{
+				"deployment:deployment-name",
 				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
 				"deployment:deployment-name_env_name",
 				"env:env_name",
