@@ -151,6 +151,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		validateMetrics(payload, 10, 0)
 
 		nozzle.Stop()
+		time.Sleep(time.Second)
 		// post again, without having received any new messages
 		nozzle.PostMetrics()
 
