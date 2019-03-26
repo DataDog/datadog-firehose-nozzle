@@ -269,6 +269,8 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 		metricsMap[k] = v
 	}
 	totalMessagesReceived := d.totalMessagesReceived
+	// Reset the map
+	d.metricsMap = make(metrics.MetricsMap)
 	d.mapLock.Unlock()
 
 	timestamp := time.Now().Unix()
@@ -288,9 +290,6 @@ func (d *DatadogFirehoseNozzle) PostMetrics() {
 	}
 
 	d.totalMetricsSent += uint64(len(metricsMap))
-	d.mapLock.Lock()
-	d.metricsMap = make(metrics.MetricsMap)
-	d.mapLock.Unlock()
 	d.ResetSlowConsumerError()
 }
 
