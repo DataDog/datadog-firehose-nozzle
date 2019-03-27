@@ -15,12 +15,10 @@ func (d *DatadogFirehoseNozzle) startWorkers() {
 }
 
 func (d *DatadogFirehoseNozzle) stopWorkers() {
-	go func() {
-		for i := 0; i < d.config.NumWorkers+1; i++ {
-			// +1 is for the readProcessedMetrics worker
-			d.workersStopper <- true
-		}
-	}()
+	for i := 0; i < d.config.NumWorkers+1; i++ {
+		// +1 is for the readProcessedMetrics worker
+		d.workersStopper <- true
+	}
 }
 
 func (d *DatadogFirehoseNozzle) work() {

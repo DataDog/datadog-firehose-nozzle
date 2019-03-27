@@ -23,6 +23,8 @@ type FakeFirehose struct {
 
 	events       []events.Envelope
 	closeMessage []byte
+
+	ws *websocket.Conn
 }
 
 func NewFakeFirehose(validToken string) *FakeFirehose {
@@ -38,7 +40,17 @@ func (f *FakeFirehose) Start() {
 }
 
 func (f *FakeFirehose) Close() {
+	f.CloseWebSocket()
 	f.server.Close()
+}
+
+func (f *FakeFirehose) CloseWebSocket() {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if f.ws != nil {
+		f.ws.WriteControl(websocket.CloseMessage, f.closeMessage, time.Time{})
+		f.ws.Close()
+	}
 }
 
 func (f *FakeFirehose) URL() string {
@@ -60,7 +72,11 @@ func (f *FakeFirehose) Requested() bool {
 func (f *FakeFirehose) AddEvent(event events.Envelope) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.events = append(f.events, event)
+	buffer, _ := proto.Marshal(&event)
+	err := f.ws.WriteMessage(websocket.BinaryMessage, buffer)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (f *FakeFirehose) SetCloseMessage(message []byte) {
@@ -88,21 +104,10 @@ func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		CheckOrigin: func(*http.Request) bool { return true },
 	}
 
-	ws, _ := upgrader.Upgrade(rw, r, nil)
-
-	defer ws.Close()
-	defer ws.WriteControl(websocket.CloseMessage, f.closeMessage, time.Time{})
-
-	for _, envelope := range f.events {
-		buffer, _ := proto.Marshal(&envelope)
-		err := ws.WriteMessage(websocket.BinaryMessage, buffer)
-		if err != nil {
-			panic(err)
-		}
-	}
+	f.ws, _ = upgrader.Upgrade(rw, r, nil)
 
 	// wait a bit before closing the connection with the nozzle
 	// and forcing it to call PostMetrics
 	// this gives the nozzle time to process the envelopes we just sent
-	time.Sleep(500 * time.Millisecond)
+	//time.Sleep(500 * time.Millisecond)
 }

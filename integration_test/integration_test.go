@@ -3,6 +3,7 @@ package integration_test
 import (
 	"encoding/json"
 	"os/exec"
+	"time"
 
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
@@ -63,7 +64,8 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 	})
 
 	It("forwards metrics in a batch", func(done Done) {
-
+		// Give time for the websocket connection to start
+		time.Sleep(time.Second)
 		fakeFirehose.AddEvent(events.Envelope{
 			Origin:    proto.String("origin"),
 			Timestamp: proto.Int64(1000000000),
@@ -167,5 +169,5 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		}
 
 		close(done)
-	}, 2.0)
+	}, 4.0)
 })
