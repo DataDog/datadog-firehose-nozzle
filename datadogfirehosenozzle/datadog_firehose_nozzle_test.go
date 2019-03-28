@@ -68,6 +68,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				DataDogAPIKey:        "1234567890",
 				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
 				DisableAccessControl: false,
+				WorkerTimeoutSeconds: 10,
 				MetricPrefix:         "datadog.nozzle.",
 				Deployment:           "nozzle-deployment",
 				AppMetrics:           false,
@@ -461,6 +462,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				TrafficControllerURL: strings.Replace(fakeIdleFirehose.URL(), "http:", "ws:", 1),
 				DisableAccessControl: true,
 				IdleTimeoutSeconds:   1,
+				WorkerTimeoutSeconds: 10,
 				FlushDurationSeconds: 1,
 				FlushMaxBytes:        10240,
 				NumWorkers:           1,
@@ -482,6 +484,57 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("i/o timeout"))
 		})
+	})
+
+	Context("when workers timeout", func() {
+		BeforeEach(func() {
+			fakeUAA = NewFakeUAA("bearer", "123456789")
+			fakeToken := fakeUAA.AuthToken()
+			fakeFirehose = NewFakeFirehose(fakeToken)
+			fakeDatadogAPI = NewFakeDatadogAPI()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+
+			config = &nozzleconfig.NozzleConfig{
+				UAAURL:               fakeUAA.URL(),
+				FlushDurationSeconds: 2,
+				FlushMaxBytes:        10240,
+				DataDogURL:           fakeDatadogAPI.URL(),
+				DataDogAPIKey:        "1234567890",
+				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl: false,
+				WorkerTimeoutSeconds: 1,
+				MetricPrefix:         "datadog.nozzle.",
+				Deployment:           "nozzle-deployment",
+				AppMetrics:           false,
+				NumWorkers:           1,
+			}
+			os.Remove("firehose_nozzle.db")
+		})
+
+		JustBeforeEach(func() {
+			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
+			nozzle = NewDatadogFirehoseNozzle(config, tokenFetcher, log)
+		})
+
+		AfterEach(func() {
+			nozzle.Stop()
+			fakeUAA.Close()
+			fakeFirehose.Close()
+			fakeDatadogAPI.Close()
+			os.Remove("firehose_nozzle.db")
+		})
+
+		It("logs a warning", func() {
+			go nozzle.Start()
+			time.Sleep(time.Second)
+			nozzle.workersStopper <- true // Stop one worker
+			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
+
+			logOutput := fakeBuffer.GetContent()
+			Expect(logOutput).To(ContainSubstring("Could not stop 1 workers after 1s"))
+		}, 4)
 	})
 })
 
