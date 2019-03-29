@@ -69,6 +69,7 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	var authToken string
 	var err error
 	var db *bolt.DB
+	var retryHistory []time.Time
 
 	if !d.config.DisableAccessControl {
 		authToken = d.authTokenFetcher.FetchAuthToken()
@@ -103,22 +104,59 @@ func (d *DatadogFirehoseNozzle) Start() error {
 	d.cfClient = d.createCFClient()
 	// Create metric processor instance
 	d.processor = d.createProcessor()
-	// Start consumer from the Firehose
-	err = d.consumeFirehose(authToken)
-	if err != nil {
-		return err
+
+	// Let's store the last three times when a restart occured, so that we don't keep trying forever
+	retryHistory = make([]time.Time, 3)
+	for {
+		// Start consumer from the Firehose
+		err = d.consumeFirehose(authToken)
+		if err != nil {
+			return err
+		}
+		// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
+		// and then grouped into metricsMap
+		d.startWorkers()
+		// Start infinite loop to periodically submit metrics (metricsMap) to Datadog
+		err = d.postToDatadog()
+
+		if !shouldReconnect(err) {
+			break
+		}
+
+		// memorize the retry timestamp
+		retryHistory = append(retryHistory[1:], time.Now())
+		if retryHistory[2].Sub(retryHistory[0]) < 5*time.Second {
+			// We retried three times quickly, there might be a larger issue
+			// Let's break out of the loop and return the error
+			d.log.Info("Too many retries, shutting down...")
+			break
+		}
+		d.stopWorkers()
+		// Sleep a little to not reconnect to quickly
+		time.Sleep(500 * time.Millisecond)
+		d.log.Info("Websocket connection lost, reestablishing connection...")
 	}
-	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
-	// and then grouped into metricsMap
-	d.startWorkers()
-	// Start infinite loop to periodically submit metrics (metricsMap) to Datadog
-	err = d.postToDatadog()
 
 	// Whenever a stop signal is received the infinite loop within postToDatadog is stopped and then we stop all workers
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
 	d.stopWorkers()
 
 	return err
+}
+
+// Define the error cases where we should reattempt a connection
+func shouldReconnect(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch err.(type) {
+	case noaaerrors.RetryError:
+		return true
+	case noaaerrors.NonRetryError:
+		return false
+	default:
+		return false
+	}
 }
 
 func (d *DatadogFirehoseNozzle) createClient() ([]*datadogclient.Client, error) {
@@ -255,9 +293,7 @@ func (d *DatadogFirehoseNozzle) postToDatadog() error {
 
 // Stop stops the Nozzle
 func (d *DatadogFirehoseNozzle) Stop() {
-	go func() {
-		d.stopper <- true
-	}()
+	d.stopper <- true
 }
 
 // PostMetrics posts metrics do to datadog

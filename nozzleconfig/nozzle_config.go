@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	defaultWorkers            int    = 4
-	defaultIdleTimeoutSeconds uint32 = 60
+	defaultWorkers              int    = 4
+	defaultIdleTimeoutSeconds   uint32 = 60
+	defaultWorkerTimeoutSeconds uint32 = 10
 )
 
 type NozzleConfig struct {
@@ -42,6 +43,7 @@ type NozzleConfig struct {
 	CustomTags                 []string
 	DBPath                     string
 	EnvironmentName            string
+	WorkerTimeoutSeconds       uint32
 }
 
 func Parse(configPath string) (*NozzleConfig, error) {
@@ -78,6 +80,7 @@ func Parse(configPath string) (*NozzleConfig, error) {
 	overrideWithEnvBool("NOZZLE_INSECURESSLSKIPVERIFY", &config.InsecureSSLSkipVerify)
 	overrideWithEnvBool("NOZZLE_DISABLEACCESSCONTROL", &config.DisableAccessControl)
 	overrideWithEnvUint32("NOZZLE_IDLETIMEOUTSECONDS", &config.IdleTimeoutSeconds)
+	overrideWithEnvUint32("NOZZLE_WORKERTIMEOUTSECONDS", &config.WorkerTimeoutSeconds)
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 	overrideWithEnvVar("NOZZLE_DB_PATH", &config.DBPath)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
@@ -92,6 +95,10 @@ func Parse(configPath string) (*NozzleConfig, error) {
 
 	if config.IdleTimeoutSeconds == 0 {
 		config.IdleTimeoutSeconds = defaultIdleTimeoutSeconds
+	}
+
+	if config.WorkerTimeoutSeconds == 0 {
+		config.WorkerTimeoutSeconds = defaultWorkerTimeoutSeconds
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)

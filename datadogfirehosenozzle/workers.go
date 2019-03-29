@@ -1,6 +1,8 @@
 package datadogfirehosenozzle
 
 import (
+	"time"
+
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
@@ -15,12 +17,21 @@ func (d *DatadogFirehoseNozzle) startWorkers() {
 }
 
 func (d *DatadogFirehoseNozzle) stopWorkers() {
-	go func() {
-		for i := 0; i < d.config.NumWorkers+1; i++ {
-			// +1 is for the readProcessedMetrics worker
-			d.workersStopper <- true
+	timedOut := false
+	for i := 0; i < d.config.NumWorkers+1; i++ {
+		// +1 is for the readProcessedMetrics worker
+		select {
+		case d.workersStopper <- true:
+		case <-time.After(time.Duration(d.config.WorkerTimeoutSeconds) * time.Second):
+			// No worker responded in time to get the stop message
+			// Assuming they crashed
+			d.log.Warnf("Could not stop %d workers after %ds", d.config.NumWorkers+1-i, d.config.WorkerTimeoutSeconds)
+			timedOut = true
 		}
-	}()
+		if timedOut {
+			break
+		}
+	}
 }
 
 func (d *DatadogFirehoseNozzle) work() {

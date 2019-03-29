@@ -32,12 +32,22 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DeploymentFilter).To(Equal("deployment-filter"))
 		Expect(conf.DisableAccessControl).To(Equal(false))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
+		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(30))
 		Expect(conf.CustomTags).To(BeEquivalentTo([]string{
 			"nozzle:foobar",
 			"env:prod",
 			"role:db",
 		}))
 		Expect(conf.EnvironmentName).To(Equal("env_name"))
+	})
+
+	It("successfully sets default configuration values", func() {
+		conf, err := nozzleconfig.Parse("test_config_defaults.json")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(conf.MetricPrefix).To(Equal("cloudfoundry.nozzle."))
+		Expect(conf.NumWorkers).To(BeEquivalentTo(4))
+		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
+		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -57,6 +67,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DEPLOYMENT_FILTER", "env-deployment-filter")
 		os.Setenv("NOZZLE_DISABLEACCESSCONTROL", "true")
 		os.Setenv("NOZZLE_IDLETIMEOUTSECONDS", "30")
+		os.Setenv("NOZZLE_WORKERTIMEOUTSECONDS", "20")
 		os.Setenv("NO_PROXY", "google.com,datadoghq.com")
 		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_var_env_name")
 
@@ -78,7 +89,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.Deployment).To(Equal("env-deployment-name"))
 		Expect(conf.DeploymentFilter).To(Equal("env-deployment-filter"))
 		Expect(conf.DisableAccessControl).To(Equal(true))
-		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(30))
+		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(20))
 		Expect(conf.DBPath).To(BeEquivalentTo("/var/vcap/nozzle.db"))
 		Expect(conf.EnvironmentName).To(Equal("env_var_env_name"))
 	})
