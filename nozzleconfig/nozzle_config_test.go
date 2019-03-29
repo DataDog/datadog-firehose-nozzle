@@ -44,7 +44,7 @@ var _ = Describe("NozzleConfig", func() {
 	It("successfully sets default configuration values", func() {
 		conf, err := nozzleconfig.Parse("test_config_defaults.json")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(conf.MetricPrefix).To(Equal("cloundfoundry.nozzle"))
+		Expect(conf.MetricPrefix).To(Equal("cloudfoundry.nozzle."))
 		Expect(conf.NumWorkers).To(BeEquivalentTo(4))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
