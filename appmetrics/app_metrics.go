@@ -92,15 +92,17 @@ func (am *AppMetrics) updateCacheLoop() {
 			// update the database after closing the app map
 			// since this won't affect the app map, no need to continue touching it
 			am.db.Batch(func(tx *bolt.Tx) error {
+				b, err := tx.CreateBucketIfNotExists(am.appBucket)
+				if err != nil {
+					return fmt.Errorf("create bucket: %s", err)
+				}
+				// delete removed apps
 				for _, guid := range toRemove {
-					b, err := tx.CreateBucketIfNotExists(am.appBucket)
-					if err != nil {
-						return fmt.Errorf("create bucket: %s", err)
-					}
 					b.Delete([]byte(guid))
-					for guid, jsonApp := range updatedApps {
-						b.Put([]byte(guid), jsonApp)
-					}
+				}
+				// update modified apps
+				for guid, jsonApp := range updatedApps {
+					b.Put([]byte(guid), jsonApp)
 				}
 				return nil
 			})
@@ -146,7 +148,7 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 		// If it exists in the cache, use the cache
 		app = am.Apps[guid]
 		timeToGrab := (time.Now().Add(-time.Duration(am.grabInterval) * time.Minute)).Unix()
-		if !app.ErrorGrabbing && app.updated > timeToGrab && !app.GrabAgain {
+		if !app.ErrorGrabbing && app.updated > timeToGrab {
 			return app, nil
 		}
 	} else {
@@ -172,15 +174,10 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 	}
 
 	app.ErrorGrabbing = false
-	app.GrabAgain = false
 	app.updated = time.Now().Unix()
 
-	if resolvedApp.Name != "" {
-		app.Name = resolvedApp.Name
-
-	} else if app.Name == "" {
-		app.GrabAgain = true
-	}
+	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
+	app.Name = resolvedApp.Name
 	if app.Name == "" {
 		am.log.Infof("App %v has no name", guid)
 	}
@@ -188,25 +185,11 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 		app.Buildpack = resolvedApp.Buildpack
 	} else if resolvedApp.DetectedBuildpack != "" {
 		app.Buildpack = resolvedApp.DetectedBuildpack
-	} else if app.Buildpack == "" {
-		app.GrabAgain = true
 	}
-	if resolvedApp.Command != "" {
-		app.Command = resolvedApp.Command
-	} else if app.Command == "" {
-		app.GrabAgain = true
-	}
-	if resolvedApp.DockerImage != "" {
-		app.DockerImage = resolvedApp.DockerImage
-
-	} else if app.DockerImage == "" {
-		app.GrabAgain = true
-	}
-	if resolvedApp.Diego {
-		app.Diego = resolvedApp.Diego
-	} else if app.Diego {
-		app.GrabAgain = true
-	}
+	app.Command = resolvedApp.Command
+	app.DockerImage = resolvedApp.DockerImage
+	app.Diego = resolvedApp.Diego
+	app.SpaceID = resolvedApp.SpaceGuid
 
 	resolvedInstances, err := am.CFClient.GetAppInstances(guid)
 	if err == nil {
@@ -222,43 +205,24 @@ func (am *AppMetrics) getAppData(guid string) (*App, error) {
 		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
 	}
 
-	if resolvedApp.DiskQuota != 0 {
-		app.TotalDiskConfigured = resolvedApp.DiskQuota
-	}
-	if resolvedApp.Memory != 0 {
-		app.TotalMemoryConfigured = resolvedApp.Memory
-	}
+	app.TotalDiskConfigured = resolvedApp.DiskQuota
+	app.TotalMemoryConfigured = resolvedApp.Memory
 	app.TotalDiskProvisioned = resolvedApp.DiskQuota * app.NumberOfInstances
 	app.TotalMemoryProvisioned = resolvedApp.Memory * app.NumberOfInstances
 
 	space, err := resolvedApp.Space()
 	if err == nil {
-		if space.Name != "" {
-			app.SpaceName = space.Name
-		} else if app.SpaceName == "" {
-			app.GrabAgain = true
-		}
-		if space.Guid != "" {
-			app.SpaceID = space.Guid
-		} else if app.SpaceID == "" {
-			app.GrabAgain = true
-		}
+		app.SpaceName = space.Name
 		org, e := space.Org()
 		if e == nil {
-			if org.Name != "" {
-				app.OrgName = org.Name
-			} else if app.OrgName == "" {
-				app.GrabAgain = true
-			}
-			if org.Guid != "" {
-				app.OrgID = org.Guid
-			} else if app.OrgID == "" {
-				app.GrabAgain = true
-			}
+			app.OrgName = org.Name
+			app.OrgID = org.Guid
 		} else {
-			am.log.Errorf("there was an error grabbing the space data for app %v in space %v: %v", resolvedApp.Guid, space.Guid, e)
+			app.ErrorGrabbing = true
+			am.log.Errorf("there was an error grabbing the org data for app %v in space %v: %v", resolvedApp.Guid, space.Guid, e)
 		}
 	} else {
+		app.ErrorGrabbing = true
 		am.log.Errorf("there was an error grabbing the space data for app %v: %v", resolvedApp.Guid, err)
 	}
 
