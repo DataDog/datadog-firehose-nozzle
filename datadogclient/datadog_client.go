@@ -128,6 +128,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "deflate") // Additional header for zlib compression
 
 	// If an error is returned by the client (connection errors, etc.), or if a 500-range
 	// response code is received, then a retry is invoked on this request after a wait period
