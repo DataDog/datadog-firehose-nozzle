@@ -31,7 +31,6 @@ type App struct {
 	TotalDiskProvisioned   int
 	TotalMemoryProvisioned int
 	ErrorGrabbing          bool
-	GrabAgain              bool
 	Tags                   []string
 	updated                int64
 	lock                   sync.RWMutex
