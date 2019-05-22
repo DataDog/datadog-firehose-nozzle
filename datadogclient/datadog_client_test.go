@@ -1,4 +1,4 @@
-package datadogclient_test
+package datadogclient
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/DataDog/datadog-firehose-nozzle/datadogclient"
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
 	"github.com/DataDog/datadog-firehose-nozzle/testhelpers"
 	"github.com/DataDog/datadog-firehose-nozzle/utils"
@@ -27,7 +26,7 @@ var (
 	responseCode int
 	responseBody []byte
 	ts           *httptest.Server
-	c            *datadogclient.Client
+	c            *Client
 	metricsMap   metrics.MetricsMap
 	defaultTags  = []string{
 		"deployment: test-deployment",
@@ -47,7 +46,7 @@ var _ = Describe("DatadogClient", func() {
 		ts = httptest.NewServer(http.HandlerFunc(handlePost))
 		metricsMap = make(metrics.MetricsMap)
 
-		c = datadogclient.New(
+		c = New(
 			ts.URL,
 			"dummykey",
 			"datadog.nozzle.",
@@ -81,7 +80,7 @@ var _ = Describe("DatadogClient", func() {
 			}
 			gosteno.Init(config)
 
-			c = datadogclient.New(
+			c = New(
 				ts.URL,
 				"dummykey",
 				"datadog.nozzle.",
@@ -148,8 +147,8 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
+		var payload Payload
+		err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -170,8 +169,8 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
+		var payload Payload
+		err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -186,7 +185,7 @@ var _ = Describe("DatadogClient", func() {
 
 	Context("user configures custom tags", func() {
 		BeforeEach(func() {
-			c = datadogclient.New(
+			c = New(
 				ts.URL,
 				"dummykey",
 				"datadog.nozzle.",
@@ -209,8 +208,8 @@ var _ = Describe("DatadogClient", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(bodies).Should(HaveLen(1))
-			var payload datadogclient.Payload
-			err = json.Unmarshal(bodies[0], &payload)
+			var payload Payload
+			err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(1))
 
@@ -240,8 +239,8 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(bodies).Should(HaveLen(1))
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
+		var payload Payload
+		err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(payload.Series).To(HaveLen(2))
@@ -288,8 +287,8 @@ var _ = Describe("DatadogClient", func() {
 
 		Eventually(bodies).Should(HaveLen(1))
 
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
+		var payload Payload
+		err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -314,8 +313,8 @@ var _ = Describe("DatadogClient", func() {
 
 		Eventually(bodies).Should(HaveLen(1))
 
-		var payload datadogclient.Payload
-		err = json.Unmarshal(bodies[0], &payload)
+		var payload Payload
+		err = json.Unmarshal(testhelpers.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -347,6 +346,7 @@ var _ = Describe("DatadogClient", func() {
 
 	It("discards metrics that exceed that max size", func() {
 		name := proto.String(strings.Repeat("some-big-name", 1000))
+		c.maxPostBytes = 10
 		k, v := makeFakeMetric(*name, 1000, 5, events.Envelope_ValueMetric, defaultTags)
 		metricsMap.Add(k, v)
 
@@ -384,7 +384,7 @@ var _ = Describe("DatadogClient", func() {
 
 	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
 		println("proxy test")
-		proxy := &datadogclient.Proxy{
+		proxy := &Proxy{
 			HTTP:    "http://user:password@host.com:port",
 			HTTPS:   "https://user:password@host.com:port",
 			NoProxy: []string{"datadoghq.com"},
@@ -395,7 +395,7 @@ var _ = Describe("DatadogClient", func() {
 		rHTTPNoProxy, _ := http.NewRequest("GET", "http://datadoghq.com", nil)
 		rHTTPSNoProxy, _ := http.NewRequest("GET", "https://datadoghq.com", nil)
 
-		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("test"))
 
 		proxyURL, err := proxyFunc(rHTTP)
 		Expect(err).To(BeNil())
@@ -413,7 +413,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("errors when a bad proxy URL is set", func() {
-		proxy := &datadogclient.Proxy{
+		proxy := &Proxy{
 			HTTP:  "1234://bad_url",
 			HTTPS: "1234s://still_a_bad_url",
 		}
@@ -421,7 +421,7 @@ var _ = Describe("DatadogClient", func() {
 		rHTTP, _ := http.NewRequest("GET", "http://test.com", nil)
 		rHTTPS, _ := http.NewRequest("GET", "https://test.com", nil)
 
-		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
 
 		proxyURL, err := proxyFunc(rHTTP)
 		Expect(err).ToNot(BeNil())
@@ -433,14 +433,14 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("doesn't set a proxy when an unsupported scheme is used", func() {
-		proxy := &datadogclient.Proxy{
+		proxy := &Proxy{
 			HTTP:  "http://user@password@host.com@port",
 			HTTPS: "https://user@password@host.com@port",
 		}
 
 		rWS, _ := http.NewRequest("GET", "ws://test.com", nil)
 
-		proxyFunc := datadogclient.GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
+		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
 
 		proxyURL, err := proxyFunc(rWS)
 		Expect(err).To(BeNil())
