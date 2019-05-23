@@ -1,7 +1,10 @@
 package datadogclient
 
 import (
+	"bytes"
+	"compress/zlib"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/metrics"
@@ -18,8 +21,12 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metrics.M
 	}
 
 	var result [][]byte
-	seriesBytes := f.formatMetrics(prefix, data)
-	if uint32(len(seriesBytes)) > maxPostBytes && canSplit(data) {
+	compressedSeriesBytes, err := f.formatMetrics(prefix, data)
+	if err != nil {
+		f.log.Errorf("Error formatting metrics payload: %v", err)
+		return result
+	}
+	if uint32(len(compressedSeriesBytes)) > maxPostBytes && canSplit(data) {
 		metricsA, metricsB := splitPoints(data)
 		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
 		result = append(result, f.Format(prefix, maxPostBytes, metricsB)...)
@@ -27,11 +34,11 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metrics.M
 		return result
 	}
 
-	result = append(result, seriesBytes)
+	result = append(result, compressedSeriesBytes)
 	return result
 }
 
-func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metrics.MetricValue) []byte {
+func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metrics.MetricValue) ([]byte, error) {
 	s := []metrics.Series{}
 	for key, mVal := range data {
 		// dogate feature
@@ -50,9 +57,13 @@ func (f Formatter) formatMetrics(prefix string, data map[metrics.MetricKey]metri
 
 	encodedMetric, err := json.Marshal(Payload{Series: s})
 	if err != nil {
-		f.log.Errorf("Error marshalling metrics: %v", err)
+		return nil, fmt.Errorf("Error marshalling metrics: %v", err)
 	}
-	return encodedMetric
+	compressedPayload, err := compress(encodedMetric)
+	if err != nil {
+		return nil, fmt.Errorf("Error compressing payload: %v", err)
+	}
+	return compressedPayload, nil
 }
 
 func canSplit(data map[metrics.MetricKey]metrics.MetricValue) bool {
@@ -88,4 +99,19 @@ func splitPoints(data map[metrics.MetricKey]metrics.MetricValue) (a, b map[metri
 		}
 	}
 	return a, b
+}
+
+// Compress will compress the data with zlib
+func compress(src []byte) ([]byte, error) {
+	var b bytes.Buffer
+	w := zlib.NewWriter(&b)
+	_, err := w.Write(src)
+	if err != nil {
+		return nil, err
+	}
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }

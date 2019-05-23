@@ -113,7 +113,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 
 		// Break JSON blob into a list of blobs, one for each metric
 		var payload datadogclient.Payload
-		err := json.Unmarshal(messageBytes, &payload)
+		err := json.Unmarshal(Decompress(messageBytes), &payload)
 		Expect(err).NotTo(HaveOccurred())
 
 		for _, metric := range payload.Series {

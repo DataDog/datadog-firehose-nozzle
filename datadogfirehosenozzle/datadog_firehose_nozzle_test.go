@@ -113,7 +113,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 			var payload datadogclient.Payload
-			err := json.Unmarshal(contents, &payload)
+			err := json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(23)) // +3 is because of the internal metrics
 		}, 2)
@@ -144,7 +144,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 			var payload datadogclient.Payload
-			err := json.Unmarshal(contents, &payload)
+			err := json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(23))
 
@@ -152,7 +152,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
-			err = json.Unmarshal(contents, &payload)
+			err = json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
 
@@ -183,7 +183,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
 
 			var payload datadogclient.Payload
-			err := json.Unmarshal(contents, &payload)
+			err := json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 
 			slowConsumerMetric := findSlowConsumerMetric(payload)
@@ -221,7 +221,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
 
 			var payload datadogclient.Payload
-			err := json.Unmarshal(contents, &payload)
+			err := json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(23))
 
@@ -234,7 +234,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			// Nozzle should have reconnected.
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
-			err = json.Unmarshal(contents, &payload)
+			err = json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
 			validateMetrics(payload, 10, 23)
@@ -267,7 +267,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
 
 			var payload datadogclient.Payload
-			err := json.Unmarshal(contents, &payload)
+			err := json.Unmarshal(Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 
 			slowConsumerMetric := findSlowConsumerMetric(payload)
@@ -302,7 +302,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 				var payload datadogclient.Payload
-				err := json.Unmarshal(contents, &payload)
+				err := json.Unmarshal(Decompress(contents), &payload)
 				Expect(err).ToNot(HaveOccurred())
 
 				slowConsumerMetric := findSlowConsumerMetric(payload)
@@ -339,7 +339,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 				var payload datadogclient.Payload
-				err := json.Unmarshal(contents, &payload)
+				err := json.Unmarshal(Decompress(contents), &payload)
 				Expect(err).ToNot(HaveOccurred())
 
 				slowConsumerMetric := findSlowConsumerMetric(payload)
@@ -350,7 +350,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				Expect(fakeBuffer.GetContent()).To(ContainSubstring("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle."))
 
 				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
-				err = json.Unmarshal(contents, &payload)
+				err = json.Unmarshal(Decompress(contents), &payload)
 				Expect(err).ToNot(HaveOccurred())
 
 				slowConsumerMetric = findSlowConsumerMetric(payload)
@@ -552,7 +552,7 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 	result := make(chan []byte)
 	go func() {
 		for b := range c {
-			if !strings.Contains(string(b), filter) {
+			if !strings.Contains(string(Decompress(b)), filter) {
 				result <- b
 			}
 		}
