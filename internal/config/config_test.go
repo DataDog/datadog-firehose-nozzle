@@ -38,6 +38,7 @@ var _ = Describe("NozzleConfig", func() {
 			"role:db",
 		}))
 		Expect(conf.EnvironmentName).To(Equal("env_name"))
+		Expect(conf.GrabInterval).To(Equal(50))
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -47,6 +48,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.NumWorkers).To(BeEquivalentTo(4))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
+		Expect(conf.GrabInterval).To(Equal(10))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -69,6 +71,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_WORKERTIMEOUTSECONDS", "20")
 		os.Setenv("NO_PROXY", "google.com,datadoghq.com")
 		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_var_env_name")
+		os.Setenv("NOZZLE_GRAB_INTERVAL", "50")
 
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
@@ -91,5 +94,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(20))
 		Expect(conf.DBPath).To(BeEquivalentTo("/var/vcap/nozzle.db"))
 		Expect(conf.EnvironmentName).To(Equal("env_var_env_name"))
+		Expect(conf.GrabInterval).To(Equal(50))
 	})
 })
