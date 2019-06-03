@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	defaultGrabInterval         int    = 10
 	defaultWorkers              int    = 4
 	defaultIdleTimeoutSeconds   uint32 = 60
 	defaultWorkerTimeoutSeconds uint32 = 10
@@ -88,6 +89,10 @@ func Parse(configPath string) (*Config, error) {
 
 	if config.MetricPrefix == "" {
 		config.MetricPrefix = "cloudfoundry.nozzle."
+	}
+
+	if config.GrabInterval == 0 {
+		config.GrabInterval = defaultGrabInterval
 	}
 
 	if config.NumWorkers == 0 {
