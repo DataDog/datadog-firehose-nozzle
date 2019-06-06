@@ -1,4 +1,4 @@
-package main
+package datadog_firehose_nozzle
 
 import (
 	"flag"
@@ -7,10 +7,10 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/DataDog/datadog-firehose-nozzle/datadogfirehosenozzle"
-	"github.com/DataDog/datadog-firehose-nozzle/logger"
-	"github.com/DataDog/datadog-firehose-nozzle/nozzleconfig"
-	"github.com/DataDog/datadog-firehose-nozzle/uaatokenfetcher"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/nozzle"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
 )
 
 const flushMinBytes uint32 = 1024
@@ -24,9 +24,11 @@ var (
 func main() {
 	flag.Parse()
 
+	// Initialize logger
 	log := logger.NewLogger(*logLevel, *logFilePath, "datadog-firehose-nozzle", "")
 
-	config, err := nozzleconfig.Parse(*configFile)
+	// Load Nozzle Config
+	config, err := config.Parse(*configFile)
 	if err != nil {
 		log.Fatalf("Error parsing config: %s", err.Error())
 	}
@@ -34,6 +36,7 @@ func main() {
 		log.Fatalf("Config FlushMaxBytes is too low (%d): must be at least %d", config.FlushMaxBytes, flushMinBytes)
 	}
 
+	// Initialize UAATokenFetcher
 	tokenFetcher := uaatokenfetcher.New(
 		config.UAAURL,
 		config.Client,
@@ -46,8 +49,9 @@ func main() {
 	defer close(threadDumpChan)
 	go dumpGoRoutine(threadDumpChan)
 
+	// Initialize and start Nozzle
 	log.Infof("Targeting datadog API URL: %s \n", config.DataDogURL)
-	datadog_nozzle := datadogfirehosenozzle.NewDatadogFirehoseNozzle(config, tokenFetcher, log)
+	datadog_nozzle := nozzle.NewNozzle(config, tokenFetcher, log)
 	datadog_nozzle.Start()
 }
 
