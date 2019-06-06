@@ -2,14 +2,13 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
-
-	"os"
-	"strings"
 
 	datadogclient "github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -116,55 +115,55 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		err := json.Unmarshal(Decompress(messageBytes), &payload)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, metric := range payload.Series {
-			Expect(metric.Type).To(Equal("gauge"))
+		for _, m := range payload.Series {
+			Expect(m.Type).To(Equal("gauge"))
 
-			if metric.Metric == "cloudfoundry.nozzle.origin.metricName" || metric.Metric == "cloudfoundry.nozzle.metricName" {
-				Expect(metric.Tags).To(HaveLen(9))
-				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
-				if metric.Tags[5] == "job:doppler" {
-					Expect(metric.Points).To(Equal([]metric.Point{
+			if m.Metric == "cloudfoundry.nozzle.origin.metricName" || m.Metric == "cloudfoundry.nozzle.metricName" {
+				Expect(m.Tags).To(HaveLen(9))
+				Expect(m.Tags[0]).To(Equal("deployment:deployment-name"))
+				if m.Tags[5] == "job:doppler" {
+					Expect(m.Points).To(Equal([]metric.Point{
 						{Timestamp: 1, Value: 5.0},
 					}))
-				} else if metric.Tags[5] == "job:gorouter" {
-					Expect(metric.Points).To(Equal([]metric.Point{
+				} else if m.Tags[5] == "job:gorouter" {
+					Expect(m.Points).To(Equal([]metric.Point{
 						{Timestamp: 2, Value: 10.0},
 					}))
 				} else {
 					panic("Unknown tag")
 				}
-			} else if metric.Metric == "cloudfoundry.nozzle.origin.counterName" || metric.Metric == "cloudfoundry.nozzle.counterName" {
-				Expect(metric.Tags).To(HaveLen(8))
-				Expect(metric.Tags[0]).To(Equal("deployment:deployment-name"))
-				Expect(metric.Tags[1]).To(Equal("deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa"))
-				Expect(metric.Tags[2]).To(Equal("deployment:deployment-name_env_name"))
-				Expect(metric.Tags[3]).To(Equal("env:env_name"))
-				Expect(metric.Tags[4]).To(Equal("job:doppler"))
-				Expect(metric.Tags[5]).To(Equal("job:doppler-partition-aaaaaaaaaaaaaaaaaaaa"))
-				Expect(metric.Tags[6]).To(Equal("name:origin"))
-				Expect(metric.Tags[7]).To(Equal("origin:origin"))
+			} else if m.Metric == "cloudfoundry.nozzle.origin.counterName" || m.Metric == "cloudfoundry.nozzle.counterName" {
+				Expect(m.Tags).To(HaveLen(8))
+				Expect(m.Tags[0]).To(Equal("deployment:deployment-name"))
+				Expect(m.Tags[1]).To(Equal("deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa"))
+				Expect(m.Tags[2]).To(Equal("deployment:deployment-name_env_name"))
+				Expect(m.Tags[3]).To(Equal("env:env_name"))
+				Expect(m.Tags[4]).To(Equal("job:doppler"))
+				Expect(m.Tags[5]).To(Equal("job:doppler-partition-aaaaaaaaaaaaaaaaaaaa"))
+				Expect(m.Tags[6]).To(Equal("name:origin"))
+				Expect(m.Tags[7]).To(Equal("origin:origin"))
 
-				Expect(metric.Points).To(Equal([]metric.Point{
+				Expect(m.Points).To(Equal([]metric.Point{
 					{Timestamp: 3, Value: 15.0},
 				}))
-			} else if metric.Metric == "cloudfoundry.nozzle.totalMessagesReceived" {
-				Expect(metric.Tags).To(HaveLen(2))
-				Expect(metric.Tags[0]).To(HavePrefix("deployment:"))
-				Expect(metric.Tags[1]).To(HavePrefix("ip:"))
+			} else if m.Metric == "cloudfoundry.nozzle.totalMessagesReceived" {
+				Expect(m.Tags).To(HaveLen(2))
+				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(m.Tags[1]).To(HavePrefix("ip:"))
 
-				Expect(metric.Points).To(HaveLen(1))
-				Expect(metric.Points[0].Value).To(Equal(3.0))
-			} else if metric.Metric == "cloudfoundry.nozzle.totalMetricsSent" {
-				Expect(metric.Tags).To(HaveLen(2))
-				Expect(metric.Tags[0]).To(HavePrefix("deployment:"))
-				Expect(metric.Tags[1]).To(HavePrefix("ip:"))
+				Expect(m.Points).To(HaveLen(1))
+				Expect(m.Points[0].Value).To(Equal(3.0))
+			} else if m.Metric == "cloudfoundry.nozzle.totalMetricsSent" {
+				Expect(m.Tags).To(HaveLen(2))
+				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(m.Tags[1]).To(HavePrefix("ip:"))
 
-				Expect(metric.Points).To(HaveLen(1))
-				Expect(metric.Points[0].Value).To(Equal(0.0))
-			} else if metric.Metric == "cloudfoundry.nozzle.slowConsumerAlert" {
+				Expect(m.Points).To(HaveLen(1))
+				Expect(m.Points[0].Value).To(Equal(0.0))
+			} else if m.Metric == "cloudfoundry.nozzle.slowConsumerAlert" {
 
 			} else {
-				panic("Unknown metric " + metric.Metric)
+				panic("Unknown metric " + m.Metric)
 			}
 		}
 

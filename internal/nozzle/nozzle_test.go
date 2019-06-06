@@ -2,27 +2,26 @@ package nozzle
 
 import (
 	"bytes"
-	"os"
-
-	"code.cloudfoundry.org/localip"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	"github.com/gogo/protobuf/proto"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
+	"code.cloudfoundry.org/localip"
 	"github.com/cloudfoundry/gosteno"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
+	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
 )
 
 var _ = Describe("Datadog Firehose Nozzle", func() {
@@ -30,7 +29,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeUAA        *helper.FakeUAA
 		fakeFirehose   *helper.FakeFirehose
 		fakeDatadogAPI *helper.FakeDatadogAPI
-		config         *config.Config
+		configuration  *config.Config
 		nozzle         *Nozzle
 		log            *gosteno.Logger
 		logContent     *bytes.Buffer
@@ -60,7 +59,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 
-			config = &config.Config{
+			configuration = &config.Config{
 				UAAURL:               fakeUAA.URL(),
 				FlushDurationSeconds: 2,
 				FlushMaxBytes:        10240,
@@ -79,7 +78,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		JustBeforeEach(func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
-			nozzle = NewNozzle(config, tokenFetcher, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
 			go nozzle.Start()
 			time.Sleep(time.Second)
 		})
@@ -363,7 +362,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		Context("with DeploymentFilter provided", func() {
 			BeforeEach(func() {
-				config.DeploymentFilter = "good-deployment-name"
+				configuration.DeploymentFilter = "good-deployment-name"
 			})
 
 			It("includes messages that match deployment filter", func() {
@@ -384,7 +383,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				}
 				fakeFirehose.AddEvent(badEnvelope)
 
-				rxContents := filterOutNozzleMetrics(config.Deployment, fakeDatadogAPI.ReceivedContents)
+				rxContents := filterOutNozzleMetrics(configuration.Deployment, fakeDatadogAPI.ReceivedContents)
 				Consistently(rxContents, 5*time.Second, time.Second).ShouldNot(Receive())
 			})
 		})
@@ -404,7 +403,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 
-			config = &config.Config{
+			configuration = &config.Config{
 				FlushDurationSeconds: 1,
 				FlushMaxBytes:        10240,
 				DataDogURL:           fakeDatadogAPI.URL(),
@@ -420,7 +419,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		JustBeforeEach(func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
-			nozzle = NewNozzle(config, tokenFetcher, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
 			go nozzle.Start()
 			time.Sleep(time.Second)
 		})
@@ -442,7 +441,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal(""))
 		})
 
-		It("does not require the presence of config.UAAURL", func() {
+		It("does not require the presence of configuration.UAAURL", func() {
 			Consistently(func() int { return tokenFetcher.NumCalls }).Should(Equal(0))
 		})
 	})
@@ -456,7 +455,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeIdleFirehose.Start()
 			fakeDatadogAPI.Start()
 
-			config = &config.Config{
+			configuration = &config.Config{
 				DataDogURL:           fakeDatadogAPI.URL(),
 				DataDogAPIKey:        "1234567890",
 				TrafficControllerURL: strings.Replace(fakeIdleFirehose.URL(), "http:", "ws:", 1),
@@ -470,7 +469,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 
 			tokenFetcher := &helper.FakeTokenFetcher{}
-			nozzle = NewNozzle(config, tokenFetcher, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
 			os.Remove("firehose_nozzle.db")
 		})
 
@@ -496,7 +495,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 
-			config = &config.Config{
+			configuration = &config.Config{
 				UAAURL:               fakeUAA.URL(),
 				FlushDurationSeconds: 2,
 				FlushMaxBytes:        10240,
@@ -515,7 +514,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		JustBeforeEach(func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
-			nozzle = NewNozzle(config, tokenFetcher, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
 		})
 
 		AfterEach(func() {

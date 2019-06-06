@@ -247,22 +247,22 @@ var _ = Describe("DatadogClient", func() {
 
 		tag1Found := false
 		tag2Found := false
-		for _, metric := range payload.Series {
-			Expect(metric.Type).To(Equal("gauge"))
+		for _, m := range payload.Series {
+			Expect(m.Type).To(Equal("gauge"))
 
-			Expect(metric.Tags).To(HaveLen(1))
-			if metric.Tags[0] == "test_tag:1" {
+			Expect(m.Tags).To(HaveLen(1))
+			if m.Tags[0] == "test_tag:1" {
 				tag1Found = true
-				Expect(metric.Points).To(Equal([]metric.Point{
+				Expect(m.Points).To(Equal([]metric.Point{
 					{Timestamp: 1000, Value: 0.0},
 					{Timestamp: 1000, Value: 1.0},
 					{Timestamp: 1000, Value: 2.0},
 					{Timestamp: 1000, Value: 3.0},
 					{Timestamp: 1000, Value: 4.0},
 				}))
-			} else if metric.Tags[0] == "test_tag:2" {
+			} else if m.Tags[0] == "test_tag:2" {
 				tag2Found = true
-				Expect(metric.Points).To(Equal([]metric.Point{
+				Expect(m.Points).To(Equal([]metric.Point{
 					{Timestamp: 1000, Value: 0.0},
 					{Timestamp: 1000, Value: 1.0},
 					{Timestamp: 1000, Value: 2.0},
@@ -292,14 +292,14 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
-		metric := payload.Series[0]
-		Expect(metric.Type).To(Equal("gauge"))
-		Expect(metric.Metric).To(Equal("datadog.nozzle.valueName"))
-		Expect(metric.Points).To(Equal([]metric.Point{
+		m := payload.Series[0]
+		Expect(m.Type).To(Equal("gauge"))
+		Expect(m.Metric).To(Equal("datadog.nozzle.valueName"))
+		Expect(m.Points).To(Equal([]metric.Point{
 			{Timestamp: 1, Value: 5.0},
 			{Timestamp: 2, Value: 76.0},
 		}))
-		Expect(metric.Tags).To(Equal(defaultTags))
+		Expect(m.Tags).To(Equal(defaultTags))
 	})
 
 	It("posts CounterEvents in JSON format & adds the metric prefix", func() {
@@ -318,14 +318,14 @@ var _ = Describe("DatadogClient", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
-		metric := payload.Series[0]
-		Expect(metric.Type).To(Equal("gauge"))
-		Expect(metric.Metric).To(Equal("datadog.nozzle.counterName"))
-		Expect(metric.Points).To(Equal([]metric.Point{
+		m := payload.Series[0]
+		Expect(m.Type).To(Equal("gauge"))
+		Expect(m.Metric).To(Equal("datadog.nozzle.counterName"))
+		Expect(m.Points).To(Equal([]metric.Point{
 			{Timestamp: 1, Value: 5.0},
 			{Timestamp: 2, Value: 11.0},
 		}))
-		Expect(metric.Tags).To(Equal(defaultTags))
+		Expect(m.Tags).To(Equal(defaultTags))
 	})
 
 	It("breaks up a message that exceeds the FlushMaxBytes", func() {

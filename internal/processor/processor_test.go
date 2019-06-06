@@ -54,13 +54,13 @@ var _ = Describe("MetricProcessor", func() {
 		metricPkgs := append(metricPkg1, metricPkg2...)
 
 		Expect(metricPkgs).To(HaveLen(4))
-		for _, metric := range metricPkgs {
-			if metric.MetricKey.Name == "valueName" || metric.MetricKey.Name == "origin.valueName" {
-				Expect(metric.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 1, Value: 5.0}}))
-			} else if metric.MetricKey.Name == "counterName" || metric.MetricKey.Name == "origin.counterName" {
-				Expect(metric.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 2, Value: 11.0}}))
+		for _, m := range metricPkgs {
+			if m.MetricKey.Name == "valueName" || m.MetricKey.Name == "origin.valueName" {
+				Expect(m.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 1, Value: 5.0}}))
+			} else if m.MetricKey.Name == "counterName" || m.MetricKey.Name == "origin.counterName" {
+				Expect(m.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 2, Value: 11.0}}))
 			} else {
-				panic("unknown metric in package: " + metric.MetricKey.Name)
+				panic("unknown metric in package: " + m.MetricKey.Name)
 			}
 		}
 	})
@@ -85,10 +85,10 @@ var _ = Describe("MetricProcessor", func() {
 
 		legacyFound := false
 		newFound := false
-		for _, metric := range metricPkg {
-			if metric.MetricKey.Name == "origin.fooMetric" {
+		for _, m := range metricPkg {
+			if m.MetricKey.Name == "origin.fooMetric" {
 				legacyFound = true
-			} else if metric.MetricKey.Name == "fooMetric" {
+			} else if m.MetricKey.Name == "fooMetric" {
 				newFound = true
 			}
 		}
@@ -117,12 +117,12 @@ var _ = Describe("MetricProcessor", func() {
 		legacyFound := false
 		newFound := false
 		boshAliasFound := false
-		for _, metric := range metricPkg {
-			if metric.MetricKey.Name == "origin.bosh-hm-forwarder.foo" {
+		for _, m := range metricPkg {
+			if m.MetricKey.Name == "origin.bosh-hm-forwarder.foo" {
 				legacyFound = true
-			} else if metric.MetricKey.Name == "bosh-hm-forwarder.foo" {
+			} else if m.MetricKey.Name == "bosh-hm-forwarder.foo" {
 				newFound = true
-			} else if metric.MetricKey.Name == "bosh.healthmonitor.foo" {
+			} else if m.MetricKey.Name == "bosh.healthmonitor.foo" {
 				boshAliasFound = true
 			}
 		}
@@ -185,8 +185,8 @@ var _ = Describe("MetricProcessor", func() {
 		Eventually(mchan).Should(Receive(&metricPkg))
 
 		Expect(metricPkg).To(HaveLen(2))
-		for _, metric := range metricPkg {
-			Expect(metric.MetricValue.Tags).To(Equal([]string{
+		for _, m := range metricPkg {
+			Expect(m.MetricValue.Tags).To(Equal([]string{
 				"deployment:deployment-name",
 				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
 				"ip:10.0.1.2",
@@ -222,8 +222,8 @@ var _ = Describe("MetricProcessor", func() {
 		Eventually(mchan).Should(Receive(&metricPkg))
 
 		Expect(metricPkg).To(HaveLen(2))
-		for _, metric := range metricPkg {
-			Expect(metric.MetricValue.Tags).To(Equal([]string{
+		for _, m := range metricPkg {
+			Expect(m.MetricValue.Tags).To(Equal([]string{
 				"deployment:deployment-name",
 				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
 				"deployment:deployment-name_env_name",
