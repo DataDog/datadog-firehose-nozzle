@@ -3,8 +3,8 @@ package cloudfoundry
 import (
 	"fmt"
 
-	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 )
 

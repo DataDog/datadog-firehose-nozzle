@@ -1,21 +1,21 @@
 package parser
 
 import (
-	"time"
-	"strings"
-	"regexp"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
 
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/cloudfoundry/sonde-go/events"
 )
 
 type InfraParser struct {
-	Environment 			string
-	DeploymentUUIDRegex 	*regexp.Regexp
-	JobPartitionUUIDRegex	*regexp.Regexp
-	CustomTags 				[]string
+	Environment           string
+	DeploymentUUIDRegex   *regexp.Regexp
+	JobPartitionUUIDRegex *regexp.Regexp
+	CustomTags            []string
 }
 
 func NewInfraParser(
@@ -23,14 +23,13 @@ func NewInfraParser(
 	deploymentUUIDRegex *regexp.Regexp,
 	jobPartitionUUIDRegex *regexp.Regexp,
 	customTags []string) (*InfraParser, error) {
-		return &InfraParser{
-			Environment: environment,
-			DeploymentUUIDRegex: deploymentUUIDRegex,
-			JobPartitionUUIDRegex: jobPartitionUUIDRegex,
-			CustomTags: customTags,
-		}, nil
+	return &InfraParser{
+		Environment:           environment,
+		DeploymentUUIDRegex:   deploymentUUIDRegex,
+		JobPartitionUUIDRegex: jobPartitionUUIDRegex,
+		CustomTags:            customTags,
+	}, nil
 }
-
 
 func (p InfraParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
 	metrics := []metric.MetricPackage{}
@@ -61,7 +60,7 @@ func (p InfraParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	// Basic metric name
 	names = append(names, name)
 	// Legacy metric name
-	names = append(names, envelope.GetOrigin() + "." + name)
+	names = append(names, envelope.GetOrigin()+"."+name)
 	// BOSH alias metric name
 	if strings.HasPrefix(name, "bosh-hm-forwarder") {
 		names = append(names, strings.Replace(name, "bosh-hm-forwarder", "bosh.healthmonitor", 1))

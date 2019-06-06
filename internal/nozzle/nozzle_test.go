@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
 	"github.com/cloudfoundry/gosteno"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gorilla/websocket"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 )
 
 var _ = Describe("Datadog Firehose Nozzle", func() {

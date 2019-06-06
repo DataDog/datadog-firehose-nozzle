@@ -7,9 +7,9 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/DataDog/datadog-firehose-nozzle/internal/nozzle"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/nozzle"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
 )
 

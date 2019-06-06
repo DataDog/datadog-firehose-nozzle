@@ -2,14 +2,14 @@ package processor
 
 import (
 	"fmt"
-	"regexp"
 	bolt "github.com/coreos/bbolt"
+	"regexp"
 
-	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
+	"github.com/cloudfoundry/sonde-go/events"
 )
 
 const (
@@ -35,7 +35,7 @@ func New(
 	grabInterval int,
 	log *gosteno.Logger,
 	db *bolt.DB,
-	) (*Processor, bool) {
+) (*Processor, bool) {
 
 	processor := &Processor{
 		processedMetrics:      pm,

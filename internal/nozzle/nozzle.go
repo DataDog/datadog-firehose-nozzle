@@ -7,8 +7,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
@@ -16,9 +19,6 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 	bolt "github.com/coreos/bbolt"
 	"github.com/gorilla/websocket"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
 )
 
 // Nozzle is the struct that holds the state of the nozzle
@@ -52,14 +52,14 @@ type AuthTokenFetcher interface {
 // Nozzle creates a new nozzle
 func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosteno.Logger) *Nozzle {
 	return &Nozzle{
-		config:           		config,
-		authTokenFetcher: 		tokenFetcher,
-		metricsMap:       		make(metric.MetricsMap),
-		processedMetrics: 		make(chan []metric.MetricPackage, 1000),
-		log:              		log,
-		parseAppMetricsEnable:	config.AppMetrics,
-		stopper:          		make(chan bool),
-		workersStopper:   		make(chan bool),
+		config:                config,
+		authTokenFetcher:      tokenFetcher,
+		metricsMap:            make(metric.MetricsMap),
+		processedMetrics:      make(chan []metric.MetricPackage, 1000),
+		log:                   log,
+		parseAppMetricsEnable: config.AppMetrics,
+		stopper:               make(chan bool),
+		workersStopper:        make(chan bool),
 	}
 }
 

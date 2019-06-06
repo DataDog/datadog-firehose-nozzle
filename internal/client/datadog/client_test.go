@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
 )
 
 var (

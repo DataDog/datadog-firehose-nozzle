@@ -17,7 +17,8 @@ var (
 var _ = Describe("MetricProcessor", func() {
 	BeforeEach(func() {
 		mchan = make(chan []metric.MetricPackage, 1500)
-		p = New(mchan, []string{}, "")
+		p, _ = New(mchan, []string{}, "", false,
+			nil, 0, nil, nil)
 	})
 
 	It("processes value & counter metrics", func() {
@@ -242,7 +243,8 @@ var _ = Describe("MetricProcessor", func() {
 	Context("custom tags", func() {
 		BeforeEach(func() {
 			mchan = make(chan []metric.MetricPackage, 1500)
-			p = New(mchan, []string{"environment:foo", "foundry:bar"}, "")
+			p, _ = New(mchan, []string{"environment:foo", "foundry:bar"}, "", false,
+				nil, 0, nil, nil)
 		})
 
 		It("adds custom tags to infra metrics", func() {

@@ -11,12 +11,12 @@ import (
 
 	"io/ioutil"
 
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
 	"github.com/cloudfoundry/gosteno"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
-	"code.cloudfoundry.org/localip"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 )
 
 const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
@@ -127,8 +127,8 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 		config.MetricPrefix,
 		config.Deployment,
 		ipAddress,
-		time.Duration(config.DataDogTimeoutSeconds) * time.Second,
-		time.Duration(config.FlushDurationSeconds) * time.Second,
+		time.Duration(config.DataDogTimeoutSeconds)*time.Second,
+		time.Duration(config.FlushDurationSeconds)*time.Second,
 		config.FlushMaxBytes,
 		log,
 		config.CustomTags,
@@ -143,8 +143,8 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 				config.MetricPrefix,
 				config.Deployment,
 				ipAddress,
-				time.Duration(config.DataDogTimeoutSeconds) * time.Second,
-				time.Duration(config.FlushDurationSeconds) * time.Second,
+				time.Duration(config.DataDogTimeoutSeconds)*time.Second,
+				time.Duration(config.FlushDurationSeconds)*time.Second,
 				config.FlushMaxBytes,
 				log,
 				config.CustomTags,

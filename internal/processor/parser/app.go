@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
-	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
-	"encoding/json"
+	"github.com/cloudfoundry/sonde-go/events"
 	bolt "github.com/coreos/bbolt"
 )
 

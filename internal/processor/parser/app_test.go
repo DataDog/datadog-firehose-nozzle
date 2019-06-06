@@ -14,9 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 )
 
 var _ = Describe("AppMetrics", func() {
