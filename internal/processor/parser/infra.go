@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
@@ -43,7 +43,7 @@ func (p InfraParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	name := getName(envelope)
 	tags := parseTags(envelope, p.Environment, p.DeploymentUUIDRegex, p.JobPartitionUUIDRegex)
 	tags = append(tags, p.CustomTags...)
-	tagsHash := utils.HashTags(tags)
+	tagsHash := util.HashTags(tags)
 
 	// create metricValues
 	metricValues := metric.MetricValue{}

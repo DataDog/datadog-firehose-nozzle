@@ -7,7 +7,7 @@ import (
 
 	"encoding/json"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
@@ -352,7 +352,7 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 	for i, name := range names {
 		key := metric.MetricKey{
 			Name:     name,
-			TagsHash: utils.HashTags(tags),
+			TagsHash: util.HashTags(tags),
 		}
 		mVal := metric.MetricValue{
 			Tags: tags,

@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/gosteno"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
@@ -223,7 +223,7 @@ func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) 
 
 	key := metric.MetricKey{
 		Name:     name,
-		TagsHash: utils.HashTags(tags),
+		TagsHash: util.HashTags(tags),
 	}
 
 	mValue := metric.MetricValue{

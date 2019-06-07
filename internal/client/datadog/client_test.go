@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/utils"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
 )
 
@@ -464,7 +464,7 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 func makeFakeMetric(name string, timeStamp, value uint64, eventType events.Envelope_EventType, tags []string) (metric.MetricKey, metric.MetricValue) {
 	key := metric.MetricKey{
 		Name:      name,
-		TagsHash:  utils.HashTags(tags),
+		TagsHash:  util.HashTags(tags),
 		EventType: eventType,
 	}
 
