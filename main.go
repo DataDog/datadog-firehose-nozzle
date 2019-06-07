@@ -1,4 +1,4 @@
-package datadog_firehose_nozzle
+package main
 
 import (
 	"flag"
@@ -23,7 +23,6 @@ var (
 
 func main() {
 	flag.Parse()
-
 	// Initialize logger
 	log := logger.NewLogger(*logLevel, *logFilePath, "datadog-firehose-nozzle", "")
 
@@ -35,7 +34,6 @@ func main() {
 	if config.FlushMaxBytes < flushMinBytes {
 		log.Fatalf("Config FlushMaxBytes is too low (%d): must be at least %d", config.FlushMaxBytes, flushMinBytes)
 	}
-
 	// Initialize UAATokenFetcher
 	tokenFetcher := uaatokenfetcher.New(
 		config.UAAURL,
@@ -44,7 +42,6 @@ func main() {
 		config.InsecureSSLSkipVerify,
 		log,
 	)
-
 	threadDumpChan := registerGoRoutineDumpSignalChannel()
 	defer close(threadDumpChan)
 	go dumpGoRoutine(threadDumpChan)
