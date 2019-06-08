@@ -8,7 +8,7 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
-func New(config *config.Config, logger *gosteno.Logger) (*cfclient.Client, error) {
+func NewClient(config *config.Config, logger *gosteno.Logger) (*cfclient.Client, error) {
 	if config.CloudControllerEndpoint == "" {
 		logger.Warnf("the Cloud Controller Endpoint needs to be set in order to set up the cf client")
 		return nil, fmt.Errorf("the Cloud Controller Endpoint needs to be set in order to set up the cf client")

@@ -17,7 +17,7 @@ var (
 var _ = Describe("MetricProcessor", func() {
 	BeforeEach(func() {
 		mchan = make(chan []metric.MetricPackage, 1500)
-		p, _ = New(mchan, []string{}, "", false,
+		p, _ = NewProcessor(mchan, []string{}, "", false,
 			nil, 0, nil, nil)
 	})
 
@@ -243,7 +243,7 @@ var _ = Describe("MetricProcessor", func() {
 	Context("custom tags", func() {
 		BeforeEach(func() {
 			mchan = make(chan []metric.MetricPackage, 1500)
-			p, _ = New(mchan, []string{"environment:foo", "foundry:bar"}, "", false,
+			p, _ = NewProcessor(mchan, []string{"environment:foo", "foundry:bar"}, "", false,
 				nil, 0, nil, nil)
 		})
 

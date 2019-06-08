@@ -24,7 +24,7 @@ import (
 // Nozzle is the struct that holds the state of the nozzle
 type Nozzle struct {
 	config                *config.Config
-	errs                  <-chan error
+	errors                <-chan error
 	messages              <-chan *events.Envelope
 	authTokenFetcher      AuthTokenFetcher
 	consumer              *consumer.Consumer
@@ -42,6 +42,7 @@ type Nozzle struct {
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
+	callbackLock          sync.RWMutex
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -99,10 +100,10 @@ func (d *Nozzle) Start() error {
 	}
 
 	// Initialize Cloud Foundry client instance
-	d.cfClient, err = cloudfoundry.New(d.config, d.log)
+	d.cfClient, err = cloudfoundry.NewClient(d.config, d.log)
 
 	// Initialize Firehose processor
-	d.processor, d.parseAppMetricsEnable = processor.New(
+	d.processor, d.parseAppMetricsEnable = processor.NewProcessor(
 		d.processedMetrics,
 		d.config.CustomTags,
 		d.config.EnvironmentName,
@@ -112,63 +113,60 @@ func (d *Nozzle) Start() error {
 		d.log,
 		d.db)
 
-	// Let's store the last three times when a restart occurs, so that we don't keep trying forever
-	var retryHistory = make([]time.Time, 3)
-	for {
-		// consume messages from the Firehose and push them to d.messages
-		d.consumer, err = d.consumeFirehose(authToken)
-		if err != nil {
-			return err
-		}
-		d.messages, d.errs = d.consumer.FilteredFirehose(d.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
-
-		// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
-		// and then grouped into metricsMap
-		d.startWorkers()
-		// Start infinite loop to periodically submit metrics (metricsMap) to Datadog
-		err = d.postToDatadog()
-
-		if !shouldReconnect(err) {
-			break
-		}
-
-		// memorize the retry timestamp
-		retryHistory = append(retryHistory[1:], time.Now())
-		if retryHistory[2].Sub(retryHistory[0]) < 5*time.Second {
-			// We retried three times quickly, there might be a larger issue
-			// Let's break out of the loop and return the error
-			d.log.Info("Too many retries, shutting down...")
-			break
-		}
-		d.stopWorkers()
-		// Sleep a little to not reconnect to quickly
-		time.Sleep(500 * time.Millisecond)
-		d.log.Info("Websocket connection lost, reestablishing connection...")
+	// Initialize the firehose consumer (with retry enable)
+	d.consumer, err = d.newFirehoseConsumer(authToken)
+	if err != nil {
+		return err
 	}
+	// Run the Firehose consumer
+	// It consumes messages from the Firehose and push them to d.messages
+	d.messages, d.errors = d.consumer.FilteredFirehose(d.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
 
-	// Whenever a stop signal is received the infinite loop within postToDatadog is stopped and then we stop all workers
+	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
+	// and then grouped into metricsMap
+	d.startWorkers()
+
+	// Execute infinite loop.
+	// This method is blocking until we get error or a stop signal
+	err = d.Run()
+
+	// Whenever a stop signal is received the Run methode above will return. The code below will then be executed
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
+	// Close Firehose Consumer
+	d.consumer.Close()
+	// stop processor
 	d.stopWorkers()
+	// Submit metrics left in cache if any
+	d.PostMetrics()
 
 	return err
 }
 
-// Define the error cases where we should reattempt a connection
-func shouldReconnect(err error) bool {
-	if err == nil {
-		return false
-	}
-	switch err.(type) {
-	case noaaerrors.RetryError:
-		return true
-	case noaaerrors.NonRetryError:
-		return false
-	default:
-		return false
+func (d *Nozzle) Run() error {
+	// Start infinite loop to periodically:
+	// - submit metrics to Datadog
+	// - handle error
+	//   - log error
+	//   - break out of the loop
+	// - stop nozzle
+	//   - break out of the loop
+	ticker := time.NewTicker(time.Duration(d.config.FlushDurationSeconds) * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			// Submit metrics to Datadog
+			d.PostMetrics()
+		case error := <-d.errors:
+			// Log error message
+			d.logError(error)
+			return error
+		case <-d.stopper:
+			return nil
+		}
 	}
 }
 
-func (d *Nozzle) consumeFirehose(authToken string) (*consumer.Consumer, error) {
+func (d *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, error) {
 	if d.config.TrafficControllerURL == "" {
 		if d.cfClient != nil {
 			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
@@ -182,23 +180,13 @@ func (d *Nozzle) consumeFirehose(authToken string) (*consumer.Consumer, error) {
 		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
 		nil)
 	c.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
+	// retry settings
+	c.SetMaxRetryCount(3000)
+	c.SetMaxRetryDelay(1 * time.Minute)
+	// Default is 500 ms but is often to fast on heavy load
+	c.SetMinRetryDelay(1 * time.Second)
 
 	return c, nil
-}
-
-func (d *Nozzle) postToDatadog() error {
-	ticker := time.NewTicker(time.Duration(d.config.FlushDurationSeconds) * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			d.PostMetrics()
-		case err := <-d.errs:
-			d.handleError(err)
-			return err
-		case <-d.stopper:
-			return nil
-		}
-	}
 }
 
 // Stop stops the Nozzle
@@ -239,7 +227,9 @@ func (d *Nozzle) PostMetrics() {
 	d.ResetSlowConsumerError()
 }
 
-func (d *Nozzle) handleError(err error) {
+func (d *Nozzle) logError(err error) {
+	// if `err` is instance of `noaaerrors.RetryError` then we get the `Err` attribute of type `error`
+	// within the `RetryError` wrapper so we can log the error message
 	if retryErr, ok := err.(noaaerrors.RetryError); ok {
 		err = retryErr.Err
 	}
@@ -262,8 +252,6 @@ func (d *Nozzle) handleError(err error) {
 	}
 
 	d.log.Infof("Closing connection with traffic controller due to %v", err)
-	d.consumer.Close()
-	d.PostMetrics()
 }
 
 func (d *Nozzle) keepMessage(envelope *events.Envelope) bool {
