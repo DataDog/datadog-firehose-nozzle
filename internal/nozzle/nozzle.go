@@ -114,13 +114,10 @@ func (d *Nozzle) Start() error {
 		d.db)
 
 	// Initialize the firehose consumer (with retry enable)
-	d.consumer, err = d.newFirehoseConsumer(authToken)
+	err = d.startFirehoseConsumer(authToken)
 	if err != nil {
 		return err
 	}
-	// Run the Firehose consumer
-	// It consumes messages from the Firehose and push them to d.messages
-	d.messages, d.errors = d.consumer.FilteredFirehose(d.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
 
 	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
 	// and then grouped into metricsMap
@@ -133,6 +130,7 @@ func (d *Nozzle) Start() error {
 	// Whenever a stop signal is received the Run methode above will return. The code below will then be executed
 	d.log.Info("DataDog Firehose Nozzle shutting down...")
 	// Close Firehose Consumer
+	d.log.Infof("Closing connection with traffic controller due to %v", err)
 	d.consumer.Close()
 	// stop processor
 	d.stopWorkers()
@@ -142,12 +140,25 @@ func (d *Nozzle) Start() error {
 	return err
 }
 
+func (n *Nozzle) startFirehoseConsumer(authToken string) error {
+	var err error
+	// Initialize the firehose consumer (with retry enable)
+	n.consumer, err = n.newFirehoseConsumer(authToken)
+	if err != nil {
+		return err
+	}
+	// Run the Firehose consumer
+	// It consumes messages from the Firehose and push them to n.messages
+	n.messages, n.errors = n.consumer.FilteredFirehose(n.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
+	return nil
+}
+
 func (d *Nozzle) Run() error {
 	// Start infinite loop to periodically:
 	// - submit metrics to Datadog
 	// - handle error
 	//   - log error
-	//   - break out of the loop
+	//   - break out of the loop if error is not a retry error
 	// - stop nozzle
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(d.config.FlushDurationSeconds) * time.Second)
@@ -157,9 +168,12 @@ func (d *Nozzle) Run() error {
 			// Submit metrics to Datadog
 			d.PostMetrics()
 		case error := <-d.errors:
-			// Log error message
-			d.logError(error)
+			// Log error message and figure out if we should retry or shutdown
+			//retry := d.handleError(error)
+			d.handleError(error)
+			//if !retry {
 			return error
+			//}
 		case <-d.stopper:
 			return nil
 		}
@@ -181,10 +195,9 @@ func (d *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 		nil)
 	c.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
 	// retry settings
-	c.SetMaxRetryCount(3000)
-	c.SetMaxRetryDelay(1 * time.Minute)
-	// Default is 500 ms but is often to fast on heavy load
-	c.SetMinRetryDelay(1 * time.Second)
+	c.SetMaxRetryCount(1000)
+	c.SetMinRetryDelay(500 * time.Millisecond)
+	c.SetMaxRetryDelay(5 * time.Minute)
 
 	return c, nil
 }
@@ -218,6 +231,7 @@ func (d *Nozzle) PostMetrics() {
 		metricsMap[k] = v
 
 		err := client.PostMetrics(metricsMap)
+		//TODO shoudl we have some retry logic here?
 		if err != nil {
 			d.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
@@ -227,31 +241,47 @@ func (d *Nozzle) PostMetrics() {
 	d.ResetSlowConsumerError()
 }
 
-func (d *Nozzle) logError(err error) {
-	// if `err` is instance of `noaaerrors.RetryError` then we get the `Err` attribute of type `error`
-	// within the `RetryError` wrapper so we can log the error message
+func (d *Nozzle) handleError(err error) bool {
+	// If error is a retry error, we log it and let the consumer retry.
 	if retryErr, ok := err.(noaaerrors.RetryError); ok {
-		err = retryErr.Err
+		d.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
+		d.log.Info("The Firehose consumer hit a retry error, retrying ...")
+		//TODO: Why should we alert with a metric? like for `AlertSlowConsumerError`?
+		return true
 	}
 
-	switch closeErr := err.(type) {
+	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
+	if err.Error() == consumer.ErrMaxRetriesReached.Error() {
+		d.log.Info("Too many retries, shutting down...")
+		//TODO: Why should send a DD event?
+		return false
+	}
+
+	// For other errors, we log it and shutdown the nozzle
+	switch unknownError := err.(type) {
 	case *websocket.CloseError:
-		switch closeErr.Code {
+		switch unknownError.Code {
 		case websocket.CloseNormalClosure:
-		// no op
+			// NOTE: errors with `Code` `websocket.CloseNormalClosure` should not happen since `CloseMessage` control
+			// on websocket connection can only happen when we close it.
+			// Also this type of error is caught by the consumer. The consumer return nil instead of the error.
+			// This is so that the consumer stop instead of retrying
+			// see github.com/cloudfoundry/noaa/consumer/async.go#listenForMessages
+			d.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
 		case websocket.ClosePolicyViolation:
 			d.log.Errorf("Error while reading from the firehose: %v", err)
 			d.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
+			//TODO: Why should we alert only on ClosePolicyViolation error code?
 			d.AlertSlowConsumerError()
 		default:
 			d.log.Errorf("Error while reading from the firehose: %v", err)
 		}
 	default:
+		//TODO: Should we report error count to DD?
 		d.log.Errorf("Error while reading from the firehose: %v", err)
-
 	}
 
-	d.log.Infof("Closing connection with traffic controller due to %v", err)
+	return false
 }
 
 func (d *Nozzle) keepMessage(envelope *events.Envelope) bool {
