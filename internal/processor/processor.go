@@ -26,7 +26,7 @@ type Processor struct {
 	jobPartitionUUIDRegex *regexp.Regexp
 }
 
-func New(
+func NewProcessor(
 	pm chan<- []metric.MetricPackage,
 	customTags []string,
 	environment string,
