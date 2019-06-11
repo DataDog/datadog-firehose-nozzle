@@ -43,6 +43,7 @@ type Nozzle struct {
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
 	callbackLock          sync.RWMutex
+	isStopped             bool
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -61,11 +62,13 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
+		isStopped:             true,
 	}
 }
 
 // Start starts the nozzle
 func (d *Nozzle) Start() error {
+	d.isStopped = false
 	// Fetch Authentication Token
 	var authToken string
 	if !d.config.DisableAccessControl {
@@ -132,7 +135,7 @@ func (d *Nozzle) Start() error {
 	// Close Firehose Consumer
 	d.log.Infof("Closing connection with traffic controller due to %v", err)
 	d.consumer.Close()
-	// stop processor
+	// Stop processor
 	d.stopWorkers()
 	// Submit metrics left in cache if any
 	d.PostMetrics()
@@ -167,14 +170,15 @@ func (d *Nozzle) Run() error {
 		case <-ticker.C:
 			// Submit metrics to Datadog
 			d.PostMetrics()
-		case error := <-d.errors:
+		case e := <-d.errors:
 			// Log error message and figure out if we should retry or shutdown
-			//retry := d.handleError(error)
-			d.handleError(error)
-			//if !retry {
-			return error
-			//}
+			retry := d.handleError(e)
+			d.handleError(e)
+			if !retry {
+				return e
+			}
 		case <-d.stopper:
+			d.isStopped = true
 			return nil
 		}
 	}
@@ -195,9 +199,9 @@ func (d *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 		nil)
 	c.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
 	// retry settings
-	c.SetMaxRetryCount(1000)
+	c.SetMaxRetryCount(5)
 	c.SetMinRetryDelay(500 * time.Millisecond)
-	c.SetMaxRetryDelay(5 * time.Minute)
+	c.SetMaxRetryDelay(time.Minute)
 
 	return c, nil
 }
@@ -231,7 +235,8 @@ func (d *Nozzle) PostMetrics() {
 		metricsMap[k] = v
 
 		err := client.PostMetrics(metricsMap)
-		//TODO shoudl we have some retry logic here?
+		// NOTE: We don't need to have a retry logic since we don't return error on failure.
+		// However, current metrics may be lost.
 		if err != nil {
 			d.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
@@ -247,7 +252,6 @@ func (d *Nozzle) handleError(err error) bool {
 		d.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
 		d.log.Info("The Firehose consumer hit a retry error, retrying ...")
 		//TODO: Why should we alert with a metric? like for `AlertSlowConsumerError`?
-		return true
 	}
 
 	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
@@ -258,9 +262,9 @@ func (d *Nozzle) handleError(err error) bool {
 	}
 
 	// For other errors, we log it and shutdown the nozzle
-	switch unknownError := err.(type) {
+	switch e := err.(type) {
 	case *websocket.CloseError:
-		switch unknownError.Code {
+		switch e.Code {
 		case websocket.CloseNormalClosure:
 			// NOTE: errors with `Code` `websocket.CloseNormalClosure` should not happen since `CloseMessage` control
 			// on websocket connection can only happen when we close it.
@@ -281,7 +285,8 @@ func (d *Nozzle) handleError(err error) bool {
 		d.log.Errorf("Error while reading from the firehose: %v", err)
 	}
 
-	return false
+	_, retry := err.(noaaerrors.RetryError)
+	return retry
 }
 
 func (d *Nozzle) keepMessage(envelope *events.Envelope) bool {
