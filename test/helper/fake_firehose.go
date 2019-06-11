@@ -105,9 +105,4 @@ func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	f.ws, _ = upgrader.Upgrade(rw, r, nil)
-
-	// wait a bit before closing the connection with the nozzle
-	// and forcing it to call PostMetrics
-	// this gives the nozzle time to process the envelopes we just sent
-	//time.Sleep(500 * time.Millisecond)
 }

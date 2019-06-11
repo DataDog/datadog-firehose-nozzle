@@ -67,23 +67,31 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 }
 
 // Start starts the nozzle
-func (d *Nozzle) Start() error {
-	d.isStopped = false
+func (n *Nozzle) Start() error {
+	n.log.Info("Starting DataDog Firehose Nozzle...")
+
+	if !n.isStopped {
+		n.log.Error("Nozzle is already running")
+		return nil
+	} else {
+		n.isStopped = true
+	}
+
 	// Fetch Authentication Token
 	var authToken string
-	if !d.config.DisableAccessControl {
-		authToken = d.authTokenFetcher.FetchAuthToken()
+	if !n.config.DisableAccessControl {
+		authToken = n.authTokenFetcher.FetchAuthToken()
 	}
 
 	// Fetch Custom Tags
-	if d.config.CustomTags == nil {
-		d.config.CustomTags = []string{}
+	if n.config.CustomTags == nil {
+		n.config.CustomTags = []string{}
 	}
 
 	// Initialize Bolt DB
 	var dbPath = "firehose_nozzle.db"
-	if d.config.DBPath != "" {
-		dbPath = d.config.DBPath
+	if n.config.DBPath != "" {
+		dbPath = n.config.DBPath
 	}
 	var db, err = bolt.Open(dbPath, 0666, &bolt.Options{
 		ReadOnly: false,
@@ -92,53 +100,51 @@ func (d *Nozzle) Start() error {
 		return err
 	}
 	defer db.Close()
-	d.db = db
-
-	d.log.Info("Starting DataDog Firehose Nozzle...")
+	n.db = db
 
 	// Initialize Datadog client instances
-	d.ddClients, err = datadog.NewClients(d.config, d.log)
+	n.ddClients, err = datadog.NewClients(n.config, n.log)
 	if err != nil {
 		return err
 	}
 
 	// Initialize Cloud Foundry client instance
-	d.cfClient, err = cloudfoundry.NewClient(d.config, d.log)
+	n.cfClient, err = cloudfoundry.NewClient(n.config, n.log)
 
 	// Initialize Firehose processor
-	d.processor, d.parseAppMetricsEnable = processor.NewProcessor(
-		d.processedMetrics,
-		d.config.CustomTags,
-		d.config.EnvironmentName,
-		d.parseAppMetricsEnable,
-		d.cfClient,
-		d.config.GrabInterval,
-		d.log,
-		d.db)
+	n.processor, n.parseAppMetricsEnable = processor.NewProcessor(
+		n.processedMetrics,
+		n.config.CustomTags,
+		n.config.EnvironmentName,
+		n.parseAppMetricsEnable,
+		n.cfClient,
+		n.config.GrabInterval,
+		n.log,
+		n.db)
 
 	// Initialize the firehose consumer (with retry enable)
-	err = d.startFirehoseConsumer(authToken)
+	err = n.startFirehoseConsumer(authToken)
 	if err != nil {
 		return err
 	}
 
 	// Start multiple workers to parallelize firehose events (event.envelope) transformation into processedMetrics
 	// and then grouped into metricsMap
-	d.startWorkers()
+	n.startWorkers()
 
 	// Execute infinite loop.
 	// This method is blocking until we get error or a stop signal
-	err = d.Run()
+	err = n.run()
 
 	// Whenever a stop signal is received the Run methode above will return. The code below will then be executed
-	d.log.Info("DataDog Firehose Nozzle shutting down...")
+	n.log.Info("DataDog Firehose Nozzle shutting down...")
 	// Close Firehose Consumer
-	d.log.Infof("Closing connection with traffic controller due to %v", err)
-	d.consumer.Close()
+	n.log.Infof("Closing connection with traffic controller due to %v", err)
+	n.consumer.Close()
 	// Stop processor
-	d.stopWorkers()
+	n.stopWorkers()
 	// Submit metrics left in cache if any
-	d.PostMetrics()
+	n.postMetrics()
 
 	return err
 }
@@ -156,7 +162,7 @@ func (n *Nozzle) startFirehoseConsumer(authToken string) error {
 	return nil
 }
 
-func (d *Nozzle) Run() error {
+func (n *Nozzle) run() error {
 	// Start infinite loop to periodically:
 	// - submit metrics to Datadog
 	// - handle error
@@ -164,40 +170,41 @@ func (d *Nozzle) Run() error {
 	//   - break out of the loop if error is not a retry error
 	// - stop nozzle
 	//   - break out of the loop
-	ticker := time.NewTicker(time.Duration(d.config.FlushDurationSeconds) * time.Second)
+	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
 	for {
 		select {
 		case <-ticker.C:
 			// Submit metrics to Datadog
-			d.PostMetrics()
-		case e := <-d.errors:
+			n.postMetrics()
+		case e := <-n.errors:
 			// Log error message and figure out if we should retry or shutdown
-			retry := d.handleError(e)
-			d.handleError(e)
+			retry := n.handleError(e)
+			n.handleError(e)
 			if !retry {
+				n.isStopped = true
 				return e
 			}
-		case <-d.stopper:
-			d.isStopped = true
+		case <-n.stopper:
+			n.isStopped = true
 			return nil
 		}
 	}
 }
 
-func (d *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, error) {
-	if d.config.TrafficControllerURL == "" {
-		if d.cfClient != nil {
-			d.config.TrafficControllerURL = d.cfClient.Endpoint.DopplerEndpoint
+func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, error) {
+	if n.config.TrafficControllerURL == "" {
+		if n.cfClient != nil {
+			n.config.TrafficControllerURL = n.cfClient.Endpoint.DopplerEndpoint
 		} else {
 			return nil, fmt.Errorf("either the TrafficController URL or the CC URL needs to be set")
 		}
 	}
 
 	c := consumer.New(
-		d.config.TrafficControllerURL,
-		&tls.Config{InsecureSkipVerify: d.config.InsecureSSLSkipVerify},
+		n.config.TrafficControllerURL,
+		&tls.Config{InsecureSkipVerify: n.config.InsecureSSLSkipVerify},
 		nil)
-	c.SetIdleTimeout(time.Duration(d.config.IdleTimeoutSeconds) * time.Second)
+	c.SetIdleTimeout(time.Duration(n.config.IdleTimeoutSeconds) * time.Second)
 	// retry settings
 	c.SetMaxRetryCount(5)
 	c.SetMinRetryDelay(500 * time.Millisecond)
@@ -207,57 +214,59 @@ func (d *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 }
 
 // Stop stops the Nozzle
-func (d *Nozzle) Stop() {
-	d.stopper <- true
+func (n *Nozzle) Stop() {
+	if !n.isStopped {
+		n.stopper <- true
+	}
 }
 
 // PostMetrics posts metrics do to datadog
-func (d *Nozzle) PostMetrics() {
-	d.mapLock.Lock()
-	// deep copy the metrics map to pass to PostMetrics so that we can unlock d.metricsMap while posting
+func (n *Nozzle) postMetrics() {
+	n.mapLock.Lock()
+	// deep copy the metrics map to pass to PostMetrics so that we can unlock n.metricsMap while posting
 	metricsMap := make(metric.MetricsMap)
-	for k, v := range d.metricsMap {
+	for k, v := range n.metricsMap {
 		metricsMap[k] = v
 	}
-	totalMessagesReceived := d.totalMessagesReceived
+	totalMessagesReceived := n.totalMessagesReceived
 	// Reset the map
-	d.metricsMap = make(metric.MetricsMap)
-	d.mapLock.Unlock()
+	n.metricsMap = make(metric.MetricsMap)
+	n.mapLock.Unlock()
 
 	timestamp := time.Now().Unix()
-	for _, client := range d.ddClients {
+	for _, client := range n.ddClients {
 		// Add internal metrics
 		k, v := client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("totalMetricsSent", d.totalMetricsSent, timestamp)
+		k, v = client.MakeInternalMetric("totalMetricsSent", n.totalMetricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&d.slowConsumerAlert), timestamp)
+		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
 		err := client.PostMetrics(metricsMap)
 		// NOTE: We don't need to have a retry logic since we don't return error on failure.
 		// However, current metrics may be lost.
 		if err != nil {
-			d.log.Errorf("Error posting metrics: %s\n\n", err)
+			n.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
 	}
 
-	d.totalMetricsSent += uint64(len(metricsMap))
-	d.ResetSlowConsumerError()
+	n.totalMetricsSent += uint64(len(metricsMap))
+	n.ResetSlowConsumerError()
 }
 
-func (d *Nozzle) handleError(err error) bool {
+func (n *Nozzle) handleError(err error) bool {
 	// If error is a retry error, we log it and let the consumer retry.
 	if retryErr, ok := err.(noaaerrors.RetryError); ok {
-		d.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
-		d.log.Info("The Firehose consumer hit a retry error, retrying ...")
+		n.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
+		n.log.Info("The Firehose consumer hit a retry error, retrying ...")
 		//TODO: Why should we alert with a metric? like for `AlertSlowConsumerError`?
 		err = retryErr.Err
 	}
 
 	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
 	if err.Error() == consumer.ErrMaxRetriesReached.Error() {
-		d.log.Info("Too many retries, shutting down...")
+		n.log.Info("Too many retries, shutting down...")
 		//TODO: Why should send a DD event?
 		return false
 	}
@@ -272,33 +281,33 @@ func (d *Nozzle) handleError(err error) bool {
 			// Also this type of error is caught by the consumer. The consumer return nil instead of the error.
 			// This is so that the consumer stop instead of retrying
 			// see github.com/cloudfoundry/noaa/consumer/async.go#listenForMessages
-			d.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
+			n.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
 		case websocket.ClosePolicyViolation:
-			d.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
+			n.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
 			//TODO: Why should we alert only on ClosePolicyViolation error code?
-			d.AlertSlowConsumerError()
+			n.AlertSlowConsumerError()
 		default:
-			d.log.Errorf("Error while reading from the firehose: %v", err)
+			n.log.Errorf("Error while reading from the firehose: %v", err)
 		}
 	default:
 		//TODO: Should we report error count to DD?
-		d.log.Errorf("Error while reading from the firehose: %v", err)
+		n.log.Errorf("Error while reading from the firehose: %v", err)
 	}
 
 	_, retry := err.(noaaerrors.RetryError)
 	return retry
 }
 
-func (d *Nozzle) keepMessage(envelope *events.Envelope) bool {
-	return d.config.DeploymentFilter == "" || d.config.DeploymentFilter == envelope.GetDeployment()
+func (n *Nozzle) keepMessage(envelope *events.Envelope) bool {
+	return n.config.DeploymentFilter == "" || n.config.DeploymentFilter == envelope.GetDeployment()
 }
 
 // ResetSlowConsumerError resets the alert
-func (d *Nozzle) ResetSlowConsumerError() {
-	atomic.StoreUint64(&d.slowConsumerAlert, 0)
+func (n *Nozzle) ResetSlowConsumerError() {
+	atomic.StoreUint64(&n.slowConsumerAlert, 0)
 }
 
 // AlertSlowConsumerError sets the slow consumer alert
-func (d *Nozzle) AlertSlowConsumerError() {
-	atomic.StoreUint64(&d.slowConsumerAlert, 1)
+func (n *Nozzle) AlertSlowConsumerError() {
+	atomic.StoreUint64(&n.slowConsumerAlert, 1)
 }

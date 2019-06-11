@@ -77,16 +77,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
-			if nozzle.isStopped {
-				go nozzle.Start()
-				time.Sleep(time.Second)
-			}
+			go nozzle.Start()
+			time.Sleep(time.Second)
 		})
 
 		AfterEach(func() {
-			if !nozzle.isStopped {
-				nozzle.Stop()
-			}
+			nozzle.Stop()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -190,7 +186,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			slowConsumerMetric := findSlowConsumerMetric(payload)
 			Expect(slowConsumerMetric).NotTo(BeNil())
 			Expect(slowConsumerMetric.Points).To(HaveLen(1))
-			//Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
+			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
@@ -358,16 +354,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
-			if nozzle.isStopped {
-				go nozzle.Start()
-				time.Sleep(time.Second)
-			}
+			go nozzle.Start()
+			time.Sleep(time.Second)
 		})
 
 		AfterEach(func() {
-			if !nozzle.isStopped {
-				nozzle.Stop()
-			}
+			nozzle.Stop()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -387,49 +379,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Consistently(func() int { return tokenFetcher.NumCalls }).Should(Equal(0))
 		})
 	})
-
-	//Context("when idle timeout has expired", func() {
-	//	var fakeIdleFirehose *helper.FakeIdleFirehose
-	//	BeforeEach(func() {
-	//		fakeIdleFirehose = helper.NewFakeIdleFirehose(time.Second * 7)
-	//		fakeDatadogAPI = helper.NewFakeDatadogAPI()
-	//
-	//		fakeIdleFirehose.Start()
-	//		fakeDatadogAPI.Start()
-	//
-	//		configuration = &config.Config{
-	//			DataDogURL:           fakeDatadogAPI.URL(),
-	//			DataDogAPIKey:        "1234567890",
-	//			TrafficControllerURL: strings.Replace(fakeIdleFirehose.URL(), "http:", "ws:", 1),
-	//			DisableAccessControl: true,
-	//			IdleTimeoutSeconds:   1,
-	//			WorkerTimeoutSeconds: 10,
-	//			FlushDurationSeconds: 1,
-	//			FlushMaxBytes:        10240,
-	//			NumWorkers:           1,
-	//			AppMetrics:           false,
-	//		}
-	//
-	//		tokenFetcher := &helper.FakeTokenFetcher{}
-	//		nozzle = NewNozzle(configuration, tokenFetcher, log)
-	//		os.Remove("firehose_nozzle.db")
-	//	})
-	//
-	//	AfterEach(func() {
-	//		if !nozzle.isStopped {
-	//			nozzle.Stop()
-	//		}
-	//		fakeIdleFirehose.Close()
-	//		fakeDatadogAPI.Close()
-	//		os.Remove("firehose_nozzle.db")
-	//	})
-	//
-	//	It("Start returns an error", func() {
-	//		err := nozzle.Start()
-	//		Expect(err).To(HaveOccurred())
-	//		Expect(err.Error()).To(ContainSubstring("i/o timeout"))
-	//	})
-	//})
 
 	Context("when workers timeout", func() {
 		BeforeEach(func() {
@@ -462,9 +411,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		AfterEach(func() {
-			if !nozzle.isStopped {
-				nozzle.Stop()
-			}
+			nozzle.Stop()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()

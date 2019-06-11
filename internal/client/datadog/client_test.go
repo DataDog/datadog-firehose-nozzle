@@ -1,7 +1,7 @@
 package datadog
 
 import (
-	"bytes"
+	//"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"bytes"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -100,7 +101,9 @@ var _ = Describe("DatadogClient", func() {
 			metricsMap.Add(k, v)
 
 			errs := make(chan error)
-			errs <- c.PostMetrics(metricsMap)
+			go func() {
+				errs <- c.PostMetrics(metricsMap)
+			}()
 			time.Sleep(time.Second)
 			Eventually(errs).Should(Receive(HaveOccurred()))
 		})
