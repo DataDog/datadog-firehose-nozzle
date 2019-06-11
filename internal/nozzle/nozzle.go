@@ -252,6 +252,7 @@ func (d *Nozzle) handleError(err error) bool {
 		d.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
 		d.log.Info("The Firehose consumer hit a retry error, retrying ...")
 		//TODO: Why should we alert with a metric? like for `AlertSlowConsumerError`?
+		err = retryErr.Err
 	}
 
 	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
@@ -273,7 +274,6 @@ func (d *Nozzle) handleError(err error) bool {
 			// see github.com/cloudfoundry/noaa/consumer/async.go#listenForMessages
 			d.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
 		case websocket.ClosePolicyViolation:
-			d.log.Errorf("Error while reading from the firehose: %v", err)
 			d.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
 			//TODO: Why should we alert only on ClosePolicyViolation error code?
 			d.AlertSlowConsumerError()

@@ -160,47 +160,43 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			validateMetrics(payload, 10, 23)
 		}, 3)
 
-		//It("reports a slow-consumer error when the server disconnects abnormally", func() {
-		//	for i := 0; i < 10; i++ {
-		//		envelope := events.Envelope{
-		//			Origin:    proto.String("origin"),
-		//			Timestamp: proto.Int64(1000000000),
-		//			EventType: events.Envelope_ValueMetric.Enum(),
-		//			ValueMetric: &events.ValueMetric{
-		//				Name:  proto.String(fmt.Sprintf("metricName-%d", i)),
-		//				Value: proto.Float64(float64(i)),
-		//				Unit:  proto.String("gauge"),
-		//			},
-		//			Deployment: proto.String("deployment-name"),
-		//			Job:        proto.String("doppler"),
-		//		}
-		//		fakeFirehose.AddEvent(envelope)
-		//	}
-		//
-		//	fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "Client did not respond to ping before keep-alive timeout expired."))
-		//	fakeFirehose.CloseWebSocket()
-		//
-		//	var contents []byte
-		//	Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
-		//
-		//	var payload datadog.Payload
-		//	err := json.Unmarshal(helper.Decompress(contents), &payload)
-		//	Expect(err).ToNot(HaveOccurred())
-		//
-		//	slowConsumerMetric := findSlowConsumerMetric(payload)
-		//	Expect(slowConsumerMetric).NotTo(BeNil())
-		//	Expect(slowConsumerMetric.Points).To(HaveLen(1))
-		//	Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
-		//
-		//	logOutput := fakeBuffer.GetContent()
-		//	Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
-		//	Expect(logOutput).To(ContainSubstring("Client did not respond to ping before keep-alive timeout expired."))
-		//	Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
-		//
-		//	//// Restart the nozzle since it crashed, because it will be stopped by the test teardown
-		//	//go nozzle.Start()
-		//	//time.Sleep(time.Second)
-		//}, 2)
+		It("reports a slow-consumer error when the server disconnects abnormally", func() {
+			for i := 0; i < 10; i++ {
+				envelope := events.Envelope{
+					Origin:    proto.String("origin"),
+					Timestamp: proto.Int64(1000000000),
+					EventType: events.Envelope_ValueMetric.Enum(),
+					ValueMetric: &events.ValueMetric{
+						Name:  proto.String(fmt.Sprintf("metricName-%d", i)),
+						Value: proto.Float64(float64(i)),
+						Unit:  proto.String("gauge"),
+					},
+					Deployment: proto.String("deployment-name"),
+					Job:        proto.String("doppler"),
+				}
+				fakeFirehose.AddEvent(envelope)
+			}
+
+			fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "Client did not respond to ping before keep-alive timeout expired."))
+			fakeFirehose.CloseWebSocket()
+
+			var contents []byte
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+
+			var payload datadog.Payload
+			err := json.Unmarshal(helper.Decompress(contents), &payload)
+			Expect(err).ToNot(HaveOccurred())
+
+			slowConsumerMetric := findSlowConsumerMetric(payload)
+			Expect(slowConsumerMetric).NotTo(BeNil())
+			Expect(slowConsumerMetric.Points).To(HaveLen(1))
+			//Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
+
+			logOutput := fakeBuffer.GetContent()
+			Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
+			Expect(logOutput).To(ContainSubstring("Client did not respond to ping before keep-alive timeout expired."))
+			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
+		}, 2)
 
 		It("doesn't report a slow-consumer error when closed for other reasons", func() {
 			fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "Weird things happened."))

@@ -100,9 +100,8 @@ var _ = Describe("DatadogClient", func() {
 			metricsMap.Add(k, v)
 
 			errs := make(chan error)
-			go func() {
-				errs <- c.PostMetrics(metricsMap)
-			}()
+			errs <- c.PostMetrics(metricsMap)
+			time.Sleep(time.Second)
 			Eventually(errs).Should(Receive(HaveOccurred()))
 		})
 
@@ -114,7 +113,7 @@ var _ = Describe("DatadogClient", func() {
 			go func() {
 				errs <- c.PostMetrics(metricsMap)
 			}()
-
+			time.Sleep(time.Second)
 			var err error
 			Eventually(errs).Should(Receive(&err))
 			Expect(err).ToNot(BeNil())
