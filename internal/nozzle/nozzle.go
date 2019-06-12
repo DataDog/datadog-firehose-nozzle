@@ -73,6 +73,7 @@ func (n *Nozzle) Start() error {
 		n.log.Error("Nozzle is already running")
 		return nil
 	}
+	n.isStopped = false
 
 	// Fetch Authentication Token
 	var authToken string
@@ -169,7 +170,6 @@ func (n *Nozzle) run() error {
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
 	for {
-		n.isStopped = false
 		select {
 		case <-ticker.C:
 			// Submit metrics to Datadog
