@@ -260,14 +260,13 @@ func (n *Nozzle) handleError(err error) bool {
 	if retryErr, ok := err.(noaaerrors.RetryError); ok {
 		n.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
 		n.log.Info("The Firehose consumer hit a retry error, retrying ...")
-		//TODO: Why should we alert with a metric? like for `AlertSlowConsumerError`?
 		err = retryErr.Err
 	}
 
 	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
 	if err.Error() == consumer.ErrMaxRetriesReached.Error() {
+		n.log.Errorf("Error ErrMaxRetriesReached: %v", err.Error())
 		n.log.Info("Too many retries, shutting down...")
-		//TODO: Why should send a DD event?
 		return false
 	}
 
@@ -284,13 +283,11 @@ func (n *Nozzle) handleError(err error) bool {
 			n.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
 		case websocket.ClosePolicyViolation:
 			n.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
-			//TODO: Why should we alert only on ClosePolicyViolation error code?
 			n.AlertSlowConsumerError()
 		default:
 			n.log.Errorf("Error while reading from the firehose: %v", err)
 		}
 	default:
-		//TODO: Should we report error count to DD?
 		n.log.Errorf("Error while reading from the firehose: %v", err)
 	}
 
