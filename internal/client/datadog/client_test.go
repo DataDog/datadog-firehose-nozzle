@@ -114,6 +114,7 @@ var _ = Describe("DatadogClient", func() {
 			go func() {
 				errs <- c.PostMetrics(metricsMap)
 			}()
+
 			var err error
 			Eventually(errs).Should(Receive(&err))
 			Expect(err).ToNot(BeNil())

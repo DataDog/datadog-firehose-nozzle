@@ -42,7 +42,6 @@ type Nozzle struct {
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
-	callbackLock          sync.RWMutex
 	isStopped             bool
 }
 
@@ -73,8 +72,6 @@ func (n *Nozzle) Start() error {
 	if !n.isStopped {
 		n.log.Error("Nozzle is already running")
 		return nil
-	} else {
-		n.isStopped = true
 	}
 
 	// Fetch Authentication Token
@@ -172,6 +169,7 @@ func (n *Nozzle) run() error {
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
 	for {
+		n.isStopped = false
 		select {
 		case <-ticker.C:
 			// Submit metrics to Datadog
@@ -215,6 +213,8 @@ func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 
 // Stop stops the Nozzle
 func (n *Nozzle) Stop() {
+	// We only push value to the `stopper` channel if the Nozzle reading from it.
+	// Hence, if the nozzle is running (`run` method)
 	if !n.isStopped {
 		n.stopper <- true
 	}
@@ -278,7 +278,7 @@ func (n *Nozzle) handleError(err error) bool {
 			// NOTE: errors with `Code` `websocket.CloseNormalClosure` should not happen since `CloseMessage` control
 			// on websocket connection can only happen when we close it.
 			// Also this type of error is caught by the consumer. The consumer return nil instead of the error.
-			// This is so that the consumer stop instead of retrying
+			// This is so that the consumer stops instead of retrying
 			// see github.com/cloudfoundry/noaa/consumer/async.go#listenForMessages
 			n.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
 		case websocket.ClosePolicyViolation:
