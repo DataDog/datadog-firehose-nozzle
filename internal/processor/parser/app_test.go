@@ -3,12 +3,10 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	cfclient "github.com/cloudfoundry-community/go-cfclient"
-	bolt "github.com/coreos/bbolt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,11 +23,9 @@ var _ = Describe("AppMetrics", func() {
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
 		fakeCfClient           *cfclient.Client
-		db                     *bolt.DB
 	)
 
 	BeforeEach(func() {
-		var err error
 		log = gosteno.NewLogger("datadogclient test")
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
@@ -43,27 +39,16 @@ var _ = Describe("AppMetrics", func() {
 			UserAgent:         "datadog-firehose-nozzle",
 		}
 		fakeCfClient, _ = cfclient.NewClient(&cfg)
-		db, err = bolt.Open("firehose_nozzle.db", 0600, nil)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
 	}, 0)
-	AfterEach(func() {
-		db.Close()
-	})
-
-	AfterSuite(func() {
-		os.Remove("firehose_nozzle.db")
-	})
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := NewAppParser(nil, 10, log, []string{}, db, "")
+			_, err := NewAppParser(nil, 10, log, []string{}, "")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, db, "")
+			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -71,13 +56,13 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
-			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, db, "")
+			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, "")
 			_, err := a.getAppData("guid")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("grabs from the cache when it should be", func() {
-			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, db, "")
+			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, "")
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
 			app, err := a.getAppData("guid1")
@@ -88,7 +73,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("metric evaluation test", func() {
 		It("parses an event properly", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, db, "env_name")
+			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)
@@ -140,7 +125,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, db, "env_name")
+			a, err := NewAppParser(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.Apps = newFakeApps(guids)

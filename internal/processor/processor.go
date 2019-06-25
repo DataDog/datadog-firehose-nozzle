@@ -2,7 +2,6 @@ package processor
 
 import (
 	"fmt"
-	bolt "github.com/coreos/bbolt"
 	"regexp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -34,7 +33,6 @@ func NewProcessor(
 	cfClient *cfclient.Client,
 	grabInterval int,
 	log *gosteno.Logger,
-	db *bolt.DB,
 ) (*Processor, bool) {
 
 	processor := &Processor{
@@ -51,7 +49,6 @@ func NewProcessor(
 			grabInterval,
 			log,
 			customTags,
-			db,
 			environment,
 		)
 		if err != nil {

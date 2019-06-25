@@ -3,10 +3,6 @@ updated: 2018-11-27T12:25:40.806287-05:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
-- name: github.com/boltdb/bolt
-  version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
-  subpackages:
-  - '...'
 - name: github.com/cloudfoundry-community/go-cfclient
   version: b75ec7d52c9cd9b691cf80da587d076afbed4957
 - name: github.com/cloudfoundry-incubator/uaago
@@ -29,10 +25,6 @@ imports:
   version: 78019103037ae46207993c8816e970d85bf1a9e4
   subpackages:
   - events
-- name: github.com/coreos/bbolt
-  version: 7ee3ded59d4835e10f3e7d0f7603c42aa5e83820
-  subpackages:
-  - '...'
 - name: github.com/gogo/protobuf
   version: 100ba4e885062801d56799d78530b73b178a78f3
   subpackages:

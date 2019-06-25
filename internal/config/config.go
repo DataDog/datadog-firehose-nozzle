@@ -41,7 +41,6 @@ type Config struct {
 	NumWorkers                 int
 	GrabInterval               int
 	CustomTags                 []string
-	DBPath                     string
 	EnvironmentName            string
 	WorkerTimeoutSeconds       uint32
 }
@@ -82,7 +81,6 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvUint32("NOZZLE_IDLETIMEOUTSECONDS", &config.IdleTimeoutSeconds)
 	overrideWithEnvUint32("NOZZLE_WORKERTIMEOUTSECONDS", &config.WorkerTimeoutSeconds)
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
-	overrideWithEnvVar("NOZZLE_DB_PATH", &config.DBPath)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
 
 	if config.MetricPrefix == "" {

@@ -17,7 +17,6 @@ import (
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
 	"github.com/gorilla/websocket"
 )
 
@@ -33,7 +32,6 @@ type Nozzle struct {
 	cfClient              *cfclient.Client
 	processedMetrics      chan []metric.MetricPackage
 	log                   *gosteno.Logger
-	db                    *bolt.DB
 	parseAppMetricsEnable bool
 	stopper               chan bool
 	workersStopper        chan bool
@@ -78,21 +76,10 @@ func (n *Nozzle) Start() error {
 		n.config.CustomTags = []string{}
 	}
 
-	// Initialize Bolt DB
-	var dbPath = "firehose_nozzle.db"
-	if n.config.DBPath != "" {
-		dbPath = n.config.DBPath
-	}
-	var db, err = bolt.Open(dbPath, 0666, &bolt.Options{
-		ReadOnly: false,
-	})
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	n.db = db
+	n.log.Info("Starting DataDog Firehose Nozzle...")
 
 	// Initialize Datadog client instances
+	var err error
 	n.ddClients, err = datadog.NewClients(n.config, n.log)
 	if err != nil {
 		return err
@@ -109,8 +96,7 @@ func (n *Nozzle) Start() error {
 		n.parseAppMetricsEnable,
 		n.cfClient,
 		n.config.GrabInterval,
-		n.log,
-		n.db)
+		n.log)
 
 	// Initialize the firehose consumer (with retry enable)
 	err = n.startFirehoseConsumer(authToken)

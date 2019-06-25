@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -72,8 +71,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 				NumWorkers:           1,
 			}
-
-			os.Remove("firehose_nozzle.db")
+		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
@@ -86,7 +84,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
-			os.Remove("firehose_nozzle.db")
 		})
 
 		It("receives data from the firehose", func() {
@@ -348,8 +345,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				NumWorkers:           1,
 				AppMetrics:           false,
 			}
-
-			os.Remove("firehose_nozzle.db")
+		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
@@ -362,7 +358,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
-			os.Remove("firehose_nozzle.db")
 		})
 
 		It("can still tries to connect to the firehose", func() {
@@ -403,7 +398,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 				NumWorkers:           1,
 			}
-			os.Remove("firehose_nozzle.db")
+		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
@@ -414,7 +409,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
-			os.Remove("firehose_nozzle.db")
 		})
 
 		It("logs a warning", func() {

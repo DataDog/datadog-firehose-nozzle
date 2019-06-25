@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
 )
 
 var clearCacheDuration = 60
@@ -21,10 +21,8 @@ type AppParser struct {
 	log          *gosteno.Logger
 	Apps         map[string]*App
 	appLock      sync.RWMutex
-	db           *bolt.DB
 	grabInterval int
 	customTags   []string
-	appBucket    []byte
 }
 
 func NewAppParser(
@@ -32,7 +30,6 @@ func NewAppParser(
 	grabInterval int,
 	log *gosteno.Logger,
 	customTags []string,
-	db *bolt.DB,
 	environment string,
 ) (*AppParser, error) {
 
@@ -48,12 +45,9 @@ func NewAppParser(
 		Apps:         make(map[string]*App),
 		grabInterval: grabInterval,
 		customTags:   customTags,
-		appBucket:    []byte("CloudFoundryApps"),
-		db:           db,
 	}
 
-	// create the cache db or grab the app cache from it
-	appMetrics.reloadCache()
+	appMetrics.warmupCache()
 	// start the background loop to keep the cache up to date
 	go appMetrics.updateCacheLoop()
 
@@ -89,55 +83,26 @@ func (am *AppParser) updateCacheLoop() {
 				delete(am.Apps, guid)
 			}
 			am.appLock.Unlock()
-
-			// update the database after closing the app map
-			// since this won't affect the app map, no need to continue touching it
-			am.db.Batch(func(tx *bolt.Tx) error {
-				b, err := tx.CreateBucketIfNotExists(am.appBucket)
-				if err != nil {
-					return fmt.Errorf("create bucket: %s", err)
-				}
-				// delete removed apps
-				for _, guid := range toRemove {
-					b.Delete([]byte(guid))
-				}
-				// update modified apps
-				for guid, jsonApp := range updatedApps {
-					b.Put([]byte(guid), jsonApp)
-				}
-				return nil
-			})
 		}
 	}
 }
 
-func (am *AppParser) reloadCache() error {
-	err := am.db.Batch(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(am.appBucket)
-		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		if b == nil {
-			return fmt.Errorf("bucket not created")
-		}
+func (am *AppParser) warmupCache() {
+	am.log.Infof("Warming up cache...")
+	q := url.Values{}
+	q.Set("inline-relations-depth", "2")
+	q.Set("results-per-page", "100")
 
-		am.appLock.Lock()
-		defer am.appLock.Unlock()
+	apps, err := am.CFClient.ListAppsByQuery(q)
+	if err != nil {
+		am.log.Errorf("Error warming up cache, couldn't get list of apps: %v", err)
+		return
+	}
 
-		return b.ForEach(func(k []byte, v []byte) error {
-			guid := string(k)
-			var app *App
-			err := json.Unmarshal(v, app)
-			if err != nil {
-				return err
-			}
-			am.Apps[guid] = app
-
-			return nil
-		})
-	})
-
-	return err
+	for _, resolvedApp := range apps {
+		am.Apps[resolvedApp.Guid] = newApp(resolvedApp.Guid)
+		am.Apps[resolvedApp.Guid].setAppData(resolvedApp)
+	}
 }
 
 func (am *AppParser) getAppData(guid string) (*App, error) {
@@ -174,60 +139,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		return nil, err
 	}
 
-	app.ErrorGrabbing = false
-	app.updated = time.Now().Unix()
-
-	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
-	app.Name = resolvedApp.Name
-	if app.Name == "" {
-		am.log.Infof("App %v has no name", guid)
-	}
-	if resolvedApp.Buildpack != "" {
-		app.Buildpack = resolvedApp.Buildpack
-	} else if resolvedApp.DetectedBuildpack != "" {
-		app.Buildpack = resolvedApp.DetectedBuildpack
-	}
-	app.Command = resolvedApp.Command
-	app.DockerImage = resolvedApp.DockerImage
-	app.Diego = resolvedApp.Diego
-	app.SpaceID = resolvedApp.SpaceGuid
-
-	resolvedInstances, err := am.CFClient.GetAppInstances(guid)
-	if err == nil {
-		app.Instances = make(map[string]Instance)
-		app.NumberOfInstances = len(resolvedInstances)
-		for i, inst := range resolvedInstances {
-			app.Instances[i] = Instance{
-				InstanceIndex: i,
-				State:         inst.State,
-			}
-		}
-	} else {
-		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
-	}
-
-	app.TotalDiskConfigured = resolvedApp.DiskQuota
-	app.TotalMemoryConfigured = resolvedApp.Memory
-	app.TotalDiskProvisioned = resolvedApp.DiskQuota * app.NumberOfInstances
-	app.TotalMemoryProvisioned = resolvedApp.Memory * app.NumberOfInstances
-
-	space, err := resolvedApp.Space()
-	if err == nil {
-		app.SpaceName = space.Name
-		org, e := space.Org()
-		if e == nil {
-			app.OrgName = org.Name
-			app.OrgID = org.Guid
-		} else {
-			app.ErrorGrabbing = true
-			am.log.Errorf("there was an error grabbing the org data for app %v in space %v: %v", resolvedApp.Guid, space.Guid, e)
-		}
-	} else {
-		app.ErrorGrabbing = true
-		am.log.Errorf("there was an error grabbing the space data for app %v: %v", resolvedApp.Guid, err)
-	}
-
-	app.Tags = app.generateTags()
+	app.setAppData(resolvedApp)
 	return app, nil
 }
 
@@ -418,4 +330,33 @@ func (a *App) generateTags() []string {
 	}
 
 	return tags
+}
+
+func (a *App) setAppData(resolvedApp cfclient.App) {
+	a.ErrorGrabbing = false
+	a.updated = time.Now().Unix()
+
+	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
+	a.Name = resolvedApp.Name
+	if resolvedApp.Buildpack != "" {
+		a.Buildpack = resolvedApp.Buildpack
+	} else if resolvedApp.DetectedBuildpack != "" {
+		a.Buildpack = resolvedApp.DetectedBuildpack
+	}
+	a.Command = resolvedApp.Command
+	a.DockerImage = resolvedApp.DockerImage
+	a.Diego = resolvedApp.Diego
+	a.SpaceID = resolvedApp.SpaceGuid
+	a.NumberOfInstances = resolvedApp.Instances
+
+	a.TotalDiskConfigured = resolvedApp.DiskQuota
+	a.TotalMemoryConfigured = resolvedApp.Memory
+	a.TotalDiskProvisioned = resolvedApp.DiskQuota * a.NumberOfInstances
+	a.TotalMemoryProvisioned = resolvedApp.Memory * a.NumberOfInstances
+
+	a.SpaceName = resolvedApp.SpaceData.Entity.Name
+	a.OrgName = resolvedApp.SpaceData.Entity.OrgData.Entity.Name
+	a.OrgID = resolvedApp.SpaceData.Entity.OrgData.Entity.Guid
+
+	a.Tags = a.generateTags()
 }
