@@ -47,7 +47,7 @@ type AuthTokenFetcher interface {
 	FetchAuthToken() string
 }
 
-// Nozzle creates a new nozzle
+// NewNozzle creates a new nozzle
 func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosteno.Logger) *Nozzle {
 	return &Nozzle{
 		config:                config,
