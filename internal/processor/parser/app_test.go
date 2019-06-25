@@ -3,7 +3,6 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	cfclient "github.com/cloudfoundry-community/go-cfclient"
@@ -64,7 +63,7 @@ var _ = Describe("AppMetrics", func() {
 		It("grabs from the cache when it should be", func() {
 			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, "")
 			guids := []string{"guid1", "guid2"}
-			a.Apps = newFakeApps(guids)
+			a.AppCache = *newFakeApps(guids)
 			app, err := a.getAppData("guid1")
 			Expect(err).To(BeNil())
 			Expect(app).NotTo(BeNil())
@@ -76,7 +75,7 @@ var _ = Describe("AppMetrics", func() {
 			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
-			a.Apps = newFakeApps(guids)
+			a.AppCache = *newFakeApps(guids)
 
 			event := &events.Envelope{
 				Origin:    proto.String("test-origin"),
@@ -128,7 +127,7 @@ var _ = Describe("AppMetrics", func() {
 			a, err := NewAppParser(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
-			a.Apps = newFakeApps(guids)
+			a.AppCache = *newFakeApps(guids)
 
 			event := &events.Envelope{
 				Origin:    proto.String("test-origin"),
@@ -201,14 +200,12 @@ func (m *containMetric) NegatedFailureMessage(actual interface{}) (message strin
 	return fmt.Sprintf("Did not expect %#v to contain a metric named %s", m.haystack, m.needle)
 }
 
-func newFakeApps(guids []string) map[string]*App {
-	apps := map[string]*App{}
+func newFakeApps(guids []string) *appCache {
+	cache := newAppCache()
 	for _, guid := range guids {
-		apps[guid] = &App{
+		cache.apps[guid] = &App{
 			Name:                   guid,
 			GUID:                   guid,
-			updated:                time.Now().Unix(),
-			ErrorGrabbing:          false,
 			TotalDiskConfigured:    1,
 			TotalMemoryConfigured:  1,
 			TotalDiskProvisioned:   1,
@@ -217,5 +214,5 @@ func newFakeApps(guids []string) map[string]*App {
 		}
 	}
 
-	return apps
+	return &cache
 }

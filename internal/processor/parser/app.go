@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"encoding/json"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry-community/go-cfclient"
@@ -14,13 +13,50 @@ import (
 	"github.com/cloudfoundry/sonde-go/events"
 )
 
-var clearCacheDuration = 60
+type appCache struct {
+	apps map[string]*App
+	lock sync.RWMutex
+}
+
+func newAppCache() appCache {
+	return appCache{
+		apps: make(map[string]*App),
+	}
+}
+
+func (c *appCache) CreateOrUpdate(resolvedApp cfclient.App) *App {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if app := c.apps[resolvedApp.Guid]; app != nil {
+		app.setAppData(resolvedApp)
+	} else {
+		app := newApp(resolvedApp.Guid)
+		app.setAppData(resolvedApp)
+		c.apps[resolvedApp.Guid] = app
+	}
+
+	return c.apps[resolvedApp.Guid]
+}
+
+func (c *appCache) Delete(guid string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	delete(c.apps, guid)
+}
+
+func (c *appCache) Get(guid string) *App {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return c.apps[guid]
+}
 
 type AppParser struct {
 	CFClient     *cfclient.Client
 	log          *gosteno.Logger
-	Apps         map[string]*App
-	appLock      sync.RWMutex
+	AppCache     appCache
 	grabInterval int
 	customTags   []string
 }
@@ -42,7 +78,7 @@ func NewAppParser(
 	appMetrics := &AppParser{
 		CFClient:     cfClient,
 		log:          log,
-		Apps:         make(map[string]*App),
+		AppCache:     newAppCache(),
 		grabInterval: grabInterval,
 		customTags:   customTags,
 	}
@@ -55,34 +91,11 @@ func NewAppParser(
 }
 
 func (am *AppParser) updateCacheLoop() {
-	// If an app hasn't sent a metric in a while,
-	// assume that it's either been taken down or
-	// that the loggregator is routing it to a different nozzle and remove it from the cache
-	ticker := time.NewTicker(time.Duration(clearCacheDuration) * time.Minute)
+	ticker := time.NewTicker(time.Duration(am.grabInterval) * time.Minute)
 	for {
 		select {
 		case <-ticker.C:
-			var toRemove = []string{}
-			var oneHourAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
-			am.appLock.Lock()
-			updatedApps := make(map[string][]byte)
-			for guid, app := range am.Apps {
-				app.lock.RLock()
-				if app.updated < oneHourAgo {
-					toRemove = append(toRemove, guid)
-				} else {
-					jsonApp, err := json.Marshal(app)
-					if err != nil {
-						am.log.Infof("Error marshalling app for database: %v", err)
-					}
-					updatedApps[guid] = jsonApp
-				}
-				app.lock.RUnlock()
-			}
-			for _, guid := range toRemove {
-				delete(am.Apps, guid)
-			}
-			am.appLock.Unlock()
+			am.warmupCache()
 		}
 	}
 }
@@ -91,7 +104,7 @@ func (am *AppParser) warmupCache() {
 	am.log.Infof("Warming up cache...")
 	q := url.Values{}
 	q.Set("inline-relations-depth", "2")
-	q.Set("results-per-page", "100")
+	q.Set("results-per-page", "100") // 100 is the max
 
 	apps, err := am.CFClient.ListAppsByQuery(q)
 	if err != nil {
@@ -100,47 +113,25 @@ func (am *AppParser) warmupCache() {
 	}
 
 	for _, resolvedApp := range apps {
-		am.Apps[resolvedApp.Guid] = newApp(resolvedApp.Guid)
-		am.Apps[resolvedApp.Guid].setAppData(resolvedApp)
+		am.AppCache.CreateOrUpdate(resolvedApp)
 	}
 }
 
 func (am *AppParser) getAppData(guid string) (*App, error) {
-	am.appLock.Lock()
-	defer am.appLock.Unlock()
-
-	var app *App
-	if _, ok := am.Apps[guid]; ok {
+	app := am.AppCache.Get(guid)
+	if app != nil {
 		// If it exists in the cache, use the cache
-		app = am.Apps[guid]
-		timeToGrab := (time.Now().Add(-time.Duration(am.grabInterval) * time.Minute)).Unix()
-		if !app.ErrorGrabbing && app.updated > timeToGrab {
-			return app, nil
-		}
-	} else {
-		am.Apps[guid] = newApp(guid)
-		app = am.Apps[guid]
+		return app, nil
 	}
-	app.lock.Lock()
-	defer app.lock.Unlock()
 
+	// Otherwise it's a new app so fetch it via the API
 	resolvedApp, err := am.CFClient.AppByGuid(guid)
 	if err != nil {
-		if app.ErrorGrabbing {
-			// If there was a previous error grabbing the app, assume it's been removed and remove it from the cache
-			am.log.Errorf("there was an error grabbing the instance data for app %v, removing from cache: %v", resolvedApp.Guid, err)
-			delete(am.Apps, guid)
-		} else {
-			// If there was not, say that there was such an error
-			am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
-		}
-		// Ensure that ErrorGrabbing is set
-		app.ErrorGrabbing = true
+		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
 		return nil, err
 	}
 
-	app.setAppData(resolvedApp)
-	return app, nil
+	return am.AppCache.CreateOrUpdate(resolvedApp), nil
 }
 
 func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
@@ -189,9 +180,7 @@ type App struct {
 	TotalMemoryConfigured  int
 	TotalDiskProvisioned   int
 	TotalMemoryProvisioned int
-	ErrorGrabbing          bool
 	Tags                   []string
-	updated                int64
 	lock                   sync.RWMutex
 }
 
@@ -203,8 +192,7 @@ type Instance struct {
 
 func newApp(guid string) *App {
 	return &App{
-		GUID:    guid,
-		updated: time.Now().Unix(),
+		GUID: guid,
 	}
 }
 
@@ -333,9 +321,6 @@ func (a *App) generateTags() []string {
 }
 
 func (a *App) setAppData(resolvedApp cfclient.App) {
-	a.ErrorGrabbing = false
-	a.updated = time.Now().Unix()
-
 	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
 	a.Name = resolvedApp.Name
 	if resolvedApp.Buildpack != "" {
