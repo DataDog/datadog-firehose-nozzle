@@ -94,7 +94,8 @@ func (p *Processor) StopAppMetrics() {
 		return
 	}
 
-	p.appMetrics.Stop()
+	appParser := p.appMetrics.(*parser.AppParser)
+	appParser.Stop()
 }
 
 func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPackage, error) {
