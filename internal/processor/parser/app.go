@@ -24,21 +24,23 @@ func newAppCache() appCache {
 	}
 }
 
-func (c *appCache) Add(resolvedApp cfclient.App) *App {
+// Add inserts or update a new app in the cache, and returns it
+func (c *appCache) Add(cfApp cfclient.App) *App {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if app := c.apps[resolvedApp.Guid]; app != nil {
-		app.setAppData(resolvedApp)
+	if app := c.apps[cfApp.Guid]; app != nil {
+		app.setAppData(cfApp)
 	} else {
-		app := newApp(resolvedApp.Guid)
-		app.setAppData(resolvedApp)
-		c.apps[resolvedApp.Guid] = app
+		app := newApp(cfApp.Guid)
+		app.setAppData(cfApp)
+		c.apps[cfApp.Guid] = app
 	}
 
-	return c.apps[resolvedApp.Guid]
+	return c.apps[cfApp.Guid]
 }
 
+// Delete removes an app from the cache
 func (c *appCache) Delete(guid string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -46,6 +48,7 @@ func (c *appCache) Delete(guid string) {
 	delete(c.apps, guid)
 }
 
+// Get returns a cached app or nil if not found
 func (c *appCache) Get(guid string) *App {
 	c.lock.Lock()
 	defer c.lock.Unlock()
