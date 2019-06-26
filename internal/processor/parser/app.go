@@ -24,7 +24,7 @@ func newAppCache() appCache {
 	}
 }
 
-func (c *appCache) CreateOrUpdate(resolvedApp cfclient.App) *App {
+func (c *appCache) Add(resolvedApp cfclient.App) *App {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -59,6 +59,7 @@ type AppParser struct {
 	AppCache     appCache
 	grabInterval int
 	customTags   []string
+	stopper      chan bool
 }
 
 func NewAppParser(
@@ -81,6 +82,7 @@ func NewAppParser(
 		AppCache:     newAppCache(),
 		grabInterval: grabInterval,
 		customTags:   customTags,
+		stopper:      make(chan bool, 1),
 	}
 
 	appMetrics.warmupCache()
@@ -90,12 +92,15 @@ func NewAppParser(
 	return appMetrics, nil
 }
 
+// updateCacheLoop periodically refreshes the entire cache
 func (am *AppParser) updateCacheLoop() {
 	ticker := time.NewTicker(time.Duration(am.grabInterval) * time.Minute)
 	for {
 		select {
 		case <-ticker.C:
 			am.warmupCache()
+		case <-am.stopper:
+			return
 		}
 	}
 }
@@ -113,7 +118,7 @@ func (am *AppParser) warmupCache() {
 	}
 
 	for _, resolvedApp := range apps {
-		am.AppCache.CreateOrUpdate(resolvedApp)
+		am.AppCache.Add(resolvedApp)
 	}
 }
 
@@ -131,7 +136,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		return nil, err
 	}
 
-	return am.AppCache.CreateOrUpdate(resolvedApp), nil
+	return am.AppCache.Add(resolvedApp), nil
 }
 
 func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
@@ -158,6 +163,11 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	metricsPackages = append(metricsPackages, containerMetrics...)
 
 	return metricsPackages, nil
+}
+
+// Stop sends a message on the stopper channel to quit the goroutine refreshing the cache
+func (am *AppParser) Stop() {
+	am.stopper <- true
 }
 
 type App struct {

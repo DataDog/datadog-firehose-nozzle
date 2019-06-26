@@ -88,6 +88,15 @@ func (p *Processor) ProcessMetric(envelope *events.Envelope) {
 	}
 }
 
+// StopAppMetrics stops the goroutine refreshing the apps cache
+func (p *Processor) StopAppMetrics() {
+	if p.appMetrics == nil {
+		return
+	}
+
+	p.appMetrics.Stop()
+}
+
 func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPackage, error) {
 	var metricsPackages []metric.MetricPackage
 	var err error
