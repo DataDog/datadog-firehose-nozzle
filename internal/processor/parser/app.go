@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"sync"
 	"time"
@@ -123,6 +124,7 @@ func (am *AppParser) warmupCache() {
 	for _, resolvedApp := range apps {
 		am.AppCache.Add(resolvedApp)
 	}
+	am.log.Infof("Done warming up cache")
 }
 
 func (am *AppParser) getAppData(guid string) (*App, error) {
