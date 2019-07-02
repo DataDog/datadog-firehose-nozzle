@@ -256,15 +256,11 @@ func (n *Nozzle) postMetrics() {
 }
 
 func (n *Nozzle) handleError(err error) bool {
-	// If error is a retry error, we log it and let the consumer retry.
-	if retryErr, ok := err.(noaaerrors.RetryError); ok {
-		n.log.Errorf("Error while reading from the firehose: %v", retryErr.Error())
-		n.log.Info("The Firehose consumer hit a retry error, retrying ...")
-		err = retryErr.Err
-	}
+	noaaErr, retry := err.(noaaerrors.RetryError)
+	err = noaaErr.Err
 
 	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
-	if err.Error() == consumer.ErrMaxRetriesReached.Error() {
+	if err == consumer.ErrMaxRetriesReached {
 		n.log.Errorf("Error ErrMaxRetriesReached: %v", err.Error())
 		n.log.Info("Too many retries, shutting down...")
 		return false
@@ -291,7 +287,10 @@ func (n *Nozzle) handleError(err error) bool {
 		n.log.Errorf("Error while reading from the firehose: %v", err)
 	}
 
-	_, retry := err.(noaaerrors.RetryError)
+	if retry {
+		// If error is a retry error, we log it and let the consumer retry.
+		n.log.Info("The Firehose consumer hit a retry error, retrying ...")
+	}
 	return retry
 }
 
