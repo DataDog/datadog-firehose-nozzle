@@ -203,7 +203,7 @@ func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 
 // Stop stops the Nozzle
 func (n *Nozzle) Stop() {
-	// We only push value to the `stopper` channel if the Nozzle reading from it.
+	// We only push value to the `stopper` channel of the Nozzle.
 	// Hence, if the nozzle is running (`run` method)
 	n.stopper <- true
 }
