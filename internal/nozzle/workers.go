@@ -10,6 +10,7 @@ func (d *Nozzle) startWorkers() {
 	// Start the (multiple) workers which will process envelopes,
 	// create metricPackages and send them to p.processedMetrics channel
 	// NOTE: Worker are used to process infra or app event envelopes to metricPackages
+	d.log.Infof("Starting processed metrics reader and %d workers...", d.config.NumWorkers)
 	for i := 0; i < d.config.NumWorkers; i++ {
 		go d.work()
 	}
@@ -39,6 +40,7 @@ func (d *Nozzle) stopWorkers() {
 }
 
 func (d *Nozzle) work() {
+	d.log.Info("Worker started")
 	for {
 		select {
 		case envelope := <-d.messages:
@@ -48,12 +50,14 @@ func (d *Nozzle) work() {
 			d.handleMessage(envelope)
 			d.processor.ProcessMetric(envelope)
 		case <-d.workersStopper:
+			d.log.Info("Worker shutting down...")
 			return
 		}
 	}
 }
 
 func (d *Nozzle) readProcessedMetrics() {
+	d.log.Info("Processed metrics reader started")
 	for {
 		select {
 		case pkg := <-d.processedMetrics:
@@ -64,6 +68,7 @@ func (d *Nozzle) readProcessedMetrics() {
 			}
 			d.mapLock.Unlock()
 		case <-d.workersStopper:
+			d.log.Info("Processed metrics reader shutting down...")
 			return
 		}
 	}
