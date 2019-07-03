@@ -42,7 +42,6 @@ type Nozzle struct {
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
-	isStopped             bool
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -61,19 +60,12 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
-		isStopped:             true,
 	}
 }
 
 // Start starts the nozzle
 func (n *Nozzle) Start() error {
 	n.log.Info("Starting DataDog Firehose Nozzle...")
-
-	if !n.isStopped {
-		n.log.Error("Nozzle is already running")
-		return nil
-	}
-	n.isStopped = false
 
 	// Fetch Authentication Token
 	var authToken string
@@ -179,11 +171,9 @@ func (n *Nozzle) run() error {
 			retry := n.handleError(e)
 			n.handleError(e)
 			if !retry {
-				n.isStopped = true
 				return e
 			}
 		case <-n.stopper:
-			n.isStopped = true
 			return nil
 		}
 	}
@@ -215,9 +205,7 @@ func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, erro
 func (n *Nozzle) Stop() {
 	// We only push value to the `stopper` channel if the Nozzle reading from it.
 	// Hence, if the nozzle is running (`run` method)
-	if !n.isStopped {
-		n.stopper <- true
-	}
+	n.stopper <- true
 }
 
 // PostMetrics posts metrics do to datadog

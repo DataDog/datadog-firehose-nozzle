@@ -189,9 +189,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
 
 			logOutput := fakeBuffer.GetContent()
-			Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
-			Expect(logOutput).To(ContainSubstring("Client did not respond to ping before keep-alive timeout expired."))
-			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
+			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle."))
+			Expect(logOutput).To(ContainSubstring("The Firehose consumer hit a retry error, retrying ..."))
 		}, 2)
 
 		It("doesn't report a slow-consumer error when closed for other reasons", func() {
