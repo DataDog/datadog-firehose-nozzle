@@ -181,7 +181,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclient.App, error) {
 
 	// Query the first page to get the total number of pages.
-	resp, err := queryAppsPage(c, 1)
+	resp, err := getAppsPage(c, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
 	}
@@ -194,24 +194,26 @@ func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclie
 	pages := resp.Pages - 1
 	// No need for more workers than pages left
 	numWorkers = int(math.Min(float64(numWorkers), float64(pages)))
-	pagesPerWorker := int(math.Ceil(float64(pages) / float64(numWorkers)))
+	if pages > 0 {
+		pagesPerWorker := int(math.Ceil(float64(pages) / float64(numWorkers)))
 
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			// Offset 2 because no page 0 and page 1 already fetched
-			pageStart := i*pagesPerWorker + 2
-			// Stop at page resp.Pages, which is the last one
-			pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
-			resources := queryAppResourcesPageRange(c, pageStart, pageEnd, log)
-			mutex.Lock()
-			appResources = append(appResources, resources...)
-			mutex.Unlock()
-		}(i)
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				// Offset 2 because no page 0 and page 1 already fetched
+				pageStart := i*pagesPerWorker + 2
+				// Stop at page resp.Pages, which is the last one
+				pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
+				resources := getAppResourcesPageRange(c, pageStart, pageEnd, log)
+				mutex.Lock()
+				appResources = append(appResources, resources...)
+				mutex.Unlock()
+			}(i)
+		}
+
+		wg.Wait()
 	}
-
-	wg.Wait()
 
 	apps := []cfclient.App{}
 	for _, app := range appResources {
@@ -226,7 +228,7 @@ func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclie
 	return apps, nil
 }
 
-func queryAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error) {
+func getAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error) {
 	// Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L332
 	var appResp cfclient.AppResponse
 	q := url.Values{}
@@ -253,10 +255,10 @@ func queryAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error
 	return &appResp, nil
 }
 
-func queryAppResourcesPageRange(c *cfclient.Client, pageStart, pageEnd int, log *gosteno.Logger) []cfclient.AppResource {
+func getAppResourcesPageRange(c *cfclient.Client, pageStart, pageEnd int, log *gosteno.Logger) []cfclient.AppResource {
 	appResources := []cfclient.AppResource{}
 	for i := pageStart; i < pageEnd; i++ {
-		resp, err := queryAppsPage(c, i)
+		resp, err := getAppsPage(c, i)
 		if err != nil {
 			log.Error(err.Error())
 			continue
