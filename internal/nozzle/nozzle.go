@@ -95,6 +95,7 @@ func (n *Nozzle) Start() error {
 		n.config.EnvironmentName,
 		n.parseAppMetricsEnable,
 		n.cfClient,
+		n.config.NumCacheWorkers,
 		n.config.GrabInterval,
 		n.log)
 

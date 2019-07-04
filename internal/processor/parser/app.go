@@ -1,8 +1,10 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
+	"io/ioutil"
+	"math"
 	"net/url"
 	"sync"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/pkg/errors"
 )
 
 type appCache struct {
@@ -57,17 +60,21 @@ func (c *appCache) Get(guid string) *App {
 	return c.apps[guid]
 }
 
+// AppParser is used to parse app metrics
 type AppParser struct {
 	CFClient     *cfclient.Client
 	log          *gosteno.Logger
 	AppCache     appCache
+	cacheWorkers int
 	grabInterval int
 	customTags   []string
 	stopper      chan bool
 }
 
+// NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cfclient.Client,
+	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
 	customTags []string,
@@ -84,6 +91,7 @@ func NewAppParser(
 		CFClient:     cfClient,
 		log:          log,
 		AppCache:     newAppCache(),
+		cacheWorkers: cacheWorkers,
 		grabInterval: grabInterval,
 		customTags:   customTags,
 		stopper:      make(chan bool, 1),
@@ -111,11 +119,8 @@ func (am *AppParser) updateCacheLoop() {
 
 func (am *AppParser) warmupCache() {
 	am.log.Infof("Warming up cache...")
-	q := url.Values{}
-	q.Set("inline-relations-depth", "2")
-	q.Set("results-per-page", "100") // 100 is the max
 
-	apps, err := am.CFClient.ListAppsByQuery(q)
+	apps, err := listApps(am.CFClient, am.cacheWorkers, am.log)
 	if err != nil {
 		am.log.Errorf("Error warming up cache, couldn't get list of apps: %v", err)
 		return
@@ -144,6 +149,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 	return am.AppCache.Add(resolvedApp), nil
 }
 
+// Parse takes an envelope, and extract app metrics from it
 func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
 	metricsPackages := []metric.MetricPackage{}
 	message := envelope.GetContainerMetric()
@@ -170,11 +176,102 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	return metricsPackages, nil
 }
 
+// listApps is meant to replace the function from the go-cfclient and allow fetching apps in parallel tasks
+// The apps returned by this are just missing a reference to the client (unexported property) so don't use the Space() and Summary() methods
+func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclient.App, error) {
+
+	// Query the first page to get the total number of pages.
+	resp, err := queryAppsPage(c, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+	}
+	appResources := resp.Resources
+
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+
+	// Page 1 already fetched
+	pages := resp.Pages - 1
+	// No need for more workers than pages left
+	numWorkers = int(math.Min(float64(numWorkers), float64(pages)))
+	pagesPerWorker := int(math.Ceil(float64(pages) / float64(numWorkers)))
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			// Offset 2 because no page 0 and page 1 already fetched
+			pageStart := i*pagesPerWorker + 2
+			// Stop at page resp.Pages, which is the last one
+			pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
+			resources := queryAppResourcesPageRange(c, pageStart, pageEnd, log)
+			mutex.Lock()
+			appResources = append(appResources, resources...)
+			mutex.Unlock()
+		}(i)
+	}
+
+	wg.Wait()
+
+	apps := []cfclient.App{}
+	for _, app := range appResources {
+		// Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L643
+		app.Entity.Guid = app.Meta.Guid
+		app.Entity.CreatedAt = app.Meta.CreatedAt
+		app.Entity.UpdatedAt = app.Meta.UpdatedAt
+		app.Entity.SpaceData.Entity.Guid = app.Entity.SpaceData.Meta.Guid
+		app.Entity.SpaceData.Entity.OrgData.Entity.Guid = app.Entity.SpaceData.Entity.OrgData.Meta.Guid
+		apps = append(apps, app.Entity)
+	}
+	return apps, nil
+}
+
+func queryAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error) {
+	// Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L332
+	var appResp cfclient.AppResponse
+	q := url.Values{}
+	q.Set("inline-relations-depth", "2")
+	q.Set("results-per-page", "100") // 100 is the max
+	q.Set("page", string(pageNb))
+	r := c.NewRequest("GET", "/v2/apps?"+q.Encode())
+	resp, err := c.DoRequest(r)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting apps page %d", pageNb)
+	}
+	defer resp.Body.Close()
+	resBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error reading app response for page %d", pageNb)
+	}
+
+	err = json.Unmarshal(resBody, &appResp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error unmarshalling app response for page %d", pageNb)
+	}
+
+	return &appResp, nil
+}
+
+func queryAppResourcesPageRange(c *cfclient.Client, pageStart, pageEnd int, log *gosteno.Logger) []cfclient.AppResource {
+	appResources := []cfclient.AppResource{}
+	for i := pageStart; i < pageEnd; i++ {
+		resp, err := queryAppsPage(c, i)
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		appResources = append(appResources, resp.Resources...)
+	}
+	return appResources
+}
+
 // Stop sends a message on the stopper channel to quit the goroutine refreshing the cache
 func (am *AppParser) Stop() {
 	am.stopper <- true
 }
 
+// App holds all the needed attribute from an app
 type App struct {
 	Name                   string
 	Host                   string
@@ -189,7 +286,6 @@ type App struct {
 	SpaceURL               string
 	GUID                   string
 	DockerImage            string
-	Instances              map[string]Instance
 	NumberOfInstances      int
 	TotalDiskConfigured    int
 	TotalMemoryConfigured  int
@@ -197,12 +293,6 @@ type App struct {
 	TotalMemoryProvisioned int
 	Tags                   []string
 	lock                   sync.RWMutex
-}
-
-type Instance struct {
-	CellIP        string
-	State         string
-	InstanceIndex string
 }
 
 func newApp(guid string) *App {

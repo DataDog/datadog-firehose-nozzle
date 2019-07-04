@@ -20,6 +20,8 @@ import:
   - proto
 - package: github.com/cloudfoundry-community/go-cfclient
   version: b75ec7d52c9cd9b691cf80da587d076afbed4957
+- package: github.com/pkg/errors
+  version: ~0.8.0
 - package: github.com/gorilla/websocket
   version: ~1.4.0
 - package: github.com/hashicorp/go-retryablehttp

@@ -42,12 +42,12 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := NewAppParser(nil, 10, log, []string{}, "")
+			_, err := NewAppParser(nil, 5, 10, log, []string{}, "")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, "")
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -55,13 +55,13 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
-			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, "")
+			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
 			_, err := a.getAppData("guid")
 			Expect(err).NotTo(BeNil())
 		})
 
 		It("grabs from the cache when it should be", func() {
-			a, _ := NewAppParser(fakeCfClient, 10, log, []string{}, "")
+			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
 			guids := []string{"guid1", "guid2"}
 			a.AppCache = *newFakeApps(guids)
 			app, err := a.getAppData("guid1")
@@ -72,7 +72,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("metric evaluation test", func() {
 		It("parses an event properly", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{}, "env_name")
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.AppCache = *newFakeApps(guids)
@@ -124,7 +124,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := NewAppParser(fakeCfClient, 10, log, []string{"custom:tag", "foo:bar"}, "env_name")
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"}, "env_name")
 			Expect(err).To(BeNil())
 			guids := []string{"guid1", "guid2"}
 			a.AppCache = *newFakeApps(guids)
@@ -210,7 +210,6 @@ func newFakeApps(guids []string) *appCache {
 			TotalMemoryConfigured:  1,
 			TotalDiskProvisioned:   1,
 			TotalMemoryProvisioned: 1,
-			Instances:              map[string]Instance{},
 		}
 	}
 

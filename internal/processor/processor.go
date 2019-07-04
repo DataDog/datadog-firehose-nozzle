@@ -16,6 +16,7 @@ const (
 	jobPartitionUUIDPattern = "-partition-([0-9a-f]{20})"
 )
 
+// Processor extracts metrics from envelopes
 type Processor struct {
 	processedMetrics      chan<- []metric.MetricPackage
 	appMetrics            parser.Parser
@@ -25,12 +26,14 @@ type Processor struct {
 	jobPartitionUUIDRegex *regexp.Regexp
 }
 
+// NewProcessor creates a new processor
 func NewProcessor(
 	pm chan<- []metric.MetricPackage,
 	customTags []string,
 	environment string,
 	parseAppMetricsEnable bool,
 	cfClient *cfclient.Client,
+	numCacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
 ) (*Processor, bool) {
@@ -46,6 +49,7 @@ func NewProcessor(
 	if parseAppMetricsEnable {
 		appMetrics, err := parser.NewAppParser(
 			cfClient,
+			numCacheWorkers,
 			grabInterval,
 			log,
 			customTags,
@@ -63,6 +67,7 @@ func NewProcessor(
 	return processor, parseAppMetricsEnable
 }
 
+// ProcessMetric takes an envelope, parses it and sends the processed metrics to the nozzle
 func (p *Processor) ProcessMetric(envelope *events.Envelope) {
 	var err error
 	var metricsPackages []metric.MetricPackage

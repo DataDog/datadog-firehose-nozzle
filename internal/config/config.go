@@ -15,6 +15,7 @@ const (
 	defaultWorkerTimeoutSeconds uint32 = 10
 )
 
+// Config contains all the config parameters
 type Config struct {
 	UAAURL                     string
 	Client                     string
@@ -39,12 +40,14 @@ type Config struct {
 	IdleTimeoutSeconds         uint32
 	AppMetrics                 bool
 	NumWorkers                 int
+	NumCacheWorkers            int
 	GrabInterval               int
 	CustomTags                 []string
 	EnvironmentName            string
 	WorkerTimeoutSeconds       uint32
 }
 
+// Parse parses the config from the json configuration and environment variables
 func Parse(configPath string) (*Config, error) {
 	configBytes, err := ioutil.ReadFile(configPath)
 	var config Config
@@ -91,6 +94,10 @@ func Parse(configPath string) (*Config, error) {
 		config.NumWorkers = defaultWorkers
 	}
 
+	if config.NumWorkers == 0 {
+		config.NumWorkers = defaultWorkers
+	}
+
 	if config.IdleTimeoutSeconds == 0 {
 		config.IdleTimeoutSeconds = defaultIdleTimeoutSeconds
 	}
@@ -100,6 +107,7 @@ func Parse(configPath string) (*Config, error) {
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
+	overrideWithEnvInt("NOZZLE_NUM_CACHE_WORKERS", &config.NumCacheWorkers)
 
 	return &config, nil
 }
