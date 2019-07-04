@@ -194,26 +194,25 @@ func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclie
 	pages := resp.Pages - 1
 	// No need for more workers than pages left
 	numWorkers = int(math.Min(float64(numWorkers), float64(pages)))
+	var pagesPerWorker int
 	if pages > 0 {
-		pagesPerWorker := int(math.Ceil(float64(pages) / float64(numWorkers)))
-
-		for i := 0; i < numWorkers; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				// Offset 2 because no page 0 and page 1 already fetched
-				pageStart := i*pagesPerWorker + 2
-				// Stop at page resp.Pages, which is the last one
-				pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
-				resources := getAppResourcesPageRange(c, pageStart, pageEnd, log)
-				mutex.Lock()
-				appResources = append(appResources, resources...)
-				mutex.Unlock()
-			}(i)
-		}
-
-		wg.Wait()
+		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
 	}
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			// Offset 2 because no page 0 and page 1 already fetched
+			pageStart := i*pagesPerWorker + 2
+			// Stop at page resp.Pages, which is the last one
+			pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
+			resources := getAppResourcesPageRange(c, pageStart, pageEnd, log)
+			mutex.Lock()
+			appResources = append(appResources, resources...)
+			mutex.Unlock()
+		}(i)
+	}
+	wg.Wait()
 
 	apps := []cfclient.App{}
 	for _, app := range appResources {
