@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -233,7 +234,7 @@ func getAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error) 
 	q := url.Values{}
 	q.Set("inline-relations-depth", "2")
 	q.Set("results-per-page", "100") // 100 is the max
-	q.Set("page", string(pageNb))
+	q.Set("page", strconv.Itoa(pageNb))
 	r := c.NewRequest("GET", "/v2/apps?"+q.Encode())
 	resp, err := c.DoRequest(r)
 
