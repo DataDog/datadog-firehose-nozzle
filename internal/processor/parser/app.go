@@ -19,13 +19,15 @@ import (
 )
 
 type appCache struct {
-	apps map[string]*App
-	lock sync.RWMutex
+	apps     map[string]*App
+	warmedUp bool
+	lock     sync.RWMutex
 }
 
 func newAppCache() appCache {
 	return appCache{
-		apps: make(map[string]*App),
+		apps:     make(map[string]*App),
+		warmedUp: false,
 	}
 }
 
@@ -55,10 +57,26 @@ func (c *appCache) Delete(guid string) {
 
 // Get returns a cached app or nil if not found
 func (c *appCache) Get(guid string) *App {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.apps[guid]
+}
+
+// IsWarmedUp returns true if the cache has completed its first warmup cycle
+func (c *appCache) IsWarmedUp() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.warmedUp
+}
+
+// setWarmedUp signals to the cache that it's ready to be used
+func (c *appCache) SetWarmedUp() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	return c.apps[guid]
+	c.warmedUp = true
 }
 
 // AppParser is used to parse app metrics
@@ -98,7 +116,6 @@ func NewAppParser(
 		stopper:      make(chan bool, 1),
 	}
 
-	appMetrics.warmupCache()
 	// start the background loop to keep the cache up to date
 	go appMetrics.updateCacheLoop()
 
@@ -107,7 +124,12 @@ func NewAppParser(
 
 // updateCacheLoop periodically refreshes the entire cache
 func (am *AppParser) updateCacheLoop() {
+	// Run first cache warmup
+	am.warmupCache()
+
+	// Start a ticker to update the cache at regular intervals
 	ticker := time.NewTicker(time.Duration(am.grabInterval) * time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -129,6 +151,9 @@ func (am *AppParser) warmupCache() {
 
 	for _, resolvedApp := range apps {
 		am.AppCache.Add(resolvedApp)
+	}
+	if !am.AppCache.IsWarmedUp() {
+		am.AppCache.SetWarmedUp()
 	}
 	am.log.Infof("Done warming up cache")
 }

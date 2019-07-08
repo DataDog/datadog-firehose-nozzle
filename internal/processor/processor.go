@@ -115,6 +115,11 @@ func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPa
 		return metricsPackages, fmt.Errorf("not an app metric")
 	}
 
+	appParser := p.appMetrics.(*parser.AppParser)
+	if !appParser.AppCache.IsWarmedUp() {
+		return metricsPackages, fmt.Errorf("app metrics cache is not yet ready, skipping envelope")
+	}
+
 	metricsPackages, err = p.appMetrics.Parse(envelope)
 
 	return metricsPackages, err
