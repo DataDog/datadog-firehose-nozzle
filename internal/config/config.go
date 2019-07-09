@@ -94,8 +94,8 @@ func Parse(configPath string) (*Config, error) {
 		config.NumWorkers = defaultWorkers
 	}
 
-	if config.NumWorkers == 0 {
-		config.NumWorkers = defaultWorkers
+	if config.NumCacheWorkers == 0 {
+		config.NumCacheWorkers = defaultWorkers
 	}
 
 	if config.IdleTimeoutSeconds == 0 {
