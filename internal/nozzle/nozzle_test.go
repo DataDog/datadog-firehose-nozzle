@@ -71,7 +71,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 				NumWorkers:           1,
 			}
-		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
@@ -345,7 +344,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				NumWorkers:           1,
 				AppMetrics:           false,
 			}
-		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
@@ -398,7 +396,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 				NumWorkers:           1,
 			}
-		})
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
