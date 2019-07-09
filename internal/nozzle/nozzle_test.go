@@ -10,7 +10,6 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"github.com/cloudfoundry/gosteno"
-	noaaerrors "github.com/cloudfoundry/noaa/errors"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
@@ -73,10 +72,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				AppMetrics:           false,
 				NumWorkers:           1,
 			}
-			os.Remove("firehose_nozzle.db")
-		})
 
-		JustBeforeEach(func() {
+			os.Remove("firehose_nozzle.db")
+
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 			go nozzle.Start()
@@ -179,7 +177,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.CloseWebSocket()
 
 			var contents []byte
-			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
@@ -191,79 +189,16 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
 
 			logOutput := fakeBuffer.GetContent()
-			Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
-			Expect(logOutput).To(ContainSubstring("Client did not respond to ping before keep-alive timeout expired."))
-			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
+			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle."))
+			Expect(logOutput).To(ContainSubstring("The Firehose consumer hit a retry error, retrying ..."))
 		}, 2)
-
-		It("tries to reestablish a websocket connection when it is closed", func() {
-			for i := 0; i < 10; i++ {
-				envelope := events.Envelope{
-					Origin:    proto.String("origin"),
-					Timestamp: proto.Int64(1000000000),
-					EventType: events.Envelope_ValueMetric.Enum(),
-					ValueMetric: &events.ValueMetric{
-						Name:  proto.String(fmt.Sprintf("metricName-%d", i)),
-						Value: proto.Float64(float64(i)),
-						Unit:  proto.String("gauge"),
-					},
-					Deployment: proto.String("deployment-name"),
-					Job:        proto.String("doppler"),
-				}
-				fakeFirehose.AddEvent(envelope)
-			}
-
-			fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "Client did not respond to ping before keep-alive timeout expired."))
-			fakeFirehose.CloseWebSocket()
-
-			var contents []byte
-			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
-
-			var payload datadog.Payload
-			err := json.Unmarshal(helper.Decompress(contents), &payload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(23))
-
-			logOutput := fakeBuffer.GetContent()
-			Expect(logOutput).To(ContainSubstring("Error while reading from the firehose"))
-			Expect(logOutput).To(ContainSubstring("Client did not respond to ping before keep-alive timeout expired."))
-			Expect(logOutput).To(ContainSubstring("Disconnected because nozzle couldn't keep up."))
-			Eventually(fakeBuffer.GetContent).Should(ContainSubstring("Websocket connection lost, reestablishing connection..."))
-
-			// Nozzle should have reconnected.
-			// Wait a bit more for the new tick. We should receive only internal metrics
-			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
-			err = json.Unmarshal(helper.Decompress(contents), &payload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
-			validateMetrics(payload, 10, 23)
-
-			// If we fail too many times quickly, the nozzle should crash
-			// We should hit the condition for too many retry
-			fakeFirehose.CloseWebSocket()
-			time.Sleep(time.Second)
-			fakeFirehose.CloseWebSocket()
-			time.Sleep(time.Second)
-			fakeFirehose.CloseWebSocket()
-			Eventually(fakeBuffer.GetContent, 5*time.Second).Should(ContainSubstring("Too many retries, shutting down..."))
-			// Restart the nozzle since it crashed, because it will be stopped by the test teardown
-			go nozzle.Start()
-			time.Sleep(time.Second)
-		}, 2)
-
-		It("retries websocket connection on certain types of error", func() {
-			Expect(shouldReconnect(noaaerrors.RetryError{})).To(BeTrue())
-			Expect(shouldReconnect(noaaerrors.NonRetryError{})).To(BeFalse())
-			Expect(shouldReconnect(nil)).To(BeFalse())
-			Expect(shouldReconnect(fmt.Errorf(""))).To(BeFalse())
-		})
 
 		It("doesn't report a slow-consumer error when closed for other reasons", func() {
 			fakeFirehose.SetCloseMessage(websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "Weird things happened."))
 			fakeFirehose.CloseWebSocket()
 
 			var contents []byte
-			Eventually(fakeDatadogAPI.ReceivedContents).Should(Receive(&contents))
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
@@ -415,9 +350,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 
 			os.Remove("firehose_nozzle.db")
-		})
 
-		JustBeforeEach(func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 			go nozzle.Start()
@@ -446,45 +379,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 	})
 
-	Context("when idle timeout has expired", func() {
-		var fakeIdleFirehose *helper.FakeIdleFirehose
-		BeforeEach(func() {
-			fakeIdleFirehose = helper.NewFakeIdleFirehose(time.Second * 7)
-			fakeDatadogAPI = helper.NewFakeDatadogAPI()
-
-			fakeIdleFirehose.Start()
-			fakeDatadogAPI.Start()
-
-			configuration = &config.Config{
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				TrafficControllerURL: strings.Replace(fakeIdleFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: true,
-				IdleTimeoutSeconds:   1,
-				WorkerTimeoutSeconds: 10,
-				FlushDurationSeconds: 1,
-				FlushMaxBytes:        10240,
-				NumWorkers:           1,
-				AppMetrics:           false,
-			}
-
-			tokenFetcher := &helper.FakeTokenFetcher{}
-			nozzle = NewNozzle(configuration, tokenFetcher, log)
-			os.Remove("firehose_nozzle.db")
-		})
-
-		AfterEach(func() {
-			fakeDatadogAPI.Close()
-			os.Remove("firehose_nozzle.db")
-		})
-
-		It("Start returns an error", func() {
-			err := nozzle.Start()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("i/o timeout"))
-		})
-	})
-
 	Context("when workers timeout", func() {
 		BeforeEach(func() {
 			fakeUAA = helper.NewFakeUAA("bearer", "123456789")
@@ -510,9 +404,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				NumWorkers:           1,
 			}
 			os.Remove("firehose_nozzle.db")
-		})
 
-		JustBeforeEach(func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 		})
