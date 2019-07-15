@@ -230,8 +230,12 @@ func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclie
 			defer wg.Done()
 			// Offset 2 because no page 0 and page 1 already fetched
 			pageStart := i*pagesPerWorker + 2
-			// Stop at page resp.Pages, which is the last one
+			// Stop at page resp.Pages + 1, to get the last one
 			pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
+			if pageEnd == resp.Pages {
+				// Add one so the last page can be obtained since getAppResourcesPageRange queries pages strictly less than pageEnd
+				pageEnd++
+			}
 			resources := getAppResourcesPageRange(c, pageStart, pageEnd, log)
 			mutex.Lock()
 			appResources = append(appResources, resources...)
