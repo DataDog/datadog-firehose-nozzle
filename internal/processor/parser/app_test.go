@@ -53,6 +53,19 @@ var _ = Describe("AppMetrics", func() {
 		})
 	})
 
+	Context("cache warmup", func() {
+		It("requests all the apps directly at startup", func() {
+			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
+			Expect(err).To(BeNil())
+			Expect(a).NotTo(BeNil())
+			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
+			Expect(len(a.AppCache.apps)).To(Equal(4))
+			for i := 1; i <= 4; i++ {
+				Expect(a.AppCache.apps).To(HaveKey(fmt.Sprintf("app-%d", i)))
+			}
+		})
+	})
+
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when the cache is empty", func() {
 			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
