@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry/sonde-go/events"
 )
@@ -29,6 +30,12 @@ type FakeCloudControllerAPI struct {
 
 	events       []events.Envelope
 	closeMessage []byte
+
+	// Used to make the controller slow to answer
+	RequestTime time.Duration
+
+	// Number of apps
+	AppNumber int
 }
 
 // NewFakeCloudControllerAPI create a new cloud controller
@@ -38,6 +45,8 @@ func NewFakeCloudControllerAPI(tokenType string, accessToken string) *FakeCloudC
 		ReceivedRequests: make(chan *http.Request, 100),
 		tokenType:        tokenType,
 		accessToken:      accessToken,
+		RequestTime:      0,
+		AppNumber:        4,
 	}
 }
 
@@ -62,11 +71,10 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	contents, _ := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 
-	go func() {
-		f.ReceivedContents <- contents
-		f.ReceivedRequests <- r
-	}()
+	f.ReceivedContents <- contents
+	f.ReceivedRequests <- r
 
+	time.Sleep(f.RequestTime * time.Millisecond)
 	f.writeResponse(rw, r)
 
 	f.lock.Lock()
@@ -106,8 +114,8 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 		page := params["page"][0]
 		rw.Write([]byte(fmt.Sprintf(`
 		{
-			"total_results": 4,
-			"total_pages": 4,
+			"total_results": %d,
+			"total_pages": %d,
 			"prev_url": null,
 			"next_url": "/v2/apps?inline-relations-depth=2&order-direction=asc&page=2&results-per-page=1",
 			"resources": [
@@ -236,8 +244,8 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 				}
 			  }
 			]
-		  }`, page, page)))
-	default:
+		  }`, f.AppNumber, f.AppNumber, page, page)))
+	case "/oauth/token":
 		rw.Write([]byte(fmt.Sprintf(`
 		{
 			"token_type": "%s",
