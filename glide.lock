@@ -1,5 +1,5 @@
-hash: fdafbdd4491bbf4846d857781c5a0405963f258b74100df95b94331ce2607709
-updated: 2019-07-05T14:04:37.716119+02:00
+hash: e66a920a8e158e77f11f0f0f943bb51d577b5120c50a6e41edf5919b07fb6687
+updated: 2019-07-16T16:02:48.841011+02:00
 imports:
 - name: code.cloudfoundry.org/localip
   version: b88ad0dea95cd41f302cf7eb6ed951efafaf47f2
@@ -40,7 +40,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/go-retryablehttp
-  version: 794af36148bf63c118d6db80eb902a136b907e71
+  version: 85a8ee556d7323a4faf0f4c17ee900e9ff1482e8
 - name: github.com/Masterminds/semver
   version: c84ddcca87bf5a941b138dde832a7e20b0159ad8
 - name: github.com/pkg/errors
