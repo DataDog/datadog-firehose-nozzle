@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	defaultGrabInterval         int    = 10
 	defaultWorkers              int    = 4
 	defaultIdleTimeoutSeconds   uint32 = 60
 	defaultWorkerTimeoutSeconds uint32 = 10
@@ -76,6 +77,7 @@ func Parse(configPath string) (*Config, error) {
 
 	overrideWithEnvUint32("NOZZLE_FLUSHDURATIONSECONDS", &config.FlushDurationSeconds)
 	overrideWithEnvUint32("NOZZLE_FLUSHMAXBYTES", &config.FlushMaxBytes)
+	overrideWithEnvInt("NOZZLE_GRAB_INTERVAL", &config.GrabInterval)
 
 	overrideWithEnvBool("NOZZLE_INSECURESSLSKIPVERIFY", &config.InsecureSSLSkipVerify)
 	overrideWithEnvBool("NOZZLE_DISABLEACCESSCONTROL", &config.DisableAccessControl)
@@ -87,6 +89,10 @@ func Parse(configPath string) (*Config, error) {
 
 	if config.MetricPrefix == "" {
 		config.MetricPrefix = "cloudfoundry.nozzle."
+	}
+
+	if config.GrabInterval == 0 {
+		config.GrabInterval = defaultGrabInterval
 	}
 
 	if config.NumWorkers == 0 {
