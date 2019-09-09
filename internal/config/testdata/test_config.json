@@ -33,5 +33,8 @@
   "NumCacheWorkers": 2,
   "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ],
   "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ],
-  "EnvironmentName": "env_name"
+  "EnvironmentName": "env_name",
+  "DBPath": "/var/vcap/nozzle.db",
+  "EnvironmentName": "env_name",
+  "GrabInterval": 50,
 }
