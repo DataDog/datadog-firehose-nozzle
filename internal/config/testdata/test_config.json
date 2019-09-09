@@ -30,9 +30,10 @@
   "CloudControllerEndpoint": "string",
   "AppMetrics": true,
   "NumWorkers": 1,
+  "NumCacheWorkers": 2,
   "CustomTags": [ "nozzle:foobar", "env:prod", "role:db" ],
   "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ],
-  "DBPath": "/var/vcap/nozzle.db",
   "EnvironmentName": "env_name",
+  "DBPath": "/var/vcap/nozzle.db",
   "GrabInterval": 50
 }

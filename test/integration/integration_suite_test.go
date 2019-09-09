@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -21,8 +20,6 @@ var pathToNozzleExecutable string
 var _ = BeforeSuite(func() {
 	var err error
 	pathToNozzleExecutable, err = gexec.Build("github.com/DataDog/datadog-firehose-nozzle")
-	fmt.Println(pathToNozzleExecutable)
-	fmt.Println("file exists", Exists(pathToNozzleExecutable))
 	Expect(err).ShouldNot(HaveOccurred())
 })
 

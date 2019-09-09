@@ -1,38 +1,102 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
-	"encoding/json"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
-	bolt "github.com/coreos/bbolt"
+	"github.com/pkg/errors"
 )
 
-var clearCacheDuration = 60
+type appCache struct {
+	apps     map[string]*App
+	warmedUp bool
+	lock     sync.RWMutex
+}
 
+func newAppCache() appCache {
+	return appCache{
+		apps:     make(map[string]*App),
+		warmedUp: false,
+	}
+}
+
+// Add inserts or update a new app in the cache, and returns it
+func (c *appCache) Add(cfApp cfclient.App) *App {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if app := c.apps[cfApp.Guid]; app != nil {
+		app.setAppData(cfApp)
+	} else {
+		app := newApp(cfApp.Guid)
+		app.setAppData(cfApp)
+		c.apps[cfApp.Guid] = app
+	}
+
+	return c.apps[cfApp.Guid]
+}
+
+// Delete removes an app from the cache
+func (c *appCache) Delete(guid string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	delete(c.apps, guid)
+}
+
+// Get returns a cached app or nil if not found
+func (c *appCache) Get(guid string) *App {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.apps[guid]
+}
+
+// IsWarmedUp returns true if the cache has completed its first warmup cycle
+func (c *appCache) IsWarmedUp() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.warmedUp
+}
+
+// setWarmedUp signals to the cache that it's ready to be used
+func (c *appCache) SetWarmedUp() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.warmedUp = true
+}
+
+// AppParser is used to parse app metrics
 type AppParser struct {
 	CFClient     *cfclient.Client
 	log          *gosteno.Logger
-	Apps         map[string]*App
-	appLock      sync.RWMutex
-	db           *bolt.DB
+	AppCache     appCache
+	cacheWorkers int
 	grabInterval int
 	customTags   []string
-	appBucket    []byte
+	stopper      chan bool
 }
 
+// NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cfclient.Client,
+	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
 	customTags []string,
-	db *bolt.DB,
 	environment string,
 ) (*AppParser, error) {
 
@@ -45,192 +109,73 @@ func NewAppParser(
 	appMetrics := &AppParser{
 		CFClient:     cfClient,
 		log:          log,
-		Apps:         make(map[string]*App),
+		AppCache:     newAppCache(),
+		cacheWorkers: cacheWorkers,
 		grabInterval: grabInterval,
 		customTags:   customTags,
-		appBucket:    []byte("CloudFoundryApps"),
-		db:           db,
+		stopper:      make(chan bool, 1),
 	}
 
-	// create the cache db or grab the app cache from it
-	appMetrics.reloadCache()
 	// start the background loop to keep the cache up to date
 	go appMetrics.updateCacheLoop()
 
 	return appMetrics, nil
 }
 
+// updateCacheLoop periodically refreshes the entire cache
 func (am *AppParser) updateCacheLoop() {
-	// If an app hasn't sent a metric in a while,
-	// assume that it's either been taken down or
-	// that the loggregator is routing it to a different nozzle and remove it from the cache
-	ticker := time.NewTicker(time.Duration(clearCacheDuration) * time.Minute)
+	// Run first cache warmup
+	am.warmupCache()
+
+	// Start a ticker to update the cache at regular intervals
+	ticker := time.NewTicker(time.Duration(am.grabInterval) * time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			var toRemove = []string{}
-			var oneHourAgo = (time.Now().Add(-time.Duration(clearCacheDuration) * time.Minute)).Unix()
-			am.appLock.Lock()
-			updatedApps := make(map[string][]byte)
-			for guid, app := range am.Apps {
-				app.lock.RLock()
-				if app.updated < oneHourAgo {
-					toRemove = append(toRemove, guid)
-				} else {
-					jsonApp, err := json.Marshal(app)
-					if err != nil {
-						am.log.Infof("Error marshalling app for database: %v", err)
-					}
-					updatedApps[guid] = jsonApp
-				}
-				app.lock.RUnlock()
-			}
-			for _, guid := range toRemove {
-				delete(am.Apps, guid)
-			}
-			am.appLock.Unlock()
-
-			// update the database after closing the app map
-			// since this won't affect the app map, no need to continue touching it
-			am.db.Batch(func(tx *bolt.Tx) error {
-				b, err := tx.CreateBucketIfNotExists(am.appBucket)
-				if err != nil {
-					return fmt.Errorf("create bucket: %s", err)
-				}
-				// delete removed apps
-				for _, guid := range toRemove {
-					b.Delete([]byte(guid))
-				}
-				// update modified apps
-				for guid, jsonApp := range updatedApps {
-					b.Put([]byte(guid), jsonApp)
-				}
-				return nil
-			})
+			am.warmupCache()
+		case <-am.stopper:
+			return
 		}
 	}
 }
 
-func (am *AppParser) reloadCache() error {
-	err := am.db.Batch(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(am.appBucket)
-		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		if b == nil {
-			return fmt.Errorf("bucket not created")
-		}
+func (am *AppParser) warmupCache() {
+	am.log.Infof("Warming up cache...")
 
-		am.appLock.Lock()
-		defer am.appLock.Unlock()
+	apps, err := listApps(am.CFClient, am.cacheWorkers, am.log)
+	if err != nil {
+		am.log.Errorf("Error warming up cache, couldn't get list of apps: %v", err)
+		return
+	}
 
-		return b.ForEach(func(k []byte, v []byte) error {
-			guid := string(k)
-			var app *App
-			err := json.Unmarshal(v, app)
-			if err != nil {
-				return err
-			}
-			am.Apps[guid] = app
-
-			return nil
-		})
-	})
-
-	return err
+	for _, resolvedApp := range apps {
+		am.AppCache.Add(resolvedApp)
+	}
+	if !am.AppCache.IsWarmedUp() {
+		am.AppCache.SetWarmedUp()
+	}
+	am.log.Infof("Done warming up cache")
 }
 
 func (am *AppParser) getAppData(guid string) (*App, error) {
-	am.appLock.Lock()
-	defer am.appLock.Unlock()
-
-	var app *App
-	if _, ok := am.Apps[guid]; ok {
+	app := am.AppCache.Get(guid)
+	if app != nil {
 		// If it exists in the cache, use the cache
-		app = am.Apps[guid]
-		timeToGrab := (time.Now().Add(-time.Duration(am.grabInterval) * time.Minute)).Unix()
-		if !app.ErrorGrabbing && app.updated > timeToGrab {
-			return app, nil
-		}
-	} else {
-		am.Apps[guid] = newApp(guid)
-		app = am.Apps[guid]
+		return app, nil
 	}
-	app.lock.Lock()
-	defer app.lock.Unlock()
 
+	// Otherwise it's a new app so fetch it via the API
 	resolvedApp, err := am.CFClient.AppByGuid(guid)
 	if err != nil {
-		if app.ErrorGrabbing {
-			// If there was a previous error grabbing the app, assume it's been removed and remove it from the cache
-			am.log.Errorf("there was an error grabbing the instance data for app %v, removing from cache: %v", resolvedApp.Guid, err)
-			delete(am.Apps, guid)
-		} else {
-			// If there was not, say that there was such an error
-			am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
-		}
-		// Ensure that ErrorGrabbing is set
-		app.ErrorGrabbing = true
+		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
 		return nil, err
 	}
 
-	app.ErrorGrabbing = false
-	app.updated = time.Now().Unix()
-
-	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
-	app.Name = resolvedApp.Name
-	if app.Name == "" {
-		am.log.Infof("App %v has no name", guid)
-	}
-	if resolvedApp.Buildpack != "" {
-		app.Buildpack = resolvedApp.Buildpack
-	} else if resolvedApp.DetectedBuildpack != "" {
-		app.Buildpack = resolvedApp.DetectedBuildpack
-	}
-	app.Command = resolvedApp.Command
-	app.DockerImage = resolvedApp.DockerImage
-	app.Diego = resolvedApp.Diego
-	app.SpaceID = resolvedApp.SpaceGuid
-
-	resolvedInstances, err := am.CFClient.GetAppInstances(guid)
-	if err == nil {
-		app.Instances = make(map[string]Instance)
-		app.NumberOfInstances = len(resolvedInstances)
-		for i, inst := range resolvedInstances {
-			app.Instances[i] = Instance{
-				InstanceIndex: i,
-				State:         inst.State,
-			}
-		}
-	} else {
-		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", resolvedApp.Guid, err)
-	}
-
-	app.TotalDiskConfigured = resolvedApp.DiskQuota
-	app.TotalMemoryConfigured = resolvedApp.Memory
-	app.TotalDiskProvisioned = resolvedApp.DiskQuota * app.NumberOfInstances
-	app.TotalMemoryProvisioned = resolvedApp.Memory * app.NumberOfInstances
-
-	space, err := resolvedApp.Space()
-	if err == nil {
-		app.SpaceName = space.Name
-		org, e := space.Org()
-		if e == nil {
-			app.OrgName = org.Name
-			app.OrgID = org.Guid
-		} else {
-			app.ErrorGrabbing = true
-			am.log.Errorf("there was an error grabbing the org data for app %v in space %v: %v", resolvedApp.Guid, space.Guid, e)
-		}
-	} else {
-		app.ErrorGrabbing = true
-		am.log.Errorf("there was an error grabbing the space data for app %v: %v", resolvedApp.Guid, err)
-	}
-
-	app.Tags = app.generateTags()
-	return app, nil
+	return am.AppCache.Add(resolvedApp), nil
 }
 
+// Parse takes an envelope, and extract app metrics from it
 func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
 	metricsPackages := []metric.MetricPackage{}
 	message := envelope.GetContainerMetric()
@@ -257,6 +202,107 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	return metricsPackages, nil
 }
 
+// listApps is meant to replace the function from the go-cfclient and allow fetching apps in parallel tasks
+// The apps returned by this are just missing a reference to the client (unexported property) so don't use the Space() and Summary() methods
+func listApps(c *cfclient.Client, numWorkers int, log *gosteno.Logger) ([]cfclient.App, error) {
+
+	// Query the first page to get the total number of pages.
+	resp, err := getAppsPage(c, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+	}
+	appResources := resp.Resources
+
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+
+	// Page 1 already fetched
+	pages := resp.Pages - 1
+	// No need for more workers than pages left
+	numWorkers = int(math.Min(float64(numWorkers), float64(pages)))
+	var pagesPerWorker int
+	if pages > 0 {
+		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
+	}
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			// Offset 2 because no page 0 and page 1 already fetched
+			pageStart := i*pagesPerWorker + 2
+			// Stop at page resp.Pages + 1, to get the last one
+			pageEnd := int(math.Min(float64((i+1)*pagesPerWorker+2), float64(resp.Pages)))
+			if pageEnd == resp.Pages {
+				// Add one so the last page can be obtained since getAppResourcesPageRange queries pages strictly less than pageEnd
+				pageEnd++
+			}
+			resources := getAppResourcesPageRange(c, pageStart, pageEnd, log)
+			mutex.Lock()
+			appResources = append(appResources, resources...)
+			mutex.Unlock()
+		}(i)
+	}
+	wg.Wait()
+
+	apps := []cfclient.App{}
+	for _, app := range appResources {
+		// Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L643
+		app.Entity.Guid = app.Meta.Guid
+		app.Entity.CreatedAt = app.Meta.CreatedAt
+		app.Entity.UpdatedAt = app.Meta.UpdatedAt
+		app.Entity.SpaceData.Entity.Guid = app.Entity.SpaceData.Meta.Guid
+		app.Entity.SpaceData.Entity.OrgData.Entity.Guid = app.Entity.SpaceData.Entity.OrgData.Meta.Guid
+		apps = append(apps, app.Entity)
+	}
+	return apps, nil
+}
+
+func getAppsPage(c *cfclient.Client, pageNb int) (*cfclient.AppResponse, error) {
+	// Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L332
+	var appResp cfclient.AppResponse
+	q := url.Values{}
+	q.Set("inline-relations-depth", "2")
+	q.Set("results-per-page", "100") // 100 is the max
+	q.Set("page", strconv.Itoa(pageNb))
+	r := c.NewRequest("GET", "/v2/apps?"+q.Encode())
+	resp, err := c.DoRequest(r)
+
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting apps page %d", pageNb)
+	}
+	defer resp.Body.Close()
+	resBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error reading app response for page %d", pageNb)
+	}
+
+	err = json.Unmarshal(resBody, &appResp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error unmarshalling app response for page %d", pageNb)
+	}
+
+	return &appResp, nil
+}
+
+func getAppResourcesPageRange(c *cfclient.Client, pageStart, pageEnd int, log *gosteno.Logger) []cfclient.AppResource {
+	appResources := []cfclient.AppResource{}
+	for i := pageStart; i < pageEnd; i++ {
+		resp, err := getAppsPage(c, i)
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		appResources = append(appResources, resp.Resources...)
+	}
+	return appResources
+}
+
+// Stop sends a message on the stopper channel to quit the goroutine refreshing the cache
+func (am *AppParser) Stop() {
+	am.stopper <- true
+}
+
+// App holds all the needed attribute from an app
 type App struct {
 	Name                   string
 	Host                   string
@@ -271,28 +317,18 @@ type App struct {
 	SpaceURL               string
 	GUID                   string
 	DockerImage            string
-	Instances              map[string]Instance
 	NumberOfInstances      int
 	TotalDiskConfigured    int
 	TotalMemoryConfigured  int
 	TotalDiskProvisioned   int
 	TotalMemoryProvisioned int
-	ErrorGrabbing          bool
 	Tags                   []string
-	updated                int64
 	lock                   sync.RWMutex
-}
-
-type Instance struct {
-	CellIP        string
-	State         string
-	InstanceIndex string
 }
 
 func newApp(guid string) *App {
 	return &App{
-		GUID:    guid,
-		updated: time.Now().Unix(),
+		GUID: guid,
 	}
 }
 
@@ -418,4 +454,30 @@ func (a *App) generateTags() []string {
 	}
 
 	return tags
+}
+
+func (a *App) setAppData(resolvedApp cfclient.App) {
+	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
+	a.Name = resolvedApp.Name
+	if resolvedApp.Buildpack != "" {
+		a.Buildpack = resolvedApp.Buildpack
+	} else if resolvedApp.DetectedBuildpack != "" {
+		a.Buildpack = resolvedApp.DetectedBuildpack
+	}
+	a.Command = resolvedApp.Command
+	a.DockerImage = resolvedApp.DockerImage
+	a.Diego = resolvedApp.Diego
+	a.SpaceID = resolvedApp.SpaceGuid
+	a.NumberOfInstances = resolvedApp.Instances
+
+	a.TotalDiskConfigured = resolvedApp.DiskQuota
+	a.TotalMemoryConfigured = resolvedApp.Memory
+	a.TotalDiskProvisioned = resolvedApp.DiskQuota * a.NumberOfInstances
+	a.TotalMemoryProvisioned = resolvedApp.Memory * a.NumberOfInstances
+
+	a.SpaceName = resolvedApp.SpaceData.Entity.Name
+	a.OrgName = resolvedApp.SpaceData.Entity.OrgData.Entity.Name
+	a.OrgID = resolvedApp.SpaceData.Entity.OrgData.Entity.Guid
+
+	a.Tags = a.generateTags()
 }

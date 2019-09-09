@@ -22,6 +22,9 @@ func (d *Nozzle) startWorkers() {
 }
 
 func (d *Nozzle) stopWorkers() {
+	// Stop the app metrics cache refreshing loop if it's started
+	d.processor.StopAppMetrics()
+
 	timedOut := false
 	for i := 0; i < d.config.NumWorkers+1; i++ {
 		// +1 is for the readProcessedMetrics worker

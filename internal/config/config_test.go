@@ -38,6 +38,8 @@ var _ = Describe("NozzleConfig", func() {
 			"role:db",
 		}))
 		Expect(conf.EnvironmentName).To(Equal("env_name"))
+		Expect(conf.NumWorkers).To(Equal(1))
+		Expect(conf.NumCacheWorkers).To(Equal(2))
 		Expect(conf.GrabInterval).To(Equal(50))
 	})
 
@@ -46,6 +48,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.MetricPrefix).To(Equal("cloudfoundry.nozzle."))
 		Expect(conf.NumWorkers).To(BeEquivalentTo(4))
+		Expect(conf.NumCacheWorkers).To(BeEquivalentTo(4))
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
 		Expect(conf.GrabInterval).To(Equal(10))
@@ -71,8 +74,9 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_WORKERTIMEOUTSECONDS", "20")
 		os.Setenv("NO_PROXY", "google.com,datadoghq.com")
 		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_var_env_name")
+		os.Setenv("NOZZLE_NUM_WORKERS", "3")
+		os.Setenv("NOZZLE_NUM_CACHE_WORKERS", "5")
 		os.Setenv("NOZZLE_GRAB_INTERVAL", "50")
-
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
@@ -92,8 +96,9 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DeploymentFilter).To(Equal("env-deployment-filter"))
 		Expect(conf.DisableAccessControl).To(Equal(true))
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(20))
-		Expect(conf.DBPath).To(BeEquivalentTo("/var/vcap/nozzle.db"))
 		Expect(conf.EnvironmentName).To(Equal("env_var_env_name"))
+		Expect(conf.NumWorkers).To(Equal(3))
+		Expect(conf.NumCacheWorkers).To(Equal(5))
 		Expect(conf.GrabInterval).To(Equal(50))
 	})
 })

@@ -16,6 +16,7 @@ const (
 	defaultWorkerTimeoutSeconds uint32 = 10
 )
 
+// Config contains all the config parameters
 type Config struct {
 	UAAURL                     string
 	Client                     string
@@ -40,13 +41,14 @@ type Config struct {
 	IdleTimeoutSeconds         uint32
 	AppMetrics                 bool
 	NumWorkers                 int
+	NumCacheWorkers            int
 	GrabInterval               int
 	CustomTags                 []string
-	DBPath                     string
 	EnvironmentName            string
 	WorkerTimeoutSeconds       uint32
 }
 
+// Parse parses the config from the json configuration and environment variables
 func Parse(configPath string) (*Config, error) {
 	configBytes, err := ioutil.ReadFile(configPath)
 	var config Config
@@ -84,7 +86,6 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvUint32("NOZZLE_IDLETIMEOUTSECONDS", &config.IdleTimeoutSeconds)
 	overrideWithEnvUint32("NOZZLE_WORKERTIMEOUTSECONDS", &config.WorkerTimeoutSeconds)
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
-	overrideWithEnvVar("NOZZLE_DB_PATH", &config.DBPath)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
 
 	if config.MetricPrefix == "" {
@@ -99,6 +100,10 @@ func Parse(configPath string) (*Config, error) {
 		config.NumWorkers = defaultWorkers
 	}
 
+	if config.NumCacheWorkers == 0 {
+		config.NumCacheWorkers = defaultWorkers
+	}
+
 	if config.IdleTimeoutSeconds == 0 {
 		config.IdleTimeoutSeconds = defaultIdleTimeoutSeconds
 	}
@@ -108,6 +113,7 @@ func Parse(configPath string) (*Config, error) {
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
+	overrideWithEnvInt("NOZZLE_NUM_CACHE_WORKERS", &config.NumCacheWorkers)
 
 	return &config, nil
 }

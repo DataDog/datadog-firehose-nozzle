@@ -78,7 +78,7 @@ func New(
 	// Discard the http client's log and attach our hook for logging request retry attempts
 	buffer := new(bytes.Buffer)
 	httpClient.Logger = log.New(buffer, "", log.Lshortfile)
-	httpClient.RequestLogHook = func(l *log.Logger, req *http.Request, attemptNum int) {
+	httpClient.RequestLogHook = func(l retryablehttp.Logger, req *http.Request, attemptNum int) {
 		if attemptNum == 0 {
 			return
 		}
@@ -177,7 +177,7 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
 func (c *Client) postMetrics(seriesBytes []byte) error {
 	url := c.seriesURL()
 
-	req, err := retryablehttp.NewRequest("POST", url, bytes.NewReader(seriesBytes))
+	req, err := retryablehttp.NewRequest("POST", url, seriesBytes)
 	if err != nil {
 		return err
 	}

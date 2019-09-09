@@ -99,24 +99,16 @@ var _ = Describe("DatadogClient", func() {
 			k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
 			metricsMap.Add(k, v)
 
-			errs := make(chan error)
-			go func() {
-				errs <- c.PostMetrics(metricsMap)
-			}()
-			Eventually(errs).Should(Receive(HaveOccurred()))
+			err := c.PostMetrics(metricsMap)
+			Expect(err).ToNot(BeNil())
 		})
 
 		It("attempts to retry the connection", func() {
 			k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
 			metricsMap.Add(k, v)
 
-			errs := make(chan error)
-			go func() {
-				errs <- c.PostMetrics(metricsMap)
-			}()
+			err := c.PostMetrics(metricsMap)
 
-			var err error
-			Eventually(errs).Should(Receive(&err))
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempts"))
 

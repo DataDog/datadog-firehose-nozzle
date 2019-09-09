@@ -2,7 +2,6 @@ package processor
 
 import (
 	"fmt"
-	bolt "github.com/coreos/bbolt"
 	"regexp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -17,6 +16,7 @@ const (
 	jobPartitionUUIDPattern = "-partition-([0-9a-f]{20})"
 )
 
+// Processor extracts metrics from envelopes
 type Processor struct {
 	processedMetrics      chan<- []metric.MetricPackage
 	appMetrics            parser.Parser
@@ -26,15 +26,16 @@ type Processor struct {
 	jobPartitionUUIDRegex *regexp.Regexp
 }
 
+// NewProcessor creates a new processor
 func NewProcessor(
 	pm chan<- []metric.MetricPackage,
 	customTags []string,
 	environment string,
 	parseAppMetricsEnable bool,
 	cfClient *cfclient.Client,
+	numCacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
-	db *bolt.DB,
 ) (*Processor, bool) {
 
 	processor := &Processor{
@@ -48,10 +49,10 @@ func NewProcessor(
 	if parseAppMetricsEnable {
 		appMetrics, err := parser.NewAppParser(
 			cfClient,
+			numCacheWorkers,
 			grabInterval,
 			log,
 			customTags,
-			db,
 			environment,
 		)
 		if err != nil {
@@ -66,6 +67,7 @@ func NewProcessor(
 	return processor, parseAppMetricsEnable
 }
 
+// ProcessMetric takes an envelope, parses it and sends the processed metrics to the nozzle
 func (p *Processor) ProcessMetric(envelope *events.Envelope) {
 	var err error
 	var metricsPackages []metric.MetricPackage
@@ -91,6 +93,16 @@ func (p *Processor) ProcessMetric(envelope *events.Envelope) {
 	}
 }
 
+// StopAppMetrics stops the goroutine refreshing the apps cache
+func (p *Processor) StopAppMetrics() {
+	if p.appMetrics == nil {
+		return
+	}
+
+	appParser := p.appMetrics.(*parser.AppParser)
+	appParser.Stop()
+}
+
 func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPackage, error) {
 	var metricsPackages []metric.MetricPackage
 	var err error
@@ -101,6 +113,11 @@ func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPa
 
 	if envelope.GetEventType() != events.Envelope_ContainerMetric {
 		return metricsPackages, fmt.Errorf("not an app metric")
+	}
+
+	appParser := p.appMetrics.(*parser.AppParser)
+	if !appParser.AppCache.IsWarmedUp() {
+		return metricsPackages, fmt.Errorf("app metrics cache is not yet ready, skipping envelope")
 	}
 
 	metricsPackages, err = p.appMetrics.Parse(envelope)
