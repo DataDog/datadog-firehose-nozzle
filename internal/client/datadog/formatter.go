@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -45,9 +46,13 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		if strings.HasPrefix(key.Name, "bosh.healthmonitor") {
 			prefix = ""
 		}
+
+		name := prefix + key.Name
+		points := f.removeNANs(mVal.Points, name, mVal.Tags)
+
 		m := metric.Series{
-			Metric: prefix + key.Name,
-			Points: mVal.Points,
+			Metric: name,
+			Points: points,
 			Type:   "gauge",
 			Tags:   mVal.Tags,
 			Host:   mVal.Host,
@@ -64,6 +69,19 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		return nil, fmt.Errorf("Error compressing payload: %v", err)
 	}
 	return compressedPayload, nil
+}
+
+func (f Formatter) removeNANs(points []metric.Point, metricName string, tags []string) []metric.Point {
+	var sanitizedPoints []metric.Point
+	for _, point := range points {
+		if !math.IsNaN(point.Value) {
+			sanitizedPoints = append(sanitizedPoints, point)
+		} else {
+			f.log.Errorf("Point has NAN value.  Dropping: %s %+v", metricName, tags)
+		}
+	}
+	return sanitizedPoints
+
 }
 
 func canSplit(data map[metric.MetricKey]metric.MetricValue) bool {
