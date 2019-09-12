@@ -68,7 +68,7 @@ var _ = Describe("Formatter", func() {
 			},{
 				Value: math.Log(-2.0),  //creates a NAN
 			},{
-				Value: 1.0,  //creates a NAN
+				Value: 1.0,
 			}},
 		}
 		result := formatter.Format("some-prefix", 1024, m)
