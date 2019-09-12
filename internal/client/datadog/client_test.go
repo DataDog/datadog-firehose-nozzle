@@ -377,8 +377,8 @@ var _ = Describe("DatadogClient", func() {
 	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
 		println("proxy test")
 		proxy := &Proxy{
-			HTTP:    "http://user:password@host.com:port",
-			HTTPS:   "https://user:password@host.com:port",
+			HTTP:    "http://user:password@host.com:1234",
+			HTTPS:   "https://user:password@host.com:1234",
 			NoProxy: []string{"datadoghq.com"},
 		}
 
@@ -391,10 +391,10 @@ var _ = Describe("DatadogClient", func() {
 
 		proxyURL, err := proxyFunc(rHTTP)
 		Expect(err).To(BeNil())
-		Expect(proxyURL.String()).To(Equal("http://user:password@host.com:port"))
+		Expect(proxyURL.String()).To(Equal("http://user:password@host.com:1234"))
 		proxyURL, err = proxyFunc(rHTTPS)
 		Expect(err).To(BeNil())
-		Expect(proxyURL.String()).To(Equal("https://user:password@host.com:port"))
+		Expect(proxyURL.String()).To(Equal("https://user:password@host.com:1234"))
 
 		proxyURL, err = proxyFunc(rHTTPNoProxy)
 		Expect(err).To(BeNil())
