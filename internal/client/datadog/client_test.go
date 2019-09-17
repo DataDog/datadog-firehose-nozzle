@@ -61,6 +61,36 @@ var _ = Describe("DatadogClient", func() {
 		)
 	})
 
+	Context("It parses configured URL correctly", func() {
+		It("appends api/v1/series if not present", func() {
+			// With trailing slash
+			c.apiURL = "https://app.datadoghq.com/"
+			result, err := c.seriesURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series?api_key=dummykey"))
+
+			// Without trailing slash
+			c.apiURL = "https://app.datadoghq.com"
+			result, err = c.seriesURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series?api_key=dummykey"))
+		})
+
+		It("doesn't append api/v1/series if present", func() {
+			c.apiURL = "https://app.datadoghq.com/api/v1/series"
+			result, err := c.seriesURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series?api_key=dummykey"))
+		})
+
+		It("keeps query and path intact", func() {
+			c.apiURL = "https://app.datadoghq.com/a/path?key=value"
+			result, err := c.seriesURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("https://app.datadoghq.com/a/path/api/v1/series?api_key=dummykey&key=value"))
+		})
+	})
+
 	Context("datadog does not respond", func() {
 		var fakeBuffer *helper.FakeBufferSink
 
