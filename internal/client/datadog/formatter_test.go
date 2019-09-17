@@ -63,11 +63,11 @@ var _ = Describe("Formatter", func() {
 		m[metric.MetricKey{Name: "bosh.healthmonitor.foo"}] = metric.MetricValue{
 			Points: []metric.Point{{
 				Value: 9,
-			},{
-				Value: math.Log(-1.0),  //creates a NAN
-			},{
-				Value: math.Log(-2.0),  //creates a NAN
-			},{
+			}, {
+				Value: math.Log(-1.0), //creates a NAN
+			}, {
+				Value: math.Log(-2.0), //creates a NAN
+			}, {
 				Value: 1.0,
 			}},
 		}

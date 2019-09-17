@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -156,6 +157,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	return ddClients, nil
 }
 
+// PostMetrics forwards the metrics to datadog
 func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
 	c.log.Infof("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 
@@ -175,7 +177,10 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
-	url := c.seriesURL()
+	url, err := c.seriesURL()
+	if err != nil {
+		return err
+	}
 
 	req, err := retryablehttp.NewRequest("POST", url, seriesBytes)
 	if err != nil {
@@ -204,11 +209,21 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 	return nil
 }
 
-func (c *Client) seriesURL() string {
-	url := fmt.Sprintf("%s?api_key=%s", c.apiURL, c.apiKey)
-	return url
+func (c *Client) seriesURL() (string, error) {
+	apiURL, err := url.Parse(c.apiURL)
+	if err != nil {
+		return "", fmt.Errorf("Error parsing API URL %s: %v", c.apiURL, err)
+	}
+	if !strings.Contains(apiURL.EscapedPath(), "api/v1/series") {
+		apiURL.Path = path.Join(apiURL.Path, "api/v1/series")
+	}
+	query := apiURL.Query()
+	query.Add("api_key", c.apiKey)
+	apiURL.RawQuery = query.Encode()
+	return apiURL.String(), nil
 }
 
+// MakeInternalMetric creates a metric with the provided name, value and timestamp
 func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) (metric.MetricKey, metric.MetricValue) {
 	point := metric.Point{
 		Timestamp: timestamp,
@@ -234,6 +249,7 @@ func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) 
 	return key, mValue
 }
 
+// GetProxyTransportFunc manages the proxy configuration
 func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Request) (*url.URL, error) {
 	return func(r *http.Request) (*url.URL, error) {
 		var proxyURL string
