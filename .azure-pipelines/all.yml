@@ -9,6 +9,11 @@ pr:
     include:
     - master
 
+variables:
+  GOBIN:  '$(GOPATH)/bin' # Go binaries path
+  GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
+  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
+
 jobs:
 - job: UnitTests
   pool:
@@ -22,19 +27,38 @@ jobs:
     displayName: Use Golang $(GO_VERSION)
     inputs:
       version: $(GO_VERSION)
+      gobin: $(Agent.BuildDirectory)/gopath/bin
+      steps:
   - task: Go@0
+    displayName: Get Go dependencies
     inputs:
       command: 'get'
-      arguments: "
-        github.com/mattn/goveralls github.com/onsi/ginkgo github.com/onsi/gomega \
- github.com/Masterminds/glide golang.org/x/lint/golint github.com/onsi/ginkgo/ginkgo \
- github.com/Masterminds/glide"
-  - script: glide install
+      arguments: "github.com/mattn/goveralls github.com/onsi/ginkgo github.com/onsi/gomega \
+ github.com/Masterminds/glide golang.org/x/lint/golint"
+      workingDirectory:
+  - task: Go@0
+    displayName: Install Go dependencies
+    inputs:
+      command: 'install'
+      arguments: "github.com/onsi/ginkgo/ginkgo github.com/Masterminds/glide"
+      workingDirectory:
+  - script: |
+      mkdir -p '$(GOBIN)'
+      mkdir -p '$(GOPATH)/pkg'
+      mkdir -p '$(modulePath)'
+      shopt -s extglob
+      mv !(gopath) '$(modulePath)'
+      echo '##vso[task.prependpath]$(GOBIN)'
+    displayName: 'Set up the Go workspace'
+  - script: $(GOBIN)/glide install
+    workingDirectory: $(modulePath)
     displayName: Install dependencies
-  - script: PATH=$HOME/gopath/bin:$PATH bin/test
+  - script: bin/test
+    workingDirectory: $(modulePath)
     displayName: Run unit tests
   - script: |
-      'echo "mode: set" > all.coverprofile'
-      'find . -name "*.coverprofile" -exec grep -v mode: {} >> all.coverprofile \;'
-      "$HOME/gopath/bin/goveralls -coverprofile=all.coverprofile -repotoken=$COVERALLS_TOKEN"
+      echo "mode: set" > all.coverprofile;
+      find . -name '*.coverprofile' -exec grep -v "mode: {}" >> all.coverprofile \;
+      $(GOBIN)/goveralls -coverprofile=all.coverprofile -repotoken=$COVERALLS_TOKEN
+    workingDirectory: $(modulePath)
     displayName: Set Coverage
