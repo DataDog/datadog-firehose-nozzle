@@ -1,0 +1,43 @@
+trigger:
+  batch: false
+  branches:
+    include:
+    - master
+
+pr:
+  branches:
+    include:
+    - master
+
+jobs:
+- job: UnitTests
+  pool:
+    vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      Go113:
+        GO_VERSION: "1.13"
+      GoTIP:
+        GO_VERSION: "tip"
+  steps:
+  - task: GoTool@0
+    displayName: Use Golang $(GO_VERSION)
+    inputs:
+      version: $(GO_VERSION)
+  - script: |
+      go get -v github.com/mattn/goveralls;
+      go get -v github.com/onsi/ginkgo;
+      go get -v github.com/onsi/gomega;
+      go get -v github.com/Masterminds/glide;
+      go get -v golang.org/x/lint/golint;
+      go install -v github.com/onsi/ginkgo/ginkgo;
+      go install -v github.com/Masterminds/glide;
+      glide install
+    displayName: Install dependencies
+  - script: PATH=$HOME/gopath/bin:$PATH bin/test
+    displayName: Run unit tests
+  - script: |
+      'echo "mode: set" > all.coverprofile'
+      'find . -name "*.coverprofile" -exec grep -v mode: {} >> all.coverprofile \;'
+      "$HOME/gopath/bin/goveralls -coverprofile=all.coverprofile -repotoken=$COVERALLS_TOKEN"
+    displayName: Set Coverage
