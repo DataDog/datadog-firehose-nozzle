@@ -1,3 +1,5 @@
+[![Build Status](https://dev.azure.com/datadoghq/datadog-firehose-nozzle/_apis/build/status/DataDog.datadog-firehose-nozzle?branchName=master)](https://dev.azure.com/datadoghq/datadog-firehose-nozzle/_build/latest?definitionId=15&branchName=master)
+
 ## Summary
 
 The datadog-firehose-nozzle is a CF component which forwards metrics from the Loggregator Firehose to [Datadog](http://www.datadoghq.com/)
@@ -50,7 +52,7 @@ The nozzle determines the value of `datadog.nozzle.slowConsumerAlert` with the f
 If you need a proxy to connect to the Internet, you can use the `HTTPProxyURL` and `HTTPSProxyURL` fields in your configuration file in order to configure the nozzle to do this.
 For example:
   - HTTPProxyURL: "http(s)://user:password@proxy_for_http:port"
-  - HTTPSProxyURL: "http(s)://user:password@proxy_for_https:port"  
+  - HTTPSProxyURL: "http(s)://user:password@proxy_for_https:port"
 
 Alternatively, you can use environment variables (`HTTP_PROXY` and `HTTPS_PROXY`).
 

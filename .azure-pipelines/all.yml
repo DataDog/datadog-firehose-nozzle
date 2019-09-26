@@ -58,7 +58,7 @@ jobs:
     displayName: Run unit tests
   - script: |
       echo "mode: set" > all.coverprofile;
-      find . -name '*.coverprofile' -exec grep -v "mode: {}" >> all.coverprofile \;
+      find . -name '*.coverprofile' -exec grep -v "mode:" {} >> all.coverprofile \;
       $(GOBIN)/goveralls -coverprofile=all.coverprofile -repotoken=$COVERALLS_TOKEN
     workingDirectory: $(modulePath)
     displayName: Set Coverage
