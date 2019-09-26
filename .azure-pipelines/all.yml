@@ -13,15 +13,11 @@ variables:
   GOBIN:  '$(GOPATH)/bin' # Go binaries path
   GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
-
+  GO_VERSION: '1.13'
 jobs:
 - job: UnitTests
   pool:
     vmImage: "Ubuntu-16.04"
-  strategy:
-    matrix:
-      Go113:
-        GO_VERSION: "1.13"
   steps:
   - task: GoTool@0
     displayName: Use Golang $(GO_VERSION)
