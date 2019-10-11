@@ -95,7 +95,7 @@ func NewAppParser(
 ) (*AppParser, error) {
 
 	if cfClient == nil {
-		return nil, fmt.Errorf("The CF Client needs to be properly set up to use appmetrics")
+		return nil, fmt.Errorf("the CF Client needs to be properly set up to use appmetrics")
 	}
 	if environment != "" {
 		customTags = append(customTags, fmt.Sprintf("%s:%s", "env", environment))
@@ -204,18 +204,14 @@ func (am *AppParser) Stop() {
 // App holds all the needed attribute from an app
 type App struct {
 	Name                   string
-	Host                   string
-	Buildpack              string
-	Command                string
-	Diego                  bool
-	OrgName                string
-	OrgID                  string
-	Routes                 []string
+	GUID                   string
 	SpaceID                string
 	SpaceName              string
 	SpaceURL               string
-	GUID                   string
-	DockerImage            string
+	OrgName                string
+	OrgID                  string
+	Host                   string
+	Buildpacks             []string
 	NumberOfInstances      int
 	TotalDiskConfigured    int
 	TotalMemoryConfigured  int
@@ -321,15 +317,11 @@ func (a *App) generateTags() []string {
 	if a.Name != "" {
 		tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
 	}
-	//if a.Buildpack != "" {
-	//	tags = append(tags, fmt.Sprintf("buildpack:%v", a.Buildpack))
-	//}
-	//if a.Command != "" {
-	//	tags = append(tags, fmt.Sprintf("command:%v", a.Command))
-	//}
-	//if a.Diego {
-	//	tags = append(tags, fmt.Sprintf("diego"))
-	//}
+	if len(a.Buildpacks) > 0 {
+		for _, buildpack := range a.Buildpacks {
+			tags = append(tags, fmt.Sprintf("buildpack:%v", buildpack))
+		}
+	}
 	if a.OrgName != "" {
 		tags = append(tags, fmt.Sprintf("org_name:%v", a.OrgName))
 	}
@@ -342,44 +334,25 @@ func (a *App) generateTags() []string {
 	if a.SpaceID != "" {
 		tags = append(tags, fmt.Sprintf("space_id:%v", a.SpaceID))
 	}
-	//TODO: This may never have been set hence submitted before
-	//if a.SpaceURL != "" {
-	//	tags = append(tags, fmt.Sprintf("space_url:%v", a.SpaceURL))
-	//}
 	if a.GUID != "" {
 		tags = append(tags, fmt.Sprintf("guid:%v", a.GUID))
 	}
-	//if a.DockerImage != "" {
-	//	tags = append(tags, fmt.Sprintf("image:%v", a.DockerImage))
-	//}
 
 	return tags
 }
 
 func (a *App) setAppData(cfapp cloudfoundry.CFApplication) {
-	// See https://apidocs.cloudfoundry.org/9.0.0/apps/retrieve_a_particular_app.html for the description of attributes
 	a.Name = cfapp.Name
-	//if resolvedApp.Buildpack != "" {
-	//	a.Buildpack = resolvedApp.Buildpack
-	//} else if resolvedApp.DetectedBuildpack != "" {
-	//	a.Buildpack = resolvedApp.DetectedBuildpack
-	//}
-	//a.Command = resolvedApp.Command
-	//a.DockerImage = resolvedApp.DockerImage
-	//a.Diego = resolvedApp.Diego
 	a.SpaceID = cfapp.SpaceGUID
+	a.SpaceName = cfapp.SpaceName
+	a.OrgName = cfapp.OrgName
+	a.OrgID = cfapp.OrgGUID
 	a.NumberOfInstances = cfapp.Instances
-
 	a.TotalDiskConfigured = cfapp.DiskQuota
 	a.TotalMemoryConfigured = cfapp.Memory
 	a.TotalDiskProvisioned = cfapp.TotalDiskQuota
 	a.TotalMemoryProvisioned = cfapp.TotalMemory
-
-	a.SpaceName = cfapp.SpaceName
-	a.OrgName = cfapp.OrgName
-	a.OrgID = cfapp.OrgGUID
-	// TODO: Where is SpaceURL?!?
-	// TODO Later: we could include metadata labels
+	a.Buildpacks = cfapp.Buildpacks
 
 	a.Tags = a.generateTags()
 }

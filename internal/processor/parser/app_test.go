@@ -7,7 +7,6 @@ import (
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	cfclient "github.com/cloudfoundry-community/go-cfclient"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,6 +15,8 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 )
 
 var _ = Describe("AppMetrics", func() {
@@ -23,7 +24,7 @@ var _ = Describe("AppMetrics", func() {
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
-		fakeCfClient           *cfclient.Client
+		fakeCfClient           *cloudfoundry.CFClient
 	)
 
 	BeforeEach(func() {
@@ -32,14 +33,13 @@ var _ = Describe("AppMetrics", func() {
 		fakeCloudControllerAPI.Start()
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
-		cfg := cfclient.Config{
-			ApiAddress:        ccAPIURL,
-			ClientID:          "bearer",
-			ClientSecret:      "123456789",
-			SkipSslValidation: true,
-			UserAgent:         "datadog-firehose-nozzle",
+		cfg := config.Config{
+			CloudControllerEndpoint:	ccAPIURL,
+			Client:          			"bearer",
+			ClientSecret:      			"123456789",
+			InsecureSSLSkipVerify: 		true,
 		}
-		fakeCfClient, _ = cfclient.NewClient(&cfg)
+		fakeCfClient, _ = cloudfoundry.NewClient(&cfg, log)
 	}, 0)
 
 	Context("generator function", func() {
