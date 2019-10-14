@@ -17,8 +17,8 @@ import (
 )
 
 type CFClient struct {
-	apiVersion 	int
-	numWorkers	int
+	ApiVersion 	int
+	NumWorkers	int
 	client 		*cfclient.Client
 	logger 		*gosteno.Logger
 }
@@ -75,8 +75,9 @@ type v3AppResource struct {
 		Tasks 					cfclient.Link 	`json:"tasks"`
 		Start					cfclient.Link 	`json:"start"`
 		Stop					cfclient.Link   `json:"stop"`
-		Revisions				cfclient.Link 	`json:"revisions"`
-		DeployedRevisions		cfclient.Link 	`json:"deployed_revisions"`
+		RouteMappings 			cfclient.Link 	`json:"route_mappings,omitempty"`
+		Revisions				cfclient.Link 	`json:"revisions,omitempty"`
+		DeployedRevisions		cfclient.Link 	`json:"deployed_revisions,omitempty"`
 	} `json:"links"`
 }
 
@@ -117,8 +118,8 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	}
 
 	cfc := CFClient{
-		apiVersion: 0,
-		numWorkers: config.NumWorkers,
+		ApiVersion: 0,
+		NumWorkers: config.NumWorkers,
 		client: cfClient,
 		logger: logger,
 	}
@@ -132,29 +133,24 @@ func (cfc *CFClient) GetDopplerEndpoint() string {
 func (cfc *CFClient) GetOrganizationsQuotas(numWorkers int) ([]cfclient.OrgQuotasResource, error) {
 	results, pages, err := cfc.getV2OrganizationsQuotasByPage(1)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+		return nil, errors.Wrap(err, "Error requesting org quotas page 1, skipping cache warmup")
 	}
 
 	var mutex sync.Mutex
 	var wg sync.WaitGroup
 
 	// Calculate the number of workers needs based on the number of pages found
-	pages = pages - 1 // We already have the first page
 	numWorkers = int(math.Min(float64(numWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages > 0 {
-		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
+	if pages - 1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := worker * pagesPerWorker + 2
-		// Stop at page pages + 1, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages)))
-		if end == pages {
-			// Add 1 so the last page can be obtained
-			end++
-		}
+		start := (worker * pagesPerWorker) + 2
+		// Stop at page pages + pageWindow, to get the last one
+		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
@@ -177,22 +173,21 @@ func (cfc *CFClient) GetOrganizationsQuotas(numWorkers int) ([]cfclient.OrgQuota
 }
 
 func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
-	if cfc.apiVersion == 2 {
+	if cfc.ApiVersion == 2 {
 		return cfc.getV2Applications()
 	}
-	if cfc.apiVersion == 3 {
+	if cfc.ApiVersion == 3 {
 		return cfc.getV3Applications()
 	}
-
 	results, err := cfc.getV3Applications()
 	if err != nil{
 		results, err = cfc.getV2Applications()
 		if err != nil{
 			return nil, err
 		}
-		cfc.apiVersion = 2
+		cfc.ApiVersion = 2
 	}
-	cfc.apiVersion = 3
+	cfc.ApiVersion = 3
 	return results, nil
 }
 
@@ -207,13 +202,12 @@ func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 }
 
 func (cfc *CFClient) getV2OrganizationsQuotasByPage(page int) ([]cfclient.OrgQuotasResource, int, error) {
-	//NOTE: Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L332
 	q := url.Values{}
 	q.Set("results-per-page", "100") // 100 is the max
 	if page > 0 {
 		q.Set("page", strconv.Itoa(page))
 	}
-	r := cfc.client.NewRequest("GET", "/v2/quota_definitions?"+q.Encode())
+	r := cfc.client.NewRequest("GET", "/v2/quota_definitions?" + q.Encode())
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
 		return nil, -1, errors.Wrapf(err, "Error requesting quota_definitions page %d", page)
@@ -222,13 +216,13 @@ func (cfc *CFClient) getV2OrganizationsQuotasByPage(page int) ([]cfclient.OrgQuo
 	defer resp.Body.Close()
 	resBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading app response for quota_definition %d", page)
+		return nil, -1, errors.Wrapf(err, "Error reading org quotas response for page %d", page)
 	}
 	// Unmarshal body response into OrgQuotasResponse objects
 	var orgsResp cfclient.OrgQuotasResponse
 	err = json.Unmarshal(resBody, &orgsResp)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling app response for quota_definition %d", page)
+		return nil, -1, errors.Wrapf(err, "Error unmarshalling org quotas response for page %d", page)
 	}
 
 	return orgsResp.Resources, orgsResp.Pages, nil
@@ -245,22 +239,17 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	var wg sync.WaitGroup
 
 	// Calculate the number of workers needs based on the number of pages found
-	pages = pages - 1 // We already have the first page
-	numWorkers := int(math.Min(float64(cfc.numWorkers), float64(pages))) // We cannot have more workers than pages to fetch
+	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages > 0 {
-		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
+	if pages - 1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := worker * pagesPerWorker + 2
-		// Stop at page pages + 1, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages)))
-		if end == pages {
-			// Add 1 so the last page can be obtained
-			end++
-		}
+		start := (worker * pagesPerWorker) + 2
+		// Stop at page pages + pageWindow, to get the last one
+		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
@@ -288,7 +277,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 	// Group all processes per app
 	for _, process := range processes {
-		lastIndex := math.Max(float64(strings.LastIndex(process.Links.App.Href, "/")), float64(0))
+		lastIndex := math.Max(float64(strings.LastIndex(process.Links.App.Href, "/")), float64(0)) + 1
 		appGUID := process.Links.App.Href[int(lastIndex):]
 		appProcesses, exists := processesPerApp[appGUID]
 		if exists {
@@ -311,7 +300,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 		spacesPerGuid[space.Guid] = space
 	}
 
-	// Fetch spaces
+	// Fetch orgs
 	orgsPerGuid := map[string]cfclient.Org{}
 	q := url.Values{}
 	q.Set("results-per-page", "100") // 100 is the max
@@ -414,22 +403,17 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	var wg sync.WaitGroup
 
 	// Calculate the number of workers needs based on the number of pages found
-	pages = pages - 1 // We already have the first page
-	numWorkers := int(math.Min(float64(cfc.numWorkers), float64(pages))) // We cannot have more workers than pages to fetch
+	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages > 0 {
-		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
+	if pages - 1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := worker * pagesPerWorker + 2
-		// Stop at page pages + 1, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages)))
-		if end == pages {
-			// Add 1 so the last page can be obtained
-			end++
-		}
+		start := (worker * pagesPerWorker) + 2
+		// Stop at page pages + pageWindow, to get the last one
+		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
@@ -488,22 +472,17 @@ func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
 	var wg sync.WaitGroup
 
 	// Calculate the number of workers needs based on the number of pages found
-	pages = pages - 1 // We already have the first page
-	numWorkers := int(math.Min(float64(cfc.numWorkers), float64(pages))) // We cannot have more workers than pages to fetch
+	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages > 0 {
-		pagesPerWorker = int(math.Ceil(float64(pages) / float64(numWorkers)))
+	if pages - 1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages  - 1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := worker * pagesPerWorker + 2
-		// Stop at page pages + 1, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages)))
-		if end == pages {
-			// Add 1 so the last page can be obtained
-			end++
-		}
+		start := (worker * pagesPerWorker) + 2
+		// Stop at page pages + pageWindow, to get the last one
+		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()

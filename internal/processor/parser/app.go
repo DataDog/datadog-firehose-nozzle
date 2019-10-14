@@ -158,15 +158,15 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		// If it exists in the cache, use the cache
 		return app, nil
 	}
-
 	// Otherwise it's a new app so fetch it via the API
 	cfapp, err := am.cfClient.GetApplication(guid)
 	if err != nil {
-		am.log.Errorf("there was an error grabbing the instance data for app %v: %v", cfapp.GUID, err)
+		am.log.Errorf("there was an error grabbing the instance data for app %s: %v", guid, err)
 		return nil, err
 	}
+	app = am.AppCache.Add(*cfapp)
 
-	return am.AppCache.Add(*cfapp), nil
+	return app, nil
 }
 
 // Parse takes an envelope, and extract app metrics from it
@@ -177,7 +177,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	guid := message.GetApplicationId()
 	app, err := am.getAppData(guid)
 	if err != nil || app == nil {
-		am.log.Errorf("there was an error grabbing data for app %v: %v", guid, err)
+		am.log.Errorf("there was an error grabbing data for app %s: %v", guid, err)
 		return metricsPackages, err
 	}
 
