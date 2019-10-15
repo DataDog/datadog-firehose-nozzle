@@ -535,8 +535,6 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 		app.Entity.Guid = app.Meta.Guid
 		app.Entity.CreatedAt = app.Meta.CreatedAt
 		app.Entity.UpdatedAt = app.Meta.UpdatedAt
-		app.Entity.SpaceData.Entity.Guid = app.Entity.SpaceData.Meta.Guid
-		app.Entity.SpaceData.Entity.OrgData.Entity.Guid = app.Entity.SpaceData.Entity.OrgData.Meta.Guid
 		cfapp := CFApplication{}
 		cfapp.setV2AppData(app.Entity)
 		results = append(results, cfapp)
@@ -549,17 +547,17 @@ func (a *CFApplication) setV2AppData(data cfclient.App) {
 	a.GUID = data.Guid
 	a.Name = data.Name
 
-	a.SpaceGUID = data.SpaceGuid
-	a.Instances = data.Instances
+	a.SpaceGUID = data.SpaceData.Meta.Guid
+	a.SpaceName = data.SpaceData.Entity.Name
 
+	a.OrgName = data.SpaceData.Entity.OrgData.Entity.Name
+	a.OrgGUID = data.SpaceData.Entity.OrgData.Meta.Guid
+
+	a.Instances = data.Instances
 	a.DiskQuota = data.DiskQuota
 	a.Memory = data.Memory
 	a.TotalDiskQuota = data.DiskQuota * a.Instances
 	a.TotalMemory = data.Memory * a.Instances
-
-	a.SpaceName = data.SpaceData.Entity.Name
-	a.OrgName = data.SpaceData.Entity.OrgData.Entity.Name
-	a.OrgGUID = data.SpaceData.Entity.OrgData.Entity.Guid
 }
 
 func (a *CFApplication) setV3AppData(data v3AppResource) {

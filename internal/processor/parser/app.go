@@ -31,10 +31,16 @@ func (c *appCache) Add(cfApp cloudfoundry.CFApplication) *App {
 	defer c.lock.Unlock()
 
 	if app := c.apps[cfApp.GUID]; app != nil {
-		app.setAppData(cfApp)
+		err := app.setAppData(cfApp)
+		if err != nil {
+			return nil
+		}
 	} else {
 		app := newApp(cfApp.GUID)
-		app.setAppData(cfApp)
+		err := app.setAppData(cfApp)
+		if err != nil {
+			return nil
+		}
 		c.apps[cfApp.GUID] = app
 	}
 
@@ -186,7 +192,10 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 
 	app.Host = envelope.GetOrigin()
 
-	metricsPackages = app.getMetrics(am.customTags)
+	metricsPackages, err = app.getMetrics(am.customTags)
+	if err != nil {
+		return metricsPackages, err
+	}
 	containerMetrics, err := app.parseContainerMetric(message, am.customTags)
 	if err != nil {
 		return metricsPackages, err
@@ -227,7 +236,7 @@ func newApp(guid string) *App {
 	}
 }
 
-func (a *App) getMetrics(customTags []string) []metric.MetricPackage {
+func (a *App) getMetrics(customTags []string) ([]metric.MetricPackage, error) {
 	var names = []string{
 		"app.disk.configured",
 		"app.disk.provisioned",
@@ -264,11 +273,10 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags [
 	}
 	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
 	tags = append(tags, customTags...)
-
-	return a.mkMetrics(names, ms, tags), nil
+	return a.mkMetrics(names, ms, tags)
 }
 
-func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metric.MetricPackage {
+func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metric.MetricPackage, error) {
 	metricsPackages := []metric.MetricPackage{}
 	var host string
 	if a.Host != "" {
@@ -277,7 +285,10 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 		host = a.GUID
 	}
 
-	tags := a.getTags()
+	tags, err := a.getTags()
+	if err != nil {
+		return nil, err
+	}
 	tags = append(tags, moreTags...)
 
 	for i, name := range names {
@@ -300,48 +311,44 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) []metri
 		})
 	}
 
-	return metricsPackages
+	return metricsPackages, nil
 }
 
-func (a *App) getTags() []string {
+func (a *App) getTags() ([]string, error) {
 	if a.Tags != nil && len(a.Tags) > 0 {
-		return a.Tags
+		return a.Tags, nil
 	}
 
-	a.Tags = a.generateTags()
-	return a.Tags
+	tags, err := a.generateTags()
+	if err != nil {
+		return nil, err
+	}
+	a.Tags = tags
+
+	return a.Tags, nil
 }
 
-func (a *App) generateTags() []string {
+func (a *App) generateTags() ([]string, error) {
 	var tags = []string{}
-	if a.Name != "" {
-		tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
-	}
+	tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
+	tags = append(tags, fmt.Sprintf("org_name:%v", a.OrgName))
+	tags = append(tags, fmt.Sprintf("org_id:%v", a.OrgID))
+	tags = append(tags, fmt.Sprintf("space_name:%v", a.SpaceName))
+	tags = append(tags, fmt.Sprintf("space_id:%v", a.SpaceID))
+	tags = append(tags, fmt.Sprintf("guid:%v", a.GUID))
 	if len(a.Buildpacks) > 0 {
-		for _, buildpack := range a.Buildpacks {
-			tags = append(tags, fmt.Sprintf("buildpack:%v", buildpack))
+		for _, bp := range a.Buildpacks {
+			tags = append(tags, fmt.Sprintf("buildpack:%v", bp))
 		}
 	}
-	if a.OrgName != "" {
-		tags = append(tags, fmt.Sprintf("org_name:%v", a.OrgName))
-	}
-	if a.OrgID != "" {
-		tags = append(tags, fmt.Sprintf("org_id:%v", a.OrgID))
-	}
-	if a.SpaceName != "" {
-		tags = append(tags, fmt.Sprintf("space_name:%v", a.SpaceName))
-	}
-	if a.SpaceID != "" {
-		tags = append(tags, fmt.Sprintf("space_id:%v", a.SpaceID))
-	}
-	if a.GUID != "" {
-		tags = append(tags, fmt.Sprintf("guid:%v", a.GUID))
+	if a.Name == "" || a.OrgName == "" || a.OrgID == "" || a.SpaceName == "" || a.SpaceID == "" || a.GUID == "" {
+		return nil, fmt.Errorf("some tags could not be found %v", a)
 	}
 
-	return tags
+	return tags, nil
 }
 
-func (a *App) setAppData(cfapp cloudfoundry.CFApplication) {
+func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	a.Name = cfapp.Name
 	a.SpaceID = cfapp.SpaceGUID
 	a.SpaceName = cfapp.SpaceName
@@ -354,5 +361,10 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) {
 	a.TotalMemoryProvisioned = cfapp.TotalMemory
 	a.Buildpacks = cfapp.Buildpacks
 
-	a.Tags = a.generateTags()
+	tags, err := a.generateTags()
+	if err != nil {
+		return err
+	}
+	a.Tags = tags
+	return nil
 }
