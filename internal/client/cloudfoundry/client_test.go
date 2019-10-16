@@ -61,25 +61,9 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("v3 space endpoint", func() {
-			fakeCfClient.NumWorkers = 1
-			res, page, err := fakeCfClient.getV3SpacesByPage(1)
+			res, err := fakeCfClient.getV3Spaces()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(6))
-
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, page, err = fakeCfClient.getV3SpacesByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(6))
-
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, page, err = fakeCfClient.getV3SpacesByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(6))
 		})
 
@@ -88,29 +72,6 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(19))
-		})
-
-		It("v2 quota_definitions endpoint", func() {
-			fakeCfClient.NumWorkers = 1
-			res, page, err := fakeCfClient.getV2OrganizationsQuotasByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(3))
-
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, page, err = fakeCfClient.getV2OrganizationsQuotasByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(3))
-
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, page, err = fakeCfClient.getV2OrganizationsQuotasByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(3))
 		})
 
 		It("v3 apps endpoint", func() {

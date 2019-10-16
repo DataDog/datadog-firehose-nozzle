@@ -157,12 +157,12 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 
 // PostMetrics forwards the metrics to datadog
 func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
-	c.log.Infof("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
+	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
-			c.log.Infof("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
+			c.log.Debugf("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
 			continue
 		}
 
@@ -191,6 +191,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 	// response code is received, then a retry is invoked on this request after a wait period
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.log.Errorf("error returned by the http client, %v", err)
 		return err
 	}
 	defer resp.Body.Close()

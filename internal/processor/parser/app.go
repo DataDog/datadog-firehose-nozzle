@@ -26,25 +26,25 @@ func newAppCache() appCache {
 }
 
 // Add inserts or update a new app in the cache, and returns it
-func (c *appCache) Add(cfApp cloudfoundry.CFApplication) *App {
+func (c *appCache) Add(cfApp cloudfoundry.CFApplication) (*App, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if app := c.apps[cfApp.GUID]; app != nil {
 		err := app.setAppData(cfApp)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 	} else {
 		app := newApp(cfApp.GUID)
 		err := app.setAppData(cfApp)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		c.apps[cfApp.GUID] = app
 	}
 
-	return c.apps[cfApp.GUID]
+	return c.apps[cfApp.GUID], nil
 }
 
 // Delete removes an app from the cache
@@ -145,17 +145,19 @@ func (am *AppParser) warmupCache() {
 
 	cfapps, err := am.cfClient.GetApplications()
 	if err != nil {
-		am.log.Errorf("Error warming up cache, couldn't get list of apps: %v", err)
+		am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
 		return
 	}
-
 	for _, cfapp := range cfapps {
-		am.AppCache.Add(cfapp)
+		_, err := am.AppCache.Add(cfapp)
+		if err != nil{
+			am.log.Errorf(err.Error())
+		}
 	}
 	if !am.AppCache.IsWarmedUp() {
 		am.AppCache.SetWarmedUp()
 	}
-	am.log.Infof("Done warming up cache")
+	am.log.Infof("done warming up cache")
 }
 
 func (am *AppParser) getAppData(guid string) (*App, error) {
@@ -170,7 +172,10 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		am.log.Errorf("there was an error grabbing the instance data for app %s: %v", guid, err)
 		return nil, err
 	}
-	app = am.AppCache.Add(*cfapp)
+	app, err = am.AppCache.Add(*cfapp)
+	if err != nil{
+		am.log.Errorf(err.Error())
+	}
 
 	return app, nil
 }
@@ -190,7 +195,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	app.lock.Lock()
 	defer app.lock.Unlock()
 
-	app.Host = envelope.GetOrigin()
+	app.Host = parseHost(envelope)
 
 	metricsPackages, err = app.getMetrics(am.customTags)
 	if err != nil {
@@ -330,19 +335,21 @@ func (a *App) getTags() ([]string, error) {
 
 func (a *App) generateTags() ([]string, error) {
 	var tags = []string{}
-	tags = append(tags, fmt.Sprintf("app_name:%v", a.Name))
-	tags = append(tags, fmt.Sprintf("org_name:%v", a.OrgName))
-	tags = append(tags, fmt.Sprintf("org_id:%v", a.OrgID))
-	tags = append(tags, fmt.Sprintf("space_name:%v", a.SpaceName))
-	tags = append(tags, fmt.Sprintf("space_id:%v", a.SpaceID))
-	tags = append(tags, fmt.Sprintf("guid:%v", a.GUID))
+	tags = appendTagIfNotEmpty(tags,"app_name", a.Name)
+	tags = appendTagIfNotEmpty(tags,"org_name", a.OrgName)
+	tags = appendTagIfNotEmpty(tags,"org_id", a.OrgID)
+	tags = appendTagIfNotEmpty(tags,"space_name", a.SpaceName)
+	tags = appendTagIfNotEmpty(tags,"space_id", a.SpaceID)
+	tags = appendTagIfNotEmpty(tags,"guid", a.GUID)
 	if len(a.Buildpacks) > 0 {
 		for _, bp := range a.Buildpacks {
-			tags = append(tags, fmt.Sprintf("buildpack:%v", bp))
+			tags = appendTagIfNotEmpty(tags,"buildpack", bp)
 		}
 	}
 	if a.Name == "" || a.OrgName == "" || a.OrgID == "" || a.SpaceName == "" || a.SpaceID == "" || a.GUID == "" {
-		return nil, fmt.Errorf("some tags could not be found %v", a)
+		return nil, fmt.Errorf("some tags could not be found app_name:%s, " +
+			"org_name:%s, org_id:%s, space_name:%s, space_id:%s, guid:%s", a.Name, a.OrgName, a.OrgID, a.SpaceName,
+				a.SpaceID, a.GUID)
 	}
 
 	return tags, nil

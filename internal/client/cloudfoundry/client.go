@@ -41,7 +41,7 @@ type CFApplication struct {
 
 type Data struct {
 	Data struct {
-		Guid string `json:"guid"`
+		GUID string `json:"guid"`
 	} `json:"data"`
 }
 
@@ -51,7 +51,7 @@ type v3AppResponse struct {
 }
 
 type v3AppResource struct {
-	Guid                     string                 `json:"guid"`
+	GUID                     string                 `json:"guid"`
 	Name                     string                 `json:"name"`
 	State                    string                 `json:"state"`
 	CreatedAt                string                 `json:"created_at"`
@@ -87,7 +87,7 @@ type v3SpaceResponse struct {
 }
 
 type v3SpaceResource struct {
-	Guid        string	`json:"guid"`
+	GUID        string	`json:"guid"`
 	Name		string 	`json:"name"`
 	CreatedAt	string	`json:"created_at"`
 	UpdatedAt	string	`json:"updated_at"`
@@ -130,59 +130,22 @@ func (cfc *CFClient) GetDopplerEndpoint() string {
 	return cfc.client.Endpoint.DopplerEndpoint
 }
 
-func (cfc *CFClient) GetOrganizationsQuotas(numWorkers int) ([]cfclient.OrgQuotasResource, error) {
-	results, pages, err := cfc.getV2OrganizationsQuotasByPage(1)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting org quotas page 1, skipping cache warmup")
-	}
-
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	// Calculate the number of workers needs based on the number of pages found
-	numWorkers = int(math.Min(float64(numWorkers), float64(pages))) // We cannot have more workers than pages to fetch
-	var pagesPerWorker int
-	if pages - 1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
-	}
-	// Use go routines to fetch page ranges
-	for worker := 0; worker < numWorkers; worker++ {
-		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := (worker * pagesPerWorker) + 2
-		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-
-			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV2OrganizationsQuotasByPage(currentPage)
-				if err != nil {
-					cfc.logger.Error(err.Error())
-					continue
-				}
-				mutex.Lock()
-				results = append(results, pageResults...)
-				mutex.Unlock()
-			}
-		}(start, end)
-	}
-	wg.Wait()
-
-	return results, nil
-}
-
 func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
 	if cfc.ApiVersion == 2 {
+		cfc.logger.Debug("api version is 2")
 		return cfc.getV2Applications()
 	}
 	if cfc.ApiVersion == 3 {
+		cfc.logger.Debug("api version is 3")
 		return cfc.getV3Applications()
 	}
+	cfc.logger.Debug("no api version set, trying to collect data with version 3")
 	results, err := cfc.getV3Applications()
 	if err != nil{
+		cfc.logger.Debug("error trying to fetch application infos with v3 endpoints. Falling back to v2 endpoints")
 		results, err = cfc.getV2Applications()
 		if err != nil{
+			cfc.logger.Errorf("error trying to fetch application infos with v2 endpoints %v", err)
 			return nil, err
 		}
 		cfc.ApiVersion = 2
@@ -201,38 +164,11 @@ func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 	return &result, nil
 }
 
-func (cfc *CFClient) getV2OrganizationsQuotasByPage(page int) ([]cfclient.OrgQuotasResource, int, error) {
-	q := url.Values{}
-	q.Set("results-per-page", "100") // 100 is the max
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	r := cfc.client.NewRequest("GET", "/v2/quota_definitions?" + q.Encode())
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting quota_definitions page %d", page)
-	}
-	// Read body response
-	defer resp.Body.Close()
-	resBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading org quotas response for page %d", page)
-	}
-	// Unmarshal body response into OrgQuotasResponse objects
-	var orgsResp cfclient.OrgQuotasResponse
-	err = json.Unmarshal(resBody, &orgsResp)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling org quotas response for page %d", page)
-	}
-
-	return orgsResp.Resources, orgsResp.Pages, nil
-}
-
 func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	// Query the first page to get the total number of pages.
 	cfapps, pages, err := cfc.getV3ApplicationsByPage(1)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+		return nil, errors.Wrap(err, "Error requesting v3 apps page 1, skipping cache warmup")
 	}
 
 	var mutex sync.Mutex
@@ -277,15 +213,15 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 	// Group all processes per app
 	for _, process := range processes {
-		lastIndex := math.Max(float64(strings.LastIndex(process.Links.App.Href, "/")), float64(0)) + 1
-		appGUID := process.Links.App.Href[int(lastIndex):]
-		appProcesses, exists := processesPerApp[appGUID]
+		parts := strings.Split(process.Links.App.Href, "/")
+		appGuid := parts[len(parts) - 1]
+		appProcesses, exists := processesPerApp[appGuid]
 		if exists {
 			appProcesses = append(appProcesses, process)
-		}else{
+		} else {
 			appProcesses = []cfclient.Process{process}
 		}
-		processesPerApp[appGUID] = appProcesses
+		processesPerApp[appGuid] = appProcesses
 	}
 
 	// Fetch spaces
@@ -297,7 +233,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 	// Create a space Map
 	for _, space := range spaces {
-		spacesPerGuid[space.Guid] = space
+		spacesPerGuid[space.GUID] = space
 	}
 
 	// Fetch orgs
@@ -318,20 +254,26 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	results := []CFApplication{}
 	for _, cfapp := range cfapps {
 		updatedApp := cfapp
-		appGUID := cfapp.GUID
-		spaceGUID := cfapp.SpaceGUID
-		processes, exists := processesPerApp[appGUID]
+		appGuid := cfapp.GUID
+		spaceGuid := cfapp.SpaceGUID
+		processes, exists := processesPerApp[appGuid]
 		if exists {
 			updatedApp.setV3ProcessData(processes)
+		} else {
+			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGuid)
 		}
-		space, exists := spacesPerGuid[spaceGUID]
+		space, exists := spacesPerGuid[spaceGuid]
 		if exists {
 			updatedApp.setV3SpaceData(space)
+		} else {
+			cfc.logger.Errorf("could not fetch space info for space guid %s", spaceGuid)
 		}
-		orgGUID := updatedApp.OrgGUID
-		org, exists := orgsPerGuid[orgGUID]
+		orgGuid := updatedApp.OrgGUID
+		org, exists := orgsPerGuid[orgGuid]
 		if exists {
 			updatedApp.setV3OrgData(org)
+		} else {
+			cfc.logger.Errorf("could not fetch org info for org guid %s", orgGuid)
 		}
 		results = append(results, updatedApp)
 	}
@@ -342,21 +284,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, error){
 	q := url.Values{}
-	q.Set("per-page", "5000") // 5000 is the max
-
-	// Since we don't know what version of the v3 endpoint we use, we have to discover it.
-	// Hence, we need to try for the latest to the oldest approach.
-	// 1. try with include=space,space.organization (as supported in 3.77.0)
-	// 2. try with include=space,org as supported in 3.76.0 all the way down to 3.73.0
-	// 3. try with include=space only since it seems that org doesn't work on some versions
-	//	- In this case we need to make a separate call to the org endpoint (ideally fetch quotas at the same time).
-	// 4. try without include
-	//  - In this case we need to make two more calls, on for org and one for space.
-	//
-	//if cfc.include != "" {
-	//	q.Set("include", cfc.include)
-	//}
-
+	q.Set("per_page", "5000") // 5000 is the max
 	r := cfc.client.NewRequest("GET", "/v3/apps?" + q.Encode())
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
@@ -393,72 +321,45 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error){
 }
 
 func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
-	// Query the first page to get the total number of pages.
-	results, pages, err := cfc.getV3SpacesByPage(1)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+	var spaces []v3SpaceResource
+	for {
+		q := url.Values{}
+		q.Set("per_page", "5000") // 5000 is the max
+		spaceResp, err := cfc.getV3SpaceResponse("/v3/spaces?" + q.Encode())
+		if err != nil {
+			return []v3SpaceResource{}, err
+		}
+		for _, resources := range spaceResp.Resources {
+			spaces = append(spaces, resources)
+		}
+		next, ok := spaceResp.Pagination.Next.(cfclient.Link)
+		if !ok {
+			break
+		}
+		if next.Href == "" {
+			break
+		}
 	}
-
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	// Calculate the number of workers needs based on the number of pages found
-	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
-	var pagesPerWorker int
-	if pages - 1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
-	}
-	// Use go routines to fetch page ranges
-	for worker := 0; worker < numWorkers; worker++ {
-		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := (worker * pagesPerWorker) + 2
-		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-
-			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV3SpacesByPage(currentPage)
-				if err != nil {
-					cfc.logger.Error(err.Error())
-					continue
-				}
-				mutex.Lock()
-				results = append(results, pageResults...)
-				mutex.Unlock()
-			}
-		}(start, end)
-	}
-	wg.Wait()
-
-	return results, nil
+	return spaces, nil
 }
 
-func (cfc *CFClient) getV3SpacesByPage(page int) ([]v3SpaceResource, int, error){
-	//NOTE: Taken from https://github.com/cloudfoundry-community/go-cfclient/blob/16c98753d3152f9d80d3c121523536858095a3da/apps.go#L332
-	q := url.Values{}
-	q.Set("per-page", "5000") // 5000 is the max
-
-	r := cfc.client.NewRequest("GET", "/v3/spaces?" + q.Encode())
+func (cfc *CFClient) getV3SpaceResponse(requestUrl string) (v3SpaceResponse, error) {
+	var spaceResp v3SpaceResponse
+	r := cfc.client.NewRequest("GET", requestUrl)
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting spaces page %d", err)
+		return v3SpaceResponse{}, errors.Wrap(err, "Error requesting spaces")
 	}
-	// Read body response
-	defer resp.Body.Close()
 	resBody, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading space response for page %d", page)
+		return v3SpaceResponse{}, errors.Wrap(err, "Error reading space request")
 	}
-	// Unmarshal body response into v3SpaceResponse objects
-	var spaceRes v3SpaceResponse
-	err = json.Unmarshal(resBody, &spaceRes)
+	err = json.Unmarshal(resBody, &spaceResp)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling space response for page %d", page)
+		return v3SpaceResponse{}, errors.Wrap(err, "Error unmarshalling space")
 	}
-
-	return spaceRes.Resources, spaceRes.Pagination.TotalPages, nil
+	return spaceResp, nil
 }
 
 func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
@@ -514,19 +415,19 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 	r := cfc.client.NewRequest("GET", "/v2/apps?"+q.Encode())
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting apps page %d", page)
+		return nil, -1, errors.Wrapf(err, "Error requesting v2 apps page %d", page)
 	}
 	// Read body response
 	defer resp.Body.Close()
 	resBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading app response for page %d", page)
+		return nil, -1, errors.Wrapf(err, "Error reading v2 app response for page %d", page)
 	}
 	// Unmarshal body response into AppResponse objects
 	var appResp cfclient.AppResponse
 	err = json.Unmarshal(resBody, &appResp)
 	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling app response for page %d", page)
+		return nil, -1, errors.Wrapf(err, "Error unmarshalling v2 app response for page %d", page)
 	}
 	// Create CFApplication objects
 	appResources := appResp.Resources
@@ -561,9 +462,9 @@ func (a *CFApplication) setV2AppData(data cfclient.App) {
 }
 
 func (a *CFApplication) setV3AppData(data v3AppResource) {
-	a.GUID = data.Guid
+	a.GUID = data.GUID
 	a.Name = data.Name
-	a.SpaceGUID = data.Relationships.Space.Data.Guid
+	a.SpaceGUID = data.Relationships.Space.Data.GUID
 	a.Buildpacks = data.LifeCycle.Data.BuildPacks
 }
 
@@ -601,7 +502,7 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 
 func (a *CFApplication) setV3SpaceData(data v3SpaceResource) {
 	a.SpaceName = data.Name
-	a.OrgGUID = data.Relationships.Organization.Data.Guid
+	a.OrgGUID = data.Relationships.Organization.Data.GUID
 }
 
 func (a *CFApplication) setV3OrgData(data cfclient.Org) {

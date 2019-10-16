@@ -64,7 +64,6 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			fmt.Println(a.AppCache.apps)
 			Expect(len(a.AppCache.apps)).To(Equal(14))
 		})
 
@@ -85,7 +84,7 @@ var _ = Describe("AppMetrics", func() {
 			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
 			_, err := a.getAppData("app-5")
 			Expect(err).ToNot(BeNil()) // error expected because fake CC won't return an app, so unmarshalling will fail
-			var req * http.Request
+			var req *http.Request
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive()) // /v2/info
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive()) // /oauth/token
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive(&req))
