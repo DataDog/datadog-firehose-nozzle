@@ -285,6 +285,9 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, error){
 	q := url.Values{}
 	q.Set("per_page", "5000") // 5000 is the max
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
 	r := cfc.client.NewRequest("GET", "/v3/apps?" + q.Encode())
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
@@ -315,17 +318,82 @@ func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, er
 }
 
 func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error){
+	// Query the first page to get the total number of pages.
+	results, pages, err := cfc.getV3ProcessesByPage(1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+	}
+
+	var mutex sync.Mutex
+	var wg sync.WaitGroup
+
+	// Calculate the number of workers needs based on the number of pages found
+	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
+	var pagesPerWorker int
+	if pages - 1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages  - 1) / float64(numWorkers)))
+	}
+	// Use go routines to fetch page ranges
+	for worker := 0; worker < numWorkers; worker++ {
+		// Offset 2 because no page at index 0 and page 1 already fetched
+		start := (worker * pagesPerWorker) + 2
+		// Stop at page pages + pageWindow, to get the last one
+		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+
+			for currentPage := start; currentPage < end; currentPage++ {
+				pageResults, _, err := cfc.getV3ProcessesByPage(currentPage)
+				if err != nil {
+					cfc.logger.Error(err.Error())
+					continue
+				}
+				mutex.Lock()
+				results = append(results, pageResults...)
+				mutex.Unlock()
+			}
+		}(start, end)
+	}
+	wg.Wait()
+
+	return results, nil
+}
+
+func (cfc *CFClient) getV3ProcessesByPage(page int) ([]cfclient.Process, int, error) {
 	q := url.Values{}
 	q.Set("per_page", "5000") // 5000 is the max
-	return cfc.client.ListAllProcessesByQuery(q)
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
+	resp, err := cfc.client.DoRequest(r)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error requesting v3 processes page %d", page)
+	}
+	// Read body response
+	defer resp.Body.Close()
+	resBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error reading v3 processes response for page %d", page)
+	}
+	// Unmarshal body response into AppResponse objects
+	var processResp cfclient.ProcessListResponse
+	err = json.Unmarshal(resBody, &processResp)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error unmarshalling v3 processes response for page %d", page)
+	}
+
+	return processResp.Processes, processResp.Pagination.TotalPages, nil
 }
 
 func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	var spaces []v3SpaceResource
+	requestUrl := "/v3/spaces"
 	for {
 		q := url.Values{}
 		q.Set("per_page", "5000") // 5000 is the max
-		spaceResp, err := cfc.getV3SpaceResponse("/v3/spaces?" + q.Encode())
+		spaceResp, err := cfc.getV3SpaceResponse(requestUrl)
 		if err != nil {
 			return []v3SpaceResource{}, err
 		}
@@ -336,7 +404,8 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 		if !ok {
 			break
 		}
-		if next.Href == "" {
+		requestUrl = next.Href
+		if requestUrl == "" {
 			break
 		}
 	}
