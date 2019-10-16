@@ -72,6 +72,27 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(19))
+
+			fakeCfClient.NumWorkers = 1
+			res, page, err := fakeCfClient.getV3ProcessesByPage(1)
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(page).To(Equal(3))
+			Expect(len(res)).To(Equal(19))
+
+			fakeCfClient.NumWorkers = 100 // More runners than pages
+			res, page, err = fakeCfClient.getV3ProcessesByPage(1)
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(page).To(Equal(3))
+			Expect(len(res)).To(Equal(19))
+
+			fakeCfClient.NumWorkers = 3 // As many runners as pages
+			res, page, err = fakeCfClient.getV3ProcessesByPage(1)
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(page).To(Equal(3))
+			Expect(len(res)).To(Equal(19))
 		})
 
 		It("v3 apps endpoint", func() {
