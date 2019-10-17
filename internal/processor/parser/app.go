@@ -148,6 +148,7 @@ func (am *AppParser) warmupCache() {
 		am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
 		return
 	}
+	am.log.Debugf("GetApplications : %v", cfapps)
 	for _, cfapp := range cfapps {
 		_, err := am.AppCache.Add(cfapp)
 		if err != nil {
@@ -156,6 +157,7 @@ func (am *AppParser) warmupCache() {
 			return
 		}
 	}
+	am.log.Debugf("Cache warmed up : %v", am.AppCache.apps)
 	if !am.AppCache.IsWarmedUp() {
 		am.AppCache.SetWarmedUp()
 	}
@@ -188,12 +190,15 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	message := envelope.GetContainerMetric()
 
 	guid := message.GetApplicationId()
+	if guid == "" {
+		am.log.Errorf("there was an error grabbing ApplicationId from message")
+		return metricsPackages, nil
+	}
 	app, err := am.getAppData(guid)
 	if err != nil || app == nil {
 		am.log.Errorf("there was an error grabbing data for app %s: %v", guid, err)
 		return metricsPackages, err
 	}
-	am.log.Debugf("cache app %v", app)
 
 	app.lock.Lock()
 	defer app.lock.Unlock()

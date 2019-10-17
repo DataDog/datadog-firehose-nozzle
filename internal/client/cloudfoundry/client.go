@@ -25,18 +25,18 @@ type CFClient struct {
 
 // CFApplication represents a Cloud Controller Application.
 type CFApplication struct {
-	GUID string
-	Name string
-	SpaceGUID string
-	SpaceName string
-	OrgName string
-	OrgGUID string
-	Instances int
-	Buildpacks []string
-	DiskQuota int
-	TotalDiskQuota int
-	Memory int
-	TotalMemory int
+	GUID 			string
+	Name 			string
+	SpaceGUID 		string
+	SpaceName 		string
+	OrgName 		string
+	OrgGUID 		string
+	Instances 		int
+	Buildpacks 		[]string
+	DiskQuota 		int
+	TotalDiskQuota 	int
+	Memory 			int
+	TotalMemory 	int
 }
 
 type Data struct {
