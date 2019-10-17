@@ -150,7 +150,8 @@ func (am *AppParser) warmupCache() {
 	}
 	for _, cfapp := range cfapps {
 		_, err := am.AppCache.Add(cfapp)
-		if err != nil{
+		if err != nil {
+			fmt.Println(err)
 			am.log.Errorf("an error occurred when adding app to the cache: %v", err)
 			return
 		}
@@ -344,12 +345,12 @@ func (a *App) generateTags() ([]string, error) {
 	tags = appendTagIfNotEmpty(tags,"space_name", a.SpaceName)
 	tags = appendTagIfNotEmpty(tags,"space_id", a.SpaceID)
 	tags = appendTagIfNotEmpty(tags,"guid", a.GUID)
-	if len(tags) == 6 {
+	if len(tags) != 6 {
 		return nil, fmt.Errorf("some tags could not be found app_name:%s, " +
 			"org_name:%s, org_id:%s, space_name:%s, space_id:%s, guid:%s", a.Name, a.OrgName, a.OrgID, a.SpaceName,
 			a.SpaceID, a.GUID)
 	}
-	
+
 	if len(a.Buildpacks) > 0 {
 		for _, bp := range a.Buildpacks {
 			tags = appendTagIfNotEmpty(tags,"buildpack", bp)
