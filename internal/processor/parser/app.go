@@ -193,6 +193,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 		am.log.Errorf("there was an error grabbing data for app %s: %v", guid, err)
 		return metricsPackages, err
 	}
+	am.log.Debugf("cache app %v", app)
 
 	app.lock.Lock()
 	defer app.lock.Unlock()
@@ -208,9 +209,6 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	if err != nil {
 		am.log.Errorf("there was an error parsing container metrics: %v", err)
 		return metricsPackages, err
-	}
-	for _, c := range containerMetrics {
-		am.log.Debugf("Created containerMetrics %s with tags %v", c.MetricKey.Name, c.MetricValue.Tags)
 	}
 	metricsPackages = append(metricsPackages, containerMetrics...)
 
@@ -264,7 +262,6 @@ func (a *App) getMetrics(customTags []string) ([]metric.MetricPackage, error) {
 		float64(a.TotalMemoryProvisioned),
 		float64(a.NumberOfInstances),
 	}
-
 	return a.mkMetrics(names, ms, customTags)
 }
 
