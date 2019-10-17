@@ -47,14 +47,6 @@ func (c *appCache) Add(cfApp cloudfoundry.CFApplication) (*App, error) {
 	return c.apps[cfApp.GUID], nil
 }
 
-// Delete removes an app from the cache
-func (c *appCache) Delete(guid string) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	delete(c.apps, guid)
-}
-
 // Get returns a cached app or nil if not found
 func (c *appCache) Get(guid string) *App {
 	c.lock.RLock()
@@ -148,7 +140,6 @@ func (am *AppParser) warmupCache() {
 		am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
 		return
 	}
-	am.log.Debugf("GetApplications : %v", cfapps)
 	for _, cfapp := range cfapps {
 		_, err := am.AppCache.Add(cfapp)
 		if err != nil {
@@ -157,7 +148,6 @@ func (am *AppParser) warmupCache() {
 			return
 		}
 	}
-	am.log.Debugf("Cache warmed up : %v", am.AppCache.apps)
 	if !am.AppCache.IsWarmedUp() {
 		am.AppCache.SetWarmedUp()
 	}
@@ -298,8 +288,8 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metr
 	} else {
 		host = a.GUID
 	}
-
-	tags := a.Tags
+	tags := make([]string, len(a.Tags))
+	copy(tags, a.Tags)
 	tags = append(tags, moreTags...)
 
 	for i, name := range names {
