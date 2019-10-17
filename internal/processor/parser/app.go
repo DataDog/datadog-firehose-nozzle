@@ -199,10 +199,12 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 
 	metricsPackages, err = app.getMetrics(am.customTags)
 	if err != nil {
+		am.log.Errorf("there was an error parsing metrics: %v", err)
 		return metricsPackages, err
 	}
 	containerMetrics, err := app.parseContainerMetric(message, am.customTags)
 	if err != nil {
+		am.log.Errorf("there was an error parsing container metrics: %v", err)
 		return metricsPackages, err
 	}
 	metricsPackages = append(metricsPackages, containerMetrics...)
