@@ -209,6 +209,9 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 		am.log.Errorf("there was an error parsing container metrics: %v", err)
 		return metricsPackages, err
 	}
+	for _, c := range containerMetrics {
+		am.log.Debugf("Created containerMetrics %s with tags %v", c.MetricKey.Name, c.MetricValue.Tags)
+	}
 	metricsPackages = append(metricsPackages, containerMetrics...)
 
 	return metricsPackages, nil
