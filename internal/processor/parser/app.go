@@ -294,10 +294,7 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metr
 		host = a.GUID
 	}
 
-	tags, err := a.getTags()
-	if err != nil {
-		return nil, err
-	}
+	tags := a.Tags
 	tags = append(tags, moreTags...)
 
 	for i, name := range names {
@@ -323,43 +320,6 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metr
 	return metricsPackages, nil
 }
 
-func (a *App) getTags() ([]string, error) {
-	if a.Tags != nil && len(a.Tags) >= 6 {
-		return a.Tags, nil
-	}
-
-	tags, err := a.generateTags()
-	if err != nil {
-		return nil, err
-	}
-	a.Tags = tags
-
-	return a.Tags, nil
-}
-
-func (a *App) generateTags() ([]string, error) {
-	var tags = []string{}
-	tags = appendTagIfNotEmpty(tags,"app_name", a.Name)
-	tags = appendTagIfNotEmpty(tags,"org_name", a.OrgName)
-	tags = appendTagIfNotEmpty(tags,"org_id", a.OrgID)
-	tags = appendTagIfNotEmpty(tags,"space_name", a.SpaceName)
-	tags = appendTagIfNotEmpty(tags,"space_id", a.SpaceID)
-	tags = appendTagIfNotEmpty(tags,"guid", a.GUID)
-	if len(tags) != 6 {
-		return nil, fmt.Errorf("some tags could not be found app_name:%s, " +
-			"org_name:%s, org_id:%s, space_name:%s, space_id:%s, guid:%s", a.Name, a.OrgName, a.OrgID, a.SpaceName,
-			a.SpaceID, a.GUID)
-	}
-
-	if len(a.Buildpacks) > 0 {
-		for _, bp := range a.Buildpacks {
-			tags = appendTagIfNotEmpty(tags,"buildpack", bp)
-		}
-	}
-
-	return tags, nil
-}
-
 func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	a.Name = cfapp.Name
 	a.SpaceID = cfapp.SpaceGUID
@@ -373,10 +333,25 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	a.TotalMemoryProvisioned = cfapp.TotalMemory
 	a.Buildpacks = cfapp.Buildpacks
 
-	tags, err := a.generateTags()
-	if err != nil {
-		return err
+	var tags = []string{}
+	tags = appendTagIfNotEmpty(tags,"app_name", a.Name)
+	tags = appendTagIfNotEmpty(tags,"org_name", a.OrgName)
+	tags = appendTagIfNotEmpty(tags,"org_id", a.OrgID)
+	tags = appendTagIfNotEmpty(tags,"space_name", a.SpaceName)
+	tags = appendTagIfNotEmpty(tags,"space_id", a.SpaceID)
+	tags = appendTagIfNotEmpty(tags,"guid", a.GUID)
+	if len(tags) != 6 {
+		return fmt.Errorf("some tags could not be found app_name:%s, " +
+			"org_name:%s, org_id:%s, space_name:%s, space_id:%s, guid:%s", a.Name, a.OrgName, a.OrgID, a.SpaceName,
+			a.SpaceID, a.GUID)
+	}
+
+	if len(a.Buildpacks) > 0 {
+		for _, bp := range a.Buildpacks {
+			tags = appendTagIfNotEmpty(tags,"buildpack", bp)
+		}
 	}
 	a.Tags = tags
+
 	return nil
 }
