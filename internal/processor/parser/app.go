@@ -324,7 +324,7 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metr
 }
 
 func (a *App) getTags() ([]string, error) {
-	if a.Tags != nil && len(a.Tags) > 0 {
+	if a.Tags != nil && len(a.Tags) >= 6 {
 		return a.Tags, nil
 	}
 
