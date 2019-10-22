@@ -1,14 +1,14 @@
 package cloudfoundry
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
-	"net/url"
 	"io/ioutil"
 	"math"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
-	"encoding/json"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/cloudfoundry-community/go-cfclient"
@@ -17,26 +17,26 @@ import (
 )
 
 type CFClient struct {
-	ApiVersion 	int
-	NumWorkers	int
-	client 		*cfclient.Client
-	logger 		*gosteno.Logger
+	ApiVersion int
+	NumWorkers int
+	client     *cfclient.Client
+	logger     *gosteno.Logger
 }
 
 // CFApplication represents a Cloud Controller Application.
 type CFApplication struct {
-	GUID 			string
-	Name 			string
-	SpaceGUID 		string
-	SpaceName 		string
-	OrgName 		string
-	OrgGUID 		string
-	Instances 		int
-	Buildpacks 		[]string
-	DiskQuota 		int
-	TotalDiskQuota 	int
-	Memory 			int
-	TotalMemory 	int
+	GUID           string
+	Name           string
+	SpaceGUID      string
+	SpaceName      string
+	OrgName        string
+	OrgGUID        string
+	Instances      int
+	Buildpacks     []string
+	DiskQuota      int
+	TotalDiskQuota int
+	Memory         int
+	TotalMemory    int
 }
 
 type Data struct {
@@ -47,54 +47,58 @@ type Data struct {
 
 type v3AppResponse struct {
 	Pagination cfclient.Pagination `json:"pagination"`
-	Resources []v3AppResource `json:"resources"`
+	Resources  []v3AppResource     `json:"resources"`
 }
 
 type v3AppResource struct {
-	GUID                     string                 `json:"guid"`
-	Name                     string                 `json:"name"`
-	State                    string                 `json:"state"`
-	CreatedAt                string                 `json:"created_at"`
-	UpdatedAt                string                 `json:"updated_at"`
+	GUID      string `json:"guid"`
+	Name      string `json:"name"`
+	State     string `json:"state"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 	LifeCycle struct {
 		Type string `json:"type"`
 		Data struct {
-			BuildPacks  []string 	`json:"buildpacks"`
-			Stack 		string    	`json:"stack"`
+			BuildPacks []string `json:"buildpacks"`
+			Stack      string   `json:"stack"`
 		} `json:"data"`
 	} `json:"lifecycle"`
-	Relationships struct { Space Data `json:"space"` } `json:"relationships"`
+	Relationships struct {
+		Space Data `json:"space"`
+	} `json:"relationships"`
 	Links struct {
-		Self 					cfclient.Link 	`json:"self"`
-		Space 					cfclient.Link 	`json:"space"`
-		Processes 				cfclient.Link 	`json:"processes"`
-		Packages 				cfclient.Link 	`json:"packages"`
-		EnvironmentVariables 	cfclient.Link 	`json:"environment_variables"`
-		CurrentDroplet 			cfclient.Link 	`json:"current_droplet"`
-		Droplets 				cfclient.Link 	`json:"droplets"`
-		Tasks 					cfclient.Link 	`json:"tasks"`
-		Start					cfclient.Link 	`json:"start"`
-		Stop					cfclient.Link   `json:"stop"`
-		RouteMappings 			cfclient.Link 	`json:"route_mappings,omitempty"`
-		Revisions				cfclient.Link 	`json:"revisions,omitempty"`
-		DeployedRevisions		cfclient.Link 	`json:"deployed_revisions,omitempty"`
+		Self                 cfclient.Link `json:"self"`
+		Space                cfclient.Link `json:"space"`
+		Processes            cfclient.Link `json:"processes"`
+		Packages             cfclient.Link `json:"packages"`
+		EnvironmentVariables cfclient.Link `json:"environment_variables"`
+		CurrentDroplet       cfclient.Link `json:"current_droplet"`
+		Droplets             cfclient.Link `json:"droplets"`
+		Tasks                cfclient.Link `json:"tasks"`
+		Start                cfclient.Link `json:"start"`
+		Stop                 cfclient.Link `json:"stop"`
+		RouteMappings        cfclient.Link `json:"route_mappings,omitempty"`
+		Revisions            cfclient.Link `json:"revisions,omitempty"`
+		DeployedRevisions    cfclient.Link `json:"deployed_revisions,omitempty"`
 	} `json:"links"`
 }
 
 type v3SpaceResponse struct {
 	Pagination cfclient.Pagination `json:"pagination"`
-	Resources []v3SpaceResource `json:"resources"`
+	Resources  []v3SpaceResource   `json:"resources"`
 }
 
 type v3SpaceResource struct {
-	GUID        string	`json:"guid"`
-	Name		string 	`json:"name"`
-	CreatedAt	string	`json:"created_at"`
-	UpdatedAt	string	`json:"updated_at"`
-	Relationships struct { Organization Data `json:"organization"` } `json:"relationships"`
+	GUID          string `json:"guid"`
+	Name          string `json:"name"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	Relationships struct {
+		Organization Data `json:"organization"`
+	} `json:"relationships"`
 	Links struct {
-		Self 					cfclient.Link 	`json:"self"`
-		Organization 			cfclient.Link 	`json:"organization"`
+		Self         cfclient.Link `json:"self"`
+		Organization cfclient.Link `json:"organization"`
 	} `json:"links"`
 }
 
@@ -120,8 +124,8 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	cfc := CFClient{
 		ApiVersion: 0,
 		NumWorkers: config.NumWorkers,
-		client: cfClient,
-		logger: logger,
+		client:     cfClient,
+		logger:     logger,
 	}
 	return &cfc, nil
 }
@@ -141,10 +145,10 @@ func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
 	}
 	cfc.logger.Debug("no api version set, trying to collect data with version 3")
 	results, err := cfc.getV3Applications()
-	if err != nil{
+	if err != nil {
 		cfc.logger.Debug("error trying to fetch application infos with v3 endpoints. Falling back to v2 endpoints")
 		results, err = cfc.getV2Applications()
-		if err != nil{
+		if err != nil {
 			cfc.logger.Errorf("error trying to fetch application infos with v2 endpoints %v", err)
 			return nil, err
 		}
@@ -156,7 +160,7 @@ func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
 
 func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 	app, err := cfc.client.GetAppByGuid(guid)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	result := CFApplication{}
@@ -177,15 +181,15 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	// Calculate the number of workers needs based on the number of pages found
 	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages - 1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages - 1) / float64(numWorkers)))
+	if pages-1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
 		start := (worker * pagesPerWorker) + 2
 		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
+		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
@@ -214,7 +218,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	// Group all processes per app
 	for _, process := range processes {
 		parts := strings.Split(process.Links.App.Href, "/")
-		appGuid := parts[len(parts) - 1]
+		appGuid := parts[len(parts)-1]
 		appProcesses, exists := processesPerApp[appGuid]
 		if exists {
 			appProcesses = append(appProcesses, process)
@@ -281,14 +285,13 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	return results, nil
 }
 
-
-func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, error){
+func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, error) {
 	q := url.Values{}
 	q.Set("per_page", "5000") // 5000 is the max
 	if page > 0 {
 		q.Set("page", strconv.Itoa(page))
 	}
-	r := cfc.client.NewRequest("GET", "/v3/apps?" + q.Encode())
+	r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
 	resp, err := cfc.client.DoRequest(r)
 	if err != nil {
 		return nil, -1, errors.Wrapf(err, "Error requesting apps page %d", err)
@@ -317,7 +320,7 @@ func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, er
 	return results, appResp.Pagination.TotalPages, nil
 }
 
-func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error){
+func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	// Query the first page to get the total number of pages.
 	results, pages, err := cfc.getV3ProcessesByPage(1)
 	if err != nil {
@@ -330,15 +333,15 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error){
 	// Calculate the number of workers needs based on the number of pages found
 	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages - 1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages  - 1) / float64(numWorkers)))
+	if pages-1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
 		start := (worker * pagesPerWorker) + 2
 		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
+		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
@@ -389,10 +392,10 @@ func (cfc *CFClient) getV3ProcessesByPage(page int) ([]cfclient.Process, int, er
 
 func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	var spaces []v3SpaceResource
-	requestUrl := "/v3/spaces"
+	q := url.Values{}
+	q.Set("per_page", "5000") // 5000 is the max
+	requestUrl := "/v3/spaces?" + q.Encode()
 	for {
-		q := url.Values{}
-		q.Set("per_page", "5000") // 5000 is the max
 		spaceResp, err := cfc.getV3SpaceResponse(requestUrl)
 		if err != nil {
 			return []v3SpaceResource{}, err
@@ -400,14 +403,20 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 		for _, resources := range spaceResp.Resources {
 			spaces = append(spaces, resources)
 		}
-		next, ok := spaceResp.Pagination.Next.(cfclient.Link)
+		// Next is not cfclient.Link, but map[string]interface{} (if present)
+		next, ok := spaceResp.Pagination.Next.(map[string]interface{})
 		if !ok {
 			break
 		}
-		requestUrl = next.Href
-		if requestUrl == "" {
+		nextHref, ok := next["href"].(string)
+		if !ok {
 			break
 		}
+		nextParsed, err := url.Parse(nextHref)
+		if !ok {
+			break
+		}
+		requestUrl = fmt.Sprintf("%s?%s", nextParsed.Path, nextParsed.RawQuery)
 	}
 	return spaces, nil
 }
@@ -444,15 +453,15 @@ func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
 	// Calculate the number of workers needs based on the number of pages found
 	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
 	var pagesPerWorker int
-	if pages - 1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages  - 1) / float64(numWorkers)))
+	if pages-1 > 0 { // We already have the first page
+		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
 	}
 	// Use go routines to fetch page ranges
 	for worker := 0; worker < numWorkers; worker++ {
 		// Offset 2 because no page at index 0 and page 1 already fetched
 		start := (worker * pagesPerWorker) + 2
 		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker + 1) * pagesPerWorker + 2), float64(pages + 1)))
+		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()

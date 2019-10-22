@@ -2507,149 +2507,174 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 		  ]
 		}`)))
 	case "/v3/spaces":
-		rw.Write([]byte(fmt.Sprintf(`
-		{
-		  "pagination": {
-			"total_results": 6,
-			"total_pages": 3,
-			"first": {
-			  "href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
-			},
-			"last": {
-			  "href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
-			},
-			"next": null,
-			"previous": null
-		  },
-		  "resources": [
+		switch r.URL.Query().Get("page") {
+		case "", "1":
+			rw.Write([]byte(fmt.Sprintf(`
 			{
-			  "guid": "417b893e-291e-48ec-94c7-7b2348604365",
-			  "created_at": "2019-05-17T15:02:37Z",
-			  "updated_at": "2019-05-17T15:02:37Z",
-			  "name": "system",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/417b893e-291e-48ec-94c7-7b2348604365"
+				"pagination": {
+				"total_results": 6,
+				"total_pages": 2,
+				"first": {
+					"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
-				}
-			  }
-			},
-			{
-			  "guid": "1b8dcf2e-ed92-4daa-b9fb-0fa5a97b9289",
-			  "created_at": "2019-05-17T15:07:05Z",
-			  "updated_at": "2019-05-17T15:07:05Z",
-			  "name": "notifications-with-ui",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/1b8dcf2e-ed92-4daa-b9fb-0fa5a97b9289"
+				"last": {
+					"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
-				}
-			  }
-			},
-			{
-			  "guid": "d5d005a4-0320-4daa-ac0a-81f8dcd00fe0",
-			  "created_at": "2019-05-17T15:07:43Z",
-			  "updated_at": "2019-05-17T15:07:43Z",
-			  "name": "autoscaling",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/d5d005a4-0320-4daa-ac0a-81f8dcd00fe0"
+				"next": {
+					"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
-				}
-			  }
-			},
-			{
-			  "guid": "8c7e64bb-0bf8-4a7a-92e1-2fe06e7ec793",
-			  "created_at": "2019-05-17T15:12:19Z",
-			  "updated_at": "2019-05-17T15:12:19Z",
-			  "name": "nfs",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/8c7e64bb-0bf8-4a7a-92e1-2fe06e7ec793"
+				"previous": null
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
-				}
-			  }
-			},
-			{
-			  "guid": "417ca75c-3fea-4ea2-8428-b02bdf05deb0",
-			  "created_at": "2019-05-17T15:23:03Z",
-			  "updated_at": "2019-05-17T15:23:03Z",
-			  "name": "gcp-service-broker-space",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/417ca75c-3fea-4ea2-8428-b02bdf05deb0"
+				"resources": [
+				{
+					"guid": "417b893e-291e-48ec-94c7-7b2348604365",
+					"created_at": "2019-05-17T15:02:37Z",
+					"updated_at": "2019-05-17T15:02:37Z",
+					"name": "system",
+					"relationships": {
+					"organization": {
+						"data": {
+						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
+					},
+					"links": {
+						"self": {
+							"href": "https://cloudfoundry.env/v3/spaces/417b893e-291e-48ec-94c7-7b2348604365"
+						},
+						"organization": {
+							"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
-				}
-			  }
-			},
-			{
-			  "guid": "827da8e5-1676-42ec-9028-46fbfe04fb86",
-			  "created_at": "2019-05-21T09:42:46Z",
-			  "updated_at": "2019-05-21T09:42:46Z",
-			  "name": "datadog-application-monitoring-space",
-			  "relationships": {
-				"organization": {
-				  "data": {
-					"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
-				  }
-				}
-			  },
-			  "links": {
-				"self": {
-				  "href": "https://cloudfoundry.env/v3/spaces/827da8e5-1676-42ec-9028-46fbfe04fb86"
+				{
+					"guid": "1b8dcf2e-ed92-4daa-b9fb-0fa5a97b9289",
+					"created_at": "2019-05-17T15:07:05Z",
+					"updated_at": "2019-05-17T15:07:05Z",
+					"name": "notifications-with-ui",
+					"relationships": {
+					"organization": {
+						"data": {
+						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
+					},
+					"links": {
+						"self": {
+							"href": "https://cloudfoundry.env/v3/spaces/1b8dcf2e-ed92-4daa-b9fb-0fa5a97b9289"
+						},
+						"organization": {
+							"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
 				},
-				"organization": {
-				  "href": "https://cloudfoundry.env/v3/organizations/8c19a50e-7974-4c67-adea-9640fae21526"
+				{
+					"guid": "d5d005a4-0320-4daa-ac0a-81f8dcd00fe0",
+					"created_at": "2019-05-17T15:07:43Z",
+					"updated_at": "2019-05-17T15:07:43Z",
+					"name": "autoscaling",
+					"relationships": {
+					"organization": {
+						"data": {
+						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
+					},
+					"links": {
+						"self": {
+							"href": "https://cloudfoundry.env/v3/spaces/d5d005a4-0320-4daa-ac0a-81f8dcd00fe0"
+						},
+						"organization": {
+							"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+						}
+					}
 				}
-			  }
-			}
-		  ]
-		}`)))
+				]
+			}`)))
+		case "2":
+			rw.Write([]byte(fmt.Sprintf(`
+				{
+					"pagination": {
+					"total_results": 6,
+					"total_pages": 2,
+					"first": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
+					},
+					"last": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
+					},
+					"next": null,
+					"previous": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
+					}
+					},
+					"resources": [
+					{
+						"guid": "8c7e64bb-0bf8-4a7a-92e1-2fe06e7ec793",
+						"created_at": "2019-05-17T15:12:19Z",
+						"updated_at": "2019-05-17T15:12:19Z",
+						"name": "nfs",
+						"relationships": {
+						"organization": {
+							"data": {
+							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							}
+						}
+						},
+						"links": {
+							"self": {
+								"href": "https://cloudfoundry.env/v3/spaces/8c7e64bb-0bf8-4a7a-92e1-2fe06e7ec793"
+							},
+							"organization": {
+								"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+							}
+						}
+					},
+					{
+						"guid": "417ca75c-3fea-4ea2-8428-b02bdf05deb0",
+						"created_at": "2019-05-17T15:23:03Z",
+						"updated_at": "2019-05-17T15:23:03Z",
+						"name": "gcp-service-broker-space",
+						"relationships": {
+						"organization": {
+							"data": {
+							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							}
+						}
+						},
+						"links": {
+							"self": {
+								"href": "https://cloudfoundry.env/v3/spaces/417ca75c-3fea-4ea2-8428-b02bdf05deb0"
+							},
+							"organization": {
+								"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+							}
+						}
+					},
+					{
+						"guid": "827da8e5-1676-42ec-9028-46fbfe04fb86",
+						"created_at": "2019-05-21T09:42:46Z",
+						"updated_at": "2019-05-21T09:42:46Z",
+						"name": "datadog-application-monitoring-space",
+						"relationships": {
+						"organization": {
+							"data": {
+							"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
+							}
+						}
+						},
+							"links": {
+							"self": {
+								"href": "https://cloudfoundry.env/v3/spaces/827da8e5-1676-42ec-9028-46fbfe04fb86"
+							},
+							"organization": {
+								"href": "https://cloudfoundry.env/v3/organizations/8c19a50e-7974-4c67-adea-9640fae21526"
+							}
+						}
+					}
+					]
+				}`)))
+		}
 	case "/v2/organizations":
 		rw.Write([]byte(fmt.Sprintf(`
 		{
