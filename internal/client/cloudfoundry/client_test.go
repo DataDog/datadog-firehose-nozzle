@@ -74,19 +74,6 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(page).To(Equal(2))
 			Expect(len(res)).To(Equal(18))
 
-			fakeCfClient.NumWorkers = 1
-			res, err = fakeCfClient.getV3Processes()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(19))
-
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, err = fakeCfClient.getV3Processes()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(19))
-
-			fakeCfClient.NumWorkers = 2 // As many runners as pages
 			res, err = fakeCfClient.getV3Processes()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
@@ -106,19 +93,6 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(page).To(Equal(2))
 			Expect(len(res)).To(Equal(1))
 
-			fakeCfClient.NumWorkers = 1
-			res, err = fakeCfClient.getV3Apps()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
-
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, err = fakeCfClient.getV3Apps()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
-
-			fakeCfClient.NumWorkers = 2 // As many runners as pages
 			res, err = fakeCfClient.getV3Apps()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())

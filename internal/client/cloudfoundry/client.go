@@ -297,38 +297,16 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 		return nil, errors.Wrap(err, "Error requesting v3 apps page 1, skipping cache warmup")
 	}
 
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	// Calculate the number of workers needs based on the number of pages found
-	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
-	var pagesPerWorker int
-	if pages-1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
+	for page := 2; page <= pages; page++ {
+		pageResults, _, err := cfc.getV3AppsByPage(page)
+		if err != nil {
+			// TODO: previously this just logged the error and did "continue",
+			// I'm not sure what is the implication of returning error instead,
+			// but I think it's the right thing to do
+			return nil, err
+		}
+		cfapps = append(cfapps, pageResults...)
 	}
-	// Use go routines to fetch page ranges
-	for worker := 0; worker < numWorkers; worker++ {
-		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := (worker * pagesPerWorker) + 2
-		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-
-			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV3AppsByPage(currentPage)
-				if err != nil {
-					cfc.logger.Error(err.Error())
-					continue
-				}
-				mutex.Lock()
-				cfapps = append(cfapps, pageResults...)
-				mutex.Unlock()
-			}
-		}(start, end)
-	}
-	wg.Wait()
 
 	return cfapps, nil
 }
@@ -372,41 +350,19 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	// Query the first page to get the total number of pages.
 	results, pages, err := cfc.getV3ProcessesByPage(1)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+		return nil, errors.Wrap(err, "Error requesting v3 processes page 1, skipping cache warmup")
 	}
 
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	// Calculate the number of workers needs based on the number of pages found
-	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
-	var pagesPerWorker int
-	if pages-1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
+	for page := 2; page <= pages; page++ {
+		pageResults, _, err := cfc.getV3ProcessesByPage(page)
+		if err != nil {
+			// TODO: previously this just logged the error and did "continue",
+			// I'm not sure what is the implication of returning error instead,
+			// but I think it's the right thing to do
+			return nil, err
+		}
+		results = append(results, pageResults...)
 	}
-	// Use go routines to fetch page ranges
-	for worker := 0; worker < numWorkers; worker++ {
-		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := (worker * pagesPerWorker) + 2
-		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-
-			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV3ProcessesByPage(currentPage)
-				if err != nil {
-					cfc.logger.Error(err.Error())
-					continue
-				}
-				mutex.Lock()
-				results = append(results, pageResults...)
-				mutex.Unlock()
-			}
-		}(start, end)
-	}
-	wg.Wait()
 
 	return results, nil
 }
