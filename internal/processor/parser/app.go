@@ -144,7 +144,7 @@ func (am *AppParser) warmupCache() {
 		_, err := am.AppCache.Add(cfapp)
 		if err != nil {
 			am.log.Errorf("an error occurred when adding app to the cache: %v", err)
-			return
+			// We intentionally continue adding apps if a single app fails
 		}
 	}
 	if !am.AppCache.IsWarmedUp() {
