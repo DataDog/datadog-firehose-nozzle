@@ -169,8 +169,130 @@ func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 }
 
 func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
+	var wg sync.WaitGroup
+	errors := make(chan error, 10)
+	// Fetch apps
+	wg.Add(1)
+	var cfapps []CFApplication
+	go func() {
+		defer wg.Done()
+		var err error
+		cfapps, err = cfc.getV3Apps()
+		if err != nil {
+			errors <- err
+		}
+	}()
+
+	// Fetch processes
+	wg.Add(1)
+	var processes []cfclient.Process
+	go func() {
+		defer wg.Done()
+		var err error
+		processes, err = cfc.getV3Processes()
+		if err != nil {
+			errors <- err
+		}
+	}()
+
+	// Fetch spaces
+	wg.Add(1)
+	var spaces []v3SpaceResource
+	go func() {
+		defer wg.Done()
+		var err error
+		spaces, err = cfc.getV3Spaces()
+		if err != nil {
+			errors <- err
+		}
+	}()
+
+	// Fetch orgs
+	wg.Add(1)
+	var orgs []cfclient.Org
+	go func() {
+		defer wg.Done()
+		var err error
+		q := url.Values{}
+		q.Set("results-per-page", "100") // 100 is the max
+		orgs, err = cfc.client.ListOrgsByQuery(q)
+		if err != nil {
+			errors <- err
+		}
+	}()
+
+	wg.Wait()
+	close(errors)
+
+	// Go through the channel, print all errors and return one of them if there are any
+	var err error
+	for err = range errors {
+		cfc.logger.Error(err.Error())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Group all processes per app
+	processesPerApp := map[string][]cfclient.Process{}
+	for _, process := range processes {
+		parts := strings.Split(process.Links.App.Href, "/")
+		appGUID := parts[len(parts)-1]
+		appProcesses, exists := processesPerApp[appGUID]
+		if exists {
+			appProcesses = append(appProcesses, process)
+		} else {
+			appProcesses = []cfclient.Process{process}
+		}
+		processesPerApp[appGUID] = appProcesses
+	}
+
+	// Create a space Map
+	spacesPerGUID := map[string]v3SpaceResource{}
+	for _, space := range spaces {
+		spacesPerGUID[space.GUID] = space
+	}
+
+	// Create an org Map
+	orgsPerGUID := map[string]cfclient.Org{}
+	for _, org := range orgs {
+		orgsPerGUID[org.Guid] = org
+	}
+
+	// Populate CFApplication
+	results := []CFApplication{}
+	for _, cfapp := range cfapps {
+		updatedApp := cfapp
+		appGUID := cfapp.GUID
+		spaceGUID := cfapp.SpaceGUID
+		processes, exists := processesPerApp[appGUID]
+		if exists {
+			updatedApp.setV3ProcessData(processes)
+		} else {
+			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGUID)
+		}
+		space, exists := spacesPerGUID[spaceGUID]
+		if exists {
+			updatedApp.setV3SpaceData(space)
+		} else {
+			cfc.logger.Errorf("could not fetch space info for space guid %s", spaceGUID)
+		}
+		orgGUID := updatedApp.OrgGUID
+		org, exists := orgsPerGUID[orgGUID]
+		if exists {
+			updatedApp.setV3OrgData(org)
+		} else {
+			cfc.logger.Errorf("could not fetch org info for org guid %s", orgGUID)
+		}
+		results = append(results, updatedApp)
+	}
+
+	return results, nil
+}
+
+func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 	// Query the first page to get the total number of pages.
-	cfapps, pages, err := cfc.getV3ApplicationsByPage(1)
+	cfapps, pages, err := cfc.getV3AppsByPage(1)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error requesting v3 apps page 1, skipping cache warmup")
 	}
@@ -195,7 +317,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 			defer wg.Done()
 
 			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV3ApplicationsByPage(currentPage)
+				pageResults, _, err := cfc.getV3AppsByPage(currentPage)
 				if err != nil {
 					cfc.logger.Error(err.Error())
 					continue
@@ -208,84 +330,10 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 	wg.Wait()
 
-	// Fetch processes
-	processesPerApp := map[string][]cfclient.Process{}
-	processes, err := cfc.getV3Processes()
-	if err != nil {
-		cfc.logger.Error(err.Error())
-		return nil, err
-	}
-	// Group all processes per app
-	for _, process := range processes {
-		parts := strings.Split(process.Links.App.Href, "/")
-		appGuid := parts[len(parts)-1]
-		appProcesses, exists := processesPerApp[appGuid]
-		if exists {
-			appProcesses = append(appProcesses, process)
-		} else {
-			appProcesses = []cfclient.Process{process}
-		}
-		processesPerApp[appGuid] = appProcesses
-	}
-
-	// Fetch spaces
-	spacesPerGuid := map[string]v3SpaceResource{}
-	spaces, err := cfc.getV3Spaces()
-	if err != nil {
-		cfc.logger.Error(err.Error())
-		return nil, err
-	}
-	// Create a space Map
-	for _, space := range spaces {
-		spacesPerGuid[space.GUID] = space
-	}
-
-	// Fetch orgs
-	orgsPerGuid := map[string]cfclient.Org{}
-	q := url.Values{}
-	q.Set("results-per-page", "100") // 100 is the max
-	orgs, err := cfc.client.ListOrgsByQuery(q)
-	if err != nil {
-		cfc.logger.Error(err.Error())
-		return nil, err
-	}
-	// Create an org Map
-	for _, org := range orgs {
-		orgsPerGuid[org.Guid] = org
-	}
-
-	// Populate CFApplication
-	results := []CFApplication{}
-	for _, cfapp := range cfapps {
-		updatedApp := cfapp
-		appGuid := cfapp.GUID
-		spaceGuid := cfapp.SpaceGUID
-		processes, exists := processesPerApp[appGuid]
-		if exists {
-			updatedApp.setV3ProcessData(processes)
-		} else {
-			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGuid)
-		}
-		space, exists := spacesPerGuid[spaceGuid]
-		if exists {
-			updatedApp.setV3SpaceData(space)
-		} else {
-			cfc.logger.Errorf("could not fetch space info for space guid %s", spaceGuid)
-		}
-		orgGuid := updatedApp.OrgGUID
-		org, exists := orgsPerGuid[orgGuid]
-		if exists {
-			updatedApp.setV3OrgData(org)
-		} else {
-			cfc.logger.Errorf("could not fetch org info for org guid %s", orgGuid)
-		}
-		results = append(results, updatedApp)
-	}
-
-	return results, nil
+	return cfapps, nil
 }
 
-func (cfc *CFClient) getV3ApplicationsByPage(page int) ([]CFApplication, int, error) {
+func (cfc *CFClient) getV3AppsByPage(page int) ([]CFApplication, int, error) {
 	q := url.Values{}
 	q.Set("per_page", "5000") // 5000 is the max
 	if page > 0 {

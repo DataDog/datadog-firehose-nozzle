@@ -94,17 +94,35 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("v3 apps endpoint", func() {
-			res, page, err := fakeCfClient.getV3ApplicationsByPage(1)
+			res, page, err := fakeCfClient.getV3AppsByPage(1)
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(2))
 			Expect(len(res)).To(Equal(13))
 
-			res, page, err = fakeCfClient.getV3ApplicationsByPage(2)
+			res, page, err = fakeCfClient.getV3AppsByPage(2)
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(2))
 			Expect(len(res)).To(Equal(1))
+
+			fakeCfClient.NumWorkers = 1
+			res, err = fakeCfClient.getV3Apps()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(14))
+
+			fakeCfClient.NumWorkers = 100 // More runners than pages
+			res, err = fakeCfClient.getV3Apps()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(14))
+
+			fakeCfClient.NumWorkers = 2 // As many runners as pages
+			res, err = fakeCfClient.getV3Apps()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(14))
 		})
 	})
 
