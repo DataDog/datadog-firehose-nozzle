@@ -68,54 +68,43 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("v3 processes endpoint", func() {
-			res, err := fakeCfClient.getV3Processes()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(19))
-
-			fakeCfClient.NumWorkers = 1
 			res, page, err := fakeCfClient.getV3ProcessesByPage(1)
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
+			Expect(page).To(Equal(2))
+			Expect(len(res)).To(Equal(18))
+
+			fakeCfClient.NumWorkers = 1
+			res, err = fakeCfClient.getV3Processes()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(19))
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, page, err = fakeCfClient.getV3ProcessesByPage(1)
+			res, err = fakeCfClient.getV3Processes()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(19))
 
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, page, err = fakeCfClient.getV3ProcessesByPage(1)
+			fakeCfClient.NumWorkers = 2 // As many runners as pages
+			res, err = fakeCfClient.getV3Processes()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(19))
 		})
 
 		It("v3 apps endpoint", func() {
-			fakeCfClient.NumWorkers = 1
 			res, page, err := fakeCfClient.getV3ApplicationsByPage(1)
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
+			Expect(page).To(Equal(2))
+			Expect(len(res)).To(Equal(13))
 
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, page, err = fakeCfClient.getV3ApplicationsByPage(1)
+			res, page, err = fakeCfClient.getV3ApplicationsByPage(2)
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
-
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, page, err = fakeCfClient.getV3ApplicationsByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
+			Expect(page).To(Equal(2))
+			Expect(len(res)).To(Equal(1))
 		})
 	})
 
@@ -145,19 +134,19 @@ var _ = Describe("CloudFoundryClient", func() {
 			res, err := fakeCfClient.getV3Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, err = fakeCfClient.getV3Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
+			fakeCfClient.NumWorkers = 2 // As many runners as pages
 			res, err = fakeCfClient.getV3Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 		})
 
 		It("GetApplications no API Version", func() {
@@ -166,21 +155,21 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, err = fakeCfClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
+			fakeCfClient.NumWorkers = 2 // As many runners as pages
 			res, err = fakeCfClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 		})
 
 		It("GetApplications with v3 API Version", func() {
@@ -189,19 +178,19 @@ var _ = Describe("CloudFoundryClient", func() {
 			res, err := fakeCfClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, err = fakeCfClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
+			fakeCfClient.NumWorkers = 2 // As many runners as pages
 			res, err = fakeCfClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(42))
+			Expect(len(res)).To(Equal(14))
 		})
 
 		It("GetApplications with v2 API Version", func() {
