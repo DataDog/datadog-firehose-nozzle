@@ -2823,67 +2823,70 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					]
 				}`)))
 		}
-	case "/v2/organizations":
-		rw.Write([]byte(fmt.Sprintf(`
-		{
-		   "total_results": 2,
-		   "total_pages": 3,
-		   "prev_url": null,
-		   "next_url": null,
-		   "resources": [
-			  {
-				 "metadata": {
-					"guid": "671557cf-edcd-49df-9863-ee14513d13c7",
-					"url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7",
-					"created_at": "2019-05-17T13:06:27Z",
-					"updated_at": "2019-10-04T11:10:22Z"
-				 },
-				 "entity": {
-					"name": "system",
-					"billing_enabled": false,
-					"quota_definition_guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e",
-					"status": "active",
-					"default_isolation_segment_guid": null,
-					"quota_definition_url": "/v2/quota_definitions/1cf98856-aba8-49a8-8b21-d82a25898c4e",
-					"spaces_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/spaces",
-					"domains_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/domains",
-					"private_domains_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/private_domains",
-					"users_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/users",
-					"managers_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/managers",
-					"billing_managers_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/billing_managers",
-					"auditors_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/auditors",
-					"app_events_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/app_events",
-					"space_quota_definitions_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/space_quota_definitions"
-				 }
-			  },
-			  {
-				 "metadata": {
-					"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
-					"url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526",
-					"created_at": "2019-05-21T09:42:45Z",
-					"updated_at": "2019-05-21T09:42:45Z"
-				 },
-				 "entity": {
-					"name": "datadog-application-monitoring-org",
-					"billing_enabled": false,
-					"quota_definition_guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e",
-					"status": "active",
-					"default_isolation_segment_guid": null,
-					"quota_definition_url": "/v2/quota_definitions/1cf98856-aba8-49a8-8b21-d82a25898c4e",
-					"spaces_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/spaces",
-					"domains_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/domains",
-					"private_domains_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/private_domains",
-					"users_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/users",
-					"managers_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/managers",
-					"billing_managers_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/billing_managers",
-					"auditors_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/auditors",
-					"app_events_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/app_events",
-					"space_quota_definitions_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/space_quota_definitions"
-				 }
-			  }
-		   ]
+	case "/v3/organizations":
+		switch r.URL.Query().Get("page") {
+		case "", "1":
+			rw.Write([]byte(fmt.Sprintf(`
+			{
+				"pagination": {
+					"total_results": 2,
+					"total_pages": 2,
+					"first": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=1&per_page=50"
+					},
+					"last": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=2&per_page=50"
+					},
+					"previous": null,
+					"next": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=2&per_page=50"
+					}
+				},
+				"resources": [
+				  {
+						"guid": "671557cf-edcd-49df-9863-ee14513d13c7",
+						"name": "system",
+						"created_at": "2019-05-17T13:06:27Z",
+						"updated_at": "2019-10-04T11:10:22Z",
+						"links": {
+							"self": {
+								"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
+							}
+						}
+					}
+				]
+			}`)))
+		case "2":
+			rw.Write([]byte(fmt.Sprintf(`
+			{
+				"pagination": {
+					"total_results": 2,
+					"total_pages": 2,
+					"first": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=1&per_page=50"
+					},
+					"last": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=2&per_page=50"
+					},
+					"next": null,
+					"previous": {
+						"href": "https://cloudfoundry.env/v3/organizations?page=1&per_page=50"
+					}
+				},
+				"resources": [
+					{
+						"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
+						"name": "datadog-application-monitoring-org",
+						"updated_at": "2019-10-04T11:10:22Z",
+						"links": {
+							"self": {
+								"href": "https://cloudfoundry.env/v3/organizations/8c19a50e-7974-4c67-adea-9640fae21526"
+							}
+						}
+					}
+		  	]
+			}`)))
 		}
-	`)))
 	case "/oauth/token":
 		rw.Write([]byte(fmt.Sprintf(`
 		{

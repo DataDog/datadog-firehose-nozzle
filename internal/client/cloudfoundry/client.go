@@ -102,6 +102,11 @@ type v3SpaceResource struct {
 	} `json:"links"`
 }
 
+type v3OrgResponse struct {
+	Pagination cfclient.Pagination `json:"pagination"`
+	Resources  []cfclient.Org      `json:"resources"`
+}
+
 func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error) {
 	if config.CloudControllerEndpoint == "" {
 		logger.Warnf("the Cloud Controller Endpoint needs to be set in order to set up the cf client")
@@ -213,9 +218,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		q := url.Values{}
-		q.Set("results-per-page", "100") // 100 is the max
-		orgs, err = cfc.client.ListOrgsByQuery(q)
+		orgs, err = cfc.getV3Orgs()
 		if err != nil {
 			errors <- err
 		}
@@ -300,9 +303,7 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 	for page := 2; page <= pages; page++ {
 		pageResults, _, err := cfc.getV3AppsByPage(page)
 		if err != nil {
-			// TODO: previously this just logged the error and did "continue",
-			// I'm not sure what is the implication of returning error instead,
-			// but I think it's the right thing to do
+			// if we failed getting 5000 apps, let's mark this whole function call as failed
 			return nil, err
 		}
 		cfapps = append(cfapps, pageResults...)
@@ -356,9 +357,7 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	for page := 2; page <= pages; page++ {
 		pageResults, _, err := cfc.getV3ProcessesByPage(page)
 		if err != nil {
-			// TODO: previously this just logged the error and did "continue",
-			// I'm not sure what is the implication of returning error instead,
-			// but I think it's the right thing to do
+			// if we failed getting 5000 processes, let's mark this whole function call as failed
 			return nil, err
 		}
 		results = append(results, pageResults...)
@@ -384,7 +383,7 @@ func (cfc *CFClient) getV3ProcessesByPage(page int) ([]cfclient.Process, int, er
 	if err != nil {
 		return nil, -1, errors.Wrapf(err, "Error reading v3 processes response for page %d", page)
 	}
-	// Unmarshal body response into AppResponse objects
+	// Unmarshal body response into ProcessListResponse objects
 	var processResp cfclient.ProcessListResponse
 	err = json.Unmarshal(resBody, &processResp)
 	if err != nil {
@@ -442,6 +441,51 @@ func (cfc *CFClient) getV3SpaceResponse(requestUrl string) (v3SpaceResponse, err
 		return v3SpaceResponse{}, errors.Wrap(err, "Error unmarshalling space")
 	}
 	return spaceResp, nil
+}
+
+func (cfc *CFClient) getV3Orgs() ([]cfclient.Org, error) {
+	results, pages, err := cfc.getV3OrgsByPage(1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting v3 orgs page 1, skipping cache warmup")
+	}
+
+	for page := 2; page <= pages; page++ {
+		pageResults, _, err := cfc.getV3OrgsByPage(page)
+		if err != nil {
+			// if we failed getting 5000 orgs, let's mark this whole function call as failed
+			return nil, err
+		}
+		results = append(results, pageResults...)
+	}
+
+	return results, nil
+}
+
+func (cfc *CFClient) getV3OrgsByPage(page int) ([]cfclient.Org, int, error) {
+	q := url.Values{}
+	q.Set("per_page", "5000") // 5000 is the max
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
+	resp, err := cfc.client.DoRequest(r)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error requesting v3 orgs page %d", page)
+	}
+	// Read body response
+	defer resp.Body.Close()
+	resBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error reading v3 orgs response for page %d", page)
+	}
+	// Unmarshal body response into  objects
+	var orgsResp v3OrgResponse
+	err = json.Unmarshal(resBody, &orgsResp)
+	if err != nil {
+		return nil, -1, errors.Wrapf(err, "Error unmarshalling v3 orgs response for page %d", page)
+	}
+
+	return orgsResp.Resources, orgsResp.Pagination.TotalPages, nil
 }
 
 func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {

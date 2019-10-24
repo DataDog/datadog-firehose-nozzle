@@ -98,6 +98,19 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(len(res)).To(Equal(19))
 		})
 
+		It("with v3 orgs is retrieved correctly", func() {
+			res, page, err := fakeCfClient.getV3OrgsByPage(1)
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(page).To(Equal(2))
+			Expect(len(res)).To(Equal(1))
+
+			res, err = fakeCfClient.getV3Orgs()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(2))
+		})
+
 		It("with v3 apps is retrieved correctly", func() {
 			res, page, err := fakeCfClient.getV3AppsByPage(1)
 			Expect(err).To(BeNil())
