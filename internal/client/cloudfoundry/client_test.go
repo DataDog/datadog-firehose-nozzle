@@ -6,10 +6,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 )
 
-func checkAppAttributes(app *CFApplication) (error) {
+func checkAppAttributes(app *CFApplication) {
 	Expect(app.GUID).To(Equal("6d254438-cc3b-44a6-b2e6-343ca92deb5f"))
 	Expect(app.Name).To(Equal("p-invitations-green"))
 	Expect(app.SpaceGUID).To(Equal("417b893e-291e-48ec-94c7-7b2348604365"))
@@ -22,7 +23,24 @@ func checkAppAttributes(app *CFApplication) (error) {
 	Expect(app.TotalDiskQuota).To(Equal(1024))
 	Expect(app.Memory).To(Equal(256))
 	Expect(app.TotalMemory).To(Equal(256))
-	return nil
+}
+
+func checkProcessAttributes(process *cfclient.Process) {
+	Expect(process.GUID).To(Equal("6d254438-cc3b-44a6-b2e6-343ca92deb5f"))
+	Expect(process.Instances).To(Equal(1))
+	Expect(process.DiskInMB).To(Equal(1024))
+	Expect(process.MemoryInMB).To(Equal(256))
+}
+
+func checkSpaceAttributes(space *v3SpaceResource) {
+	Expect(space.GUID).To(Equal("417b893e-291e-48ec-94c7-7b2348604365"))
+	Expect(space.Name).To(Equal("system"))
+	Expect(space.Relationships.Organization.Data.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
+}
+
+func checkOrgAttributes(org *cfclient.Org) {
+	Expect(org.Guid).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
+	Expect(org.Name).To(Equal("system"))
 }
 
 var _ = Describe("CloudFoundryClient", func() {
@@ -83,6 +101,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(6))
+			checkSpaceAttributes(&res[0])
 		})
 
 		It("with v3 processes is retrieved correctly", func() {
@@ -96,6 +115,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(19))
+			checkProcessAttributes(&res[0])
 		})
 
 		It("with v3 orgs is retrieved correctly", func() {
@@ -109,6 +129,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(2))
+			checkOrgAttributes(&res[0])
 		})
 
 		It("with v3 apps is retrieved correctly", func() {
