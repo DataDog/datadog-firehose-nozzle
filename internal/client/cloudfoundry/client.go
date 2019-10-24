@@ -541,6 +541,13 @@ func (a *CFApplication) setV2AppData(data cfclient.App) {
 	a.Memory = data.Memory
 	a.TotalDiskQuota = data.DiskQuota * a.Instances
 	a.TotalMemory = data.Memory * a.Instances
+
+	a.Buildpacks = []string{}
+	if data.Buildpack != "" {
+		a.Buildpacks = append(a.Buildpacks, data.Buildpack)
+	} else if data.DetectedBuildpack != "" {
+		a.Buildpacks = append(a.Buildpacks, data.DetectedBuildpack)
+	}
 }
 
 func (a *CFApplication) setV3AppData(data v3AppResource) {
