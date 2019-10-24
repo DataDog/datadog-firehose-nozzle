@@ -170,7 +170,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 	// Otherwise it's a new app so fetch it via the API
 	cfapp, err := am.cfClient.GetApplication(guid)
 	if err != nil {
-		am.log.Errorf("there was an error grabbing the instance data for app %s: %v", guid, err)
+		am.log.Warnf("error grabbing instance data for app %s (is this a short-lived app?): %v", guid, err)
 		return nil, err
 	}
 	app, err = am.AppCache.Add(*cfapp)
