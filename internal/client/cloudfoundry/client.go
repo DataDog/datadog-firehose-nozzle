@@ -294,198 +294,141 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 }
 
 func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
-	// Query the first page to get the total number of pages.
-	cfapps, pages, err := cfc.getV3AppsByPage(1)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 apps page 1, skipping cache warmup")
-	}
+	var cfapps []CFApplication
 
-	for page := 2; page <= pages; page++ {
-		pageResults, _, err := cfc.getV3AppsByPage(page)
+	for page := 1; ; page++ {
+		q := url.Values{}
+		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("page", strconv.Itoa(page))
+		r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
+		resp, err := cfc.client.DoRequest(r)
 		if err != nil {
-			// if we failed getting 5000 apps, let's mark this whole function call as failed
-			return nil, err
+			return nil, errors.Wrapf(err, "Error requesting apps page %d", err)
 		}
-		cfapps = append(cfapps, pageResults...)
+		// Read body response
+		defer resp.Body.Close()
+		resBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error reading app response for page %d", page)
+		}
+		// Unmarshal body response into v3AppResponse objects
+		var appResp v3AppResponse
+		err = json.Unmarshal(resBody, &appResp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error unmarshalling app response for page %d", page)
+		}
+		// Create CFApplication objects
+		appResources := appResp.Resources
+		for _, app := range appResources {
+			cfapp := CFApplication{}
+			cfapp.setV3AppData(app)
+			cfapps = append(cfapps, cfapp)
+		}
+		if appResp.Pagination.TotalPages <= page {
+			break
+		}
 	}
 
 	return cfapps, nil
 }
 
-func (cfc *CFClient) getV3AppsByPage(page int) ([]CFApplication, int, error) {
-	q := url.Values{}
-	q.Set("per_page", "5000") // 5000 is the max
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting apps page %d", err)
-	}
-	// Read body response
-	defer resp.Body.Close()
-	resBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading app response for page %d", page)
-	}
-	// Unmarshal body response into v3AppResponse objects
-	var appResp v3AppResponse
-	err = json.Unmarshal(resBody, &appResp)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling app response for page %d", page)
-	}
-	// Create CFApplication objects
-	appResources := appResp.Resources
-	results := []CFApplication{}
-	for _, app := range appResources {
-		cfapp := CFApplication{}
-		cfapp.setV3AppData(app)
-		results = append(results, cfapp)
-	}
-
-	return results, appResp.Pagination.TotalPages, nil
-}
-
 func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	// Query the first page to get the total number of pages.
-	results, pages, err := cfc.getV3ProcessesByPage(1)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 processes page 1, skipping cache warmup")
-	}
-
-	for page := 2; page <= pages; page++ {
-		pageResults, _, err := cfc.getV3ProcessesByPage(page)
-		if err != nil {
-			// if we failed getting 5000 processes, let's mark this whole function call as failed
-			return nil, err
-		}
-		results = append(results, pageResults...)
-	}
-
-	return results, nil
-}
-
-func (cfc *CFClient) getV3ProcessesByPage(page int) ([]cfclient.Process, int, error) {
-	q := url.Values{}
-	q.Set("per_page", "5000") // 5000 is the max
-	if page > 0 {
+	var cfprocesses []cfclient.Process
+	for page := 1; ; page++ {
+		q := url.Values{}
+		q.Set("per_page", "5000") // 5000 is the max
 		q.Set("page", strconv.Itoa(page))
-	}
-	r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting v3 processes page %d", page)
-	}
-	// Read body response
-	defer resp.Body.Close()
-	resBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading v3 processes response for page %d", page)
-	}
-	// Unmarshal body response into ProcessListResponse objects
-	var processResp cfclient.ProcessListResponse
-	err = json.Unmarshal(resBody, &processResp)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling v3 processes response for page %d", page)
+		r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
+		resp, err := cfc.client.DoRequest(r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error requesting v3 processes page %d", page)
+		}
+		// Read body response
+		defer resp.Body.Close()
+		resBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error reading v3 processes response for page %d", page)
+		}
+		// Unmarshal body response into ProcessListResponse objects
+		var processResp cfclient.ProcessListResponse
+		err = json.Unmarshal(resBody, &processResp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error unmarshalling v3 processes response for page %d", page)
+		}
+		cfprocesses = append(cfprocesses, processResp.Processes...)
+		if processResp.Pagination.TotalPages <= page {
+			break
+		}
 	}
 
-	return processResp.Processes, processResp.Pagination.TotalPages, nil
+	return cfprocesses, nil
 }
 
 func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	var spaces []v3SpaceResource
-	q := url.Values{}
-	q.Set("per_page", "5000") // 5000 is the max
-	requestUrl := "/v3/spaces?" + q.Encode()
-	for {
-		spaceResp, err := cfc.getV3SpaceResponse(requestUrl)
+
+	for page := 1; ; page++ {
+		q := url.Values{}
+		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("page", strconv.Itoa(page))
+		r := cfc.client.NewRequest("GET", "/v3/spaces?"+q.Encode())
+		resp, err := cfc.client.DoRequest(r)
 		if err != nil {
-			return []v3SpaceResource{}, err
+			return nil, errors.Wrapf(err, "Error requesting v3 spaces page %d", page)
 		}
-		for _, resources := range spaceResp.Resources {
-			spaces = append(spaces, resources)
+		// Read body response
+		defer resp.Body.Close()
+		resBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error reading v3 spaces response for page %d", page)
 		}
-		// Next is not cfclient.Link, but map[string]interface{} (if present)
-		next, ok := spaceResp.Pagination.Next.(map[string]interface{})
-		if !ok {
+		// Unmarshal body response into v3SpaceResponse object
+		var spaceResp v3SpaceResponse
+		err = json.Unmarshal(resBody, &spaceResp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error unmarshalling v3 spaces response for page %d", page)
+		}
+		spaces = append(spaces, spaceResp.Resources...)
+		if spaceResp.Pagination.TotalPages <= page {
 			break
 		}
-		nextHref, ok := next["href"].(string)
-		if !ok {
-			break
-		}
-		nextParsed, err := url.Parse(nextHref)
-		if !ok {
-			break
-		}
-		requestUrl = fmt.Sprintf("%s?%s", nextParsed.Path, nextParsed.RawQuery)
 	}
+
 	return spaces, nil
 }
 
-func (cfc *CFClient) getV3SpaceResponse(requestUrl string) (v3SpaceResponse, error) {
-	var spaceResp v3SpaceResponse
-	r := cfc.client.NewRequest("GET", requestUrl)
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return v3SpaceResponse{}, errors.Wrap(err, "Error requesting spaces")
-	}
-	resBody, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if err != nil {
-		return v3SpaceResponse{}, errors.Wrap(err, "Error reading space request")
-	}
-	err = json.Unmarshal(resBody, &spaceResp)
-	if err != nil {
-		return v3SpaceResponse{}, errors.Wrap(err, "Error unmarshalling space")
-	}
-	return spaceResp, nil
-}
-
 func (cfc *CFClient) getV3Orgs() ([]cfclient.Org, error) {
-	results, pages, err := cfc.getV3OrgsByPage(1)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 orgs page 1, skipping cache warmup")
-	}
+	var cforgs []cfclient.Org
 
-	for page := 2; page <= pages; page++ {
-		pageResults, _, err := cfc.getV3OrgsByPage(page)
-		if err != nil {
-			// if we failed getting 5000 orgs, let's mark this whole function call as failed
-			return nil, err
-		}
-		results = append(results, pageResults...)
-	}
-
-	return results, nil
-}
-
-func (cfc *CFClient) getV3OrgsByPage(page int) ([]cfclient.Org, int, error) {
-	q := url.Values{}
-	q.Set("per_page", "5000") // 5000 is the max
-	if page > 0 {
+	for page := 1; ; page++ {
+		q := url.Values{}
+		q.Set("per_page", "5000") // 5000 is the max
 		q.Set("page", strconv.Itoa(page))
-	}
-	r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting v3 orgs page %d", page)
-	}
-	// Read body response
-	defer resp.Body.Close()
-	resBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading v3 orgs response for page %d", page)
-	}
-	// Unmarshal body response into  objects
-	var orgsResp v3OrgResponse
-	err = json.Unmarshal(resBody, &orgsResp)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling v3 orgs response for page %d", page)
+		r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
+		resp, err := cfc.client.DoRequest(r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error requesting v3 orgs page %d", page)
+		}
+		// Read body response
+		defer resp.Body.Close()
+		resBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error reading v3 orgs response for page %d", page)
+		}
+		// Unmarshal body response into  objects
+		var orgsResp v3OrgResponse
+		err = json.Unmarshal(resBody, &orgsResp)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error unmarshalling v3 orgs response for page %d", page)
+		}
+		cforgs = append(cforgs, orgsResp.Resources...)
+		if orgsResp.Pagination.TotalPages <= page {
+			break
+		}
 	}
 
-	return orgsResp.Resources, orgsResp.Pagination.TotalPages, nil
+	return cforgs, nil
 }
 
 func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {

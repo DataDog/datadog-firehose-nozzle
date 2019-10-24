@@ -105,13 +105,7 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("with v3 processes is retrieved correctly", func() {
-			res, page, err := fakeCfClient.getV3ProcessesByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(2))
-			Expect(len(res)).To(Equal(18))
-
-			res, err = fakeCfClient.getV3Processes()
+			res, err := fakeCfClient.getV3Processes()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(19))
@@ -119,13 +113,7 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("with v3 orgs is retrieved correctly", func() {
-			res, page, err := fakeCfClient.getV3OrgsByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(2))
-			Expect(len(res)).To(Equal(1))
-
-			res, err = fakeCfClient.getV3Orgs()
+			res, err := fakeCfClient.getV3Orgs()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(2))
@@ -133,19 +121,7 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 
 		It("with v3 apps is retrieved correctly", func() {
-			res, page, err := fakeCfClient.getV3AppsByPage(1)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(2))
-			Expect(len(res)).To(Equal(13))
-
-			res, page, err = fakeCfClient.getV3AppsByPage(2)
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(2))
-			Expect(len(res)).To(Equal(1))
-
-			res, err = fakeCfClient.getV3Apps()
+			res, err := fakeCfClient.getV3Apps()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(14))
