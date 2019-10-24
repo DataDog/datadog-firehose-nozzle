@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -119,12 +120,19 @@ func (am *AppParser) updateCacheLoop() {
 	// Run first cache warmup
 	am.warmupCache()
 
-	// Start a ticker to update the cache at regular intervals
-	ticker := time.NewTicker(time.Duration(am.grabInterval) * time.Minute)
+	// Start a ticker to update the cache at regular intervals with a random jitter of 10 %
+	// to distribute the load on CF Cloud Controller when there are lots of nozzle instances
+	// IOW, if the grabInterval is 10 minutes, the warmup will start between 9:00 and 9:59
+	wholeTick := int64(am.grabInterval) * int64(time.Minute)
+	shortenedTick := int64(float64(wholeTick) * 0.9)
+	jitterMax := int64(float64(wholeTick) * 0.1)
+	ticker := time.NewTicker(time.Duration(shortenedTick))
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
+			jitter := rand.Int63n(jitterMax)
+			time.Sleep(time.Duration(jitter))
 			am.warmupCache()
 		case <-am.stopper:
 			return
