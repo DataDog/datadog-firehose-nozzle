@@ -565,7 +565,7 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 		diskInMbConfigured := p.DiskInMB
 		diskInMbProvisioned := instances * diskInMbConfigured
 		memoryInMbConfigured := p.MemoryInMB
-		memoryInMbProvisioned := p.MemoryInMB * memoryInMbConfigured
+		memoryInMbProvisioned := instances * memoryInMbConfigured
 
 		totalInstances += instances
 		totalDiskInMbConfigured += diskInMbConfigured

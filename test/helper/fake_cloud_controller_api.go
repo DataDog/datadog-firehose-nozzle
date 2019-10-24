@@ -90,6 +90,9 @@ func (f *FakeCloudControllerAPI) AuthToken() string {
 }
 
 func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.Request) {
+	// NOTE: app with GUID "6d254438-cc3b-44a6-b2e6-343ca92deb5f" is checked explicitly
+	// in client_test.go, so any changes to this app and objects related to it will likely
+	// result in failure of some of the tests in that file
 	switch r.URL.Path {
 	case "/v2/info":
 		rw.Write([]byte(fmt.Sprintf(`
@@ -118,62 +121,78 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 		  "resources": [
 			{
 			  "metadata": {
-				"guid": "6d254438-cc3b-44a6-b2e6-343ca92deb5f",
-				"url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f",
-				"created_at": "2019-05-17T15:06:02Z",
-				"updated_at": "2019-10-04T11:11:00Z"
-			  },
-			  "entity": {
-				"name": "p-invitations-green",
-				"production": false,
-				"space_guid": "417b893e-291e-48ec-94c7-7b2348604365",
-				"stack_guid": "b903564c-61ab-4555-bb01-5ed167db6e64",
-				"buildpack": "nodejs_buildpack",
-				"detected_buildpack": "nodejs",
-				"detected_buildpack_guid": "26c169f4-0e24-49a6-a60c-b16ce5eea318",
-				"environment_json": {
-				  "CLOUD_CONTROLLER_URL": "https://cloudfoundry.env",
-				  "COMPANY_NAME": "Pivotal",
-				  "INVITATIONS_CLIENT_ID": "invitations",
-				  "NODE_TLS_REJECT_UNAUTHORIZED": "0",
-				  "PRODUCT_NAME": "Apps Manager",
-				  "SUCCESS_CALLBACK_URL": "",
-				  "SUPPORT_EMAIL": ""
+					"guid": "6d254438-cc3b-44a6-b2e6-343ca92deb5f",
+					"url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f",
+					"created_at": "2019-05-17T15:06:02Z",
+					"updated_at": "2019-10-04T11:11:00Z"
 				},
-				"memory": 256,
-				"instances": 1,
-				"disk_quota": 1024,
-				"state": "STARTED",
-				"version": "49479c78-27de-4398-ad37-b715f265ac4c",
-				"command": null,
-				"console": false,
-				"debug": null,
-				"staging_task_id": "ef7cfe60-d758-4a90-9113-4a2f852265b4",
-				"package_state": "STAGED",
-				"health_check_type": "port",
-				"health_check_timeout": null,
-				"health_check_http_endpoint": "",
-				"staging_failed_reason": null,
-				"staging_failed_description": null,
-				"diego": true,
-				"docker_image": null,
-				"docker_credentials": {
-				  "username": null,
-				  "password": null
-				},
-				"package_updated_at": "2019-10-04T11:10:26Z",
-				"detected_start_command": "npm start",
-				"enable_ssh": true,
-				"ports": [
-				  8080
-				],
-				"space_url": "/v2/spaces/417b893e-291e-48ec-94c7-7b2348604365",
-				"stack_url": "/v2/stacks/b903564c-61ab-4555-bb01-5ed167db6e64",
-				"routes_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/routes",
-				"events_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/events",
-				"service_bindings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/service_bindings",
-				"route_mappings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/route_mappings"
-			  }
+				"entity": {
+					"name": "p-invitations-green",
+					"production": false,
+					"space_guid": "417b893e-291e-48ec-94c7-7b2348604365",
+					"space": {
+						"metadata": {
+							"guid": "417b893e-291e-48ec-94c7-7b2348604365"
+						},
+						"entity": {
+							"name": "system",
+							"organization": {
+								"metadata": {
+									"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+								},
+								"entity": {
+									"name": "system"
+								}
+							}
+						}
+					},
+					"stack_guid": "b903564c-61ab-4555-bb01-5ed167db6e64",
+					"buildpack": "nodejs_buildpack",
+					"detected_buildpack": "nodejs",
+					"detected_buildpack_guid": "26c169f4-0e24-49a6-a60c-b16ce5eea318",
+					"environment_json": {
+						"CLOUD_CONTROLLER_URL": "https://cloudfoundry.env",
+						"COMPANY_NAME": "Pivotal",
+						"INVITATIONS_CLIENT_ID": "invitations",
+						"NODE_TLS_REJECT_UNAUTHORIZED": "0",
+						"PRODUCT_NAME": "Apps Manager",
+						"SUCCESS_CALLBACK_URL": "",
+						"SUPPORT_EMAIL": ""
+					},
+					"memory": 256,
+					"instances": 1,
+					"disk_quota": 1024,
+					"state": "STARTED",
+					"version": "49479c78-27de-4398-ad37-b715f265ac4c",
+					"command": null,
+					"console": false,
+					"debug": null,
+					"staging_task_id": "ef7cfe60-d758-4a90-9113-4a2f852265b4",
+					"package_state": "STAGED",
+					"health_check_type": "port",
+					"health_check_timeout": null,
+					"health_check_http_endpoint": "",
+					"staging_failed_reason": null,
+					"staging_failed_description": null,
+					"diego": true,
+					"docker_image": null,
+					"docker_credentials": {
+						"username": null,
+						"password": null
+					},
+					"package_updated_at": "2019-10-04T11:10:26Z",
+					"detected_start_command": "npm start",
+					"enable_ssh": true,
+					"ports": [
+						8080
+					],
+					"space_url": "/v2/spaces/417b893e-291e-48ec-94c7-7b2348604365",
+					"stack_url": "/v2/stacks/b903564c-61ab-4555-bb01-5ed167db6e64",
+					"routes_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/routes",
+					"events_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/events",
+					"service_bindings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/service_bindings",
+					"route_mappings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/route_mappings"
+				}
 			},
 			{
 			  "metadata": {
@@ -954,6 +973,84 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 		  ]
 		}
 	`)))
+	case "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f":
+		// we imply "?inline-relations-depth=2" here
+		rw.Write([]byte(fmt.Sprintf(`
+		{
+			"metadata": {
+				"guid": "6d254438-cc3b-44a6-b2e6-343ca92deb5f",
+				"url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f",
+				"created_at": "2019-05-17T15:06:02Z",
+				"updated_at": "2019-10-04T11:11:00Z"
+			},
+			"entity": {
+				"name": "p-invitations-green",
+				"production": false,
+				"space_guid": "417b893e-291e-48ec-94c7-7b2348604365",
+				"space": {
+					"metadata": {
+						"guid": "417b893e-291e-48ec-94c7-7b2348604365"
+					},
+					"entity": {
+						"name": "system",
+						"organization": {
+							"metadata": {
+								"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							},
+							"entity": {
+								"name": "system"
+							}
+						}
+					}
+				},
+				"stack_guid": "b903564c-61ab-4555-bb01-5ed167db6e64",
+				"buildpack": "nodejs_buildpack",
+				"detected_buildpack": "nodejs",
+				"detected_buildpack_guid": "26c169f4-0e24-49a6-a60c-b16ce5eea318",
+				"environment_json": {
+					"CLOUD_CONTROLLER_URL": "https://cloudfoundry.env",
+					"COMPANY_NAME": "Pivotal",
+					"INVITATIONS_CLIENT_ID": "invitations",
+					"NODE_TLS_REJECT_UNAUTHORIZED": "0",
+					"PRODUCT_NAME": "Apps Manager",
+					"SUCCESS_CALLBACK_URL": "",
+					"SUPPORT_EMAIL": ""
+				},
+				"memory": 256,
+				"instances": 1,
+				"disk_quota": 1024,
+				"state": "STARTED",
+				"version": "49479c78-27de-4398-ad37-b715f265ac4c",
+				"command": null,
+				"console": false,
+				"debug": null,
+				"staging_task_id": "ef7cfe60-d758-4a90-9113-4a2f852265b4",
+				"package_state": "STAGED",
+				"health_check_type": "port",
+				"health_check_timeout": null,
+				"health_check_http_endpoint": "",
+				"staging_failed_reason": null,
+				"staging_failed_description": null,
+				"diego": true,
+				"docker_image": null,
+				"docker_credentials": {
+					"username": null,
+					"password": null
+				},
+				"package_updated_at": "2019-10-04T11:10:26Z",
+				"detected_start_command": "npm start",
+				"enable_ssh": true,
+				"ports": [
+					8080
+				],
+				"space_url": "/v2/spaces/417b893e-291e-48ec-94c7-7b2348604365",
+				"stack_url": "/v2/stacks/b903564c-61ab-4555-bb01-5ed167db6e64",
+				"routes_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/routes",
+				"events_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/events",
+				"service_bindings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/service_bindings",
+				"route_mappings_url": "/v2/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f/route_mappings"
+			}
+		}`)))
 	case "/v3/apps":
 		switch r.URL.Query().Get("page") {
 		case "", "1":
