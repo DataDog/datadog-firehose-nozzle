@@ -6,9 +6,9 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
-	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 )
 
 const (
@@ -32,7 +32,7 @@ func NewProcessor(
 	customTags []string,
 	environment string,
 	parseAppMetricsEnable bool,
-	cfClient *cfclient.Client,
+	cfClient *cloudfoundry.CFClient,
 	numCacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	cfclient "github.com/cloudfoundry-community/go-cfclient"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,6 +15,8 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 )
 
 var _ = Describe("AppMetrics", func() {
@@ -23,7 +24,7 @@ var _ = Describe("AppMetrics", func() {
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
-		fakeCfClient           *cfclient.Client
+		fakeCfClient           *cloudfoundry.CFClient
 	)
 
 	BeforeEach(func() {
@@ -32,14 +33,16 @@ var _ = Describe("AppMetrics", func() {
 		fakeCloudControllerAPI.Start()
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
-		cfg := cfclient.Config{
-			ApiAddress:        ccAPIURL,
-			ClientID:          "bearer",
-			ClientSecret:      "123456789",
-			SkipSslValidation: true,
-			UserAgent:         "datadog-firehose-nozzle",
+		cfg := config.Config{
+			CloudControllerEndpoint:	ccAPIURL,
+			Client:          			"bearer",
+			ClientSecret:      			"123456789",
+			InsecureSSLSkipVerify: 		true,
+			NumWorkers:					5,
 		}
-		fakeCfClient, _ = cfclient.NewClient(&cfg)
+		var err error
+		fakeCfClient, err = cloudfoundry.NewClient(&cfg, log)
+		Expect(err).To(BeNil())
 	}, 0)
 
 	Context("generator function", func() {
@@ -61,44 +64,9 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(4))
-			for i := 1; i <= 4; i++ {
-				Expect(a.AppCache.apps).To(HaveKey(fmt.Sprintf("app-%d", i)))
-			}
+			Expect(len(a.AppCache.apps)).To(Equal(14))
 		})
-		It("requests all the apps when there are less runners than pages", func() {
-			fakeCloudControllerAPI.AppNumber = 10
-			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
-			Expect(err).To(BeNil())
-			Expect(a).NotTo(BeNil())
-			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(10))
-			for i := 1; i <= 10; i++ {
-				Expect(a.AppCache.apps).To(HaveKey(fmt.Sprintf("app-%d", i)))
-			}
-		})
-		It("requests all the apps when there are more runners than pages", func() {
-			fakeCloudControllerAPI.AppNumber = 2
-			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
-			Expect(err).To(BeNil())
-			Expect(a).NotTo(BeNil())
-			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(2))
-			for i := 1; i <= 2; i++ {
-				Expect(a.AppCache.apps).To(HaveKey(fmt.Sprintf("app-%d", i)))
-			}
-		})
-		It("requests all the apps when there are as many runners as pages", func() {
-			fakeCloudControllerAPI.AppNumber = 3
-			a, err := NewAppParser(fakeCfClient, 3, 999, log, []string{}, "")
-			Expect(err).To(BeNil())
-			Expect(a).NotTo(BeNil())
-			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(3))
-			for i := 1; i <= 3; i++ {
-				Expect(a.AppCache.apps).To(HaveKey(fmt.Sprintf("app-%d", i)))
-			}
-		})
+
 		It("does not block while warming cache", func() {
 			fakeCloudControllerAPI.RequestTime = 100
 			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
@@ -107,7 +75,7 @@ var _ = Describe("AppMetrics", func() {
 			Expect(a).NotTo(BeNil())
 			Expect(a.AppCache.IsWarmedUp()).To(BeFalse())
 			// Eventually, the cache is ready
-			Eventually(a.AppCache.IsWarmedUp, 10*time.Second).Should(BeTrue())
+			Eventually(a.AppCache.IsWarmedUp, 10 * time.Second).Should(BeTrue())
 		})
 	})
 
@@ -126,8 +94,9 @@ var _ = Describe("AppMetrics", func() {
 		It("grabs from the cache when it present", func() {
 			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(a.AppCache.apps).To(HaveKey("app-4"))
-			app, err := a.getAppData("app-4")
+			// 6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a corresponds to hello-datadog-cf-ruby-dev
+			Expect(a.AppCache.apps).To(HaveKey("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
+			app, err := a.getAppData("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a")
 			Expect(err).To(BeNil())
 			Expect(app).NotTo(BeNil())
 		})
@@ -150,7 +119,7 @@ var _ = Describe("AppMetrics", func() {
 					DiskBytesQuota:   proto.Uint64(uint64(1)),
 					MemoryBytes:      proto.Uint64(uint64(1)),
 					MemoryBytesQuota: proto.Uint64(uint64(1)),
-					ApplicationId:    proto.String("app-1"),
+					ApplicationId:    proto.String("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"),
 				},
 
 				// fields that gets sent as tags
@@ -177,8 +146,8 @@ var _ = Describe("AppMetrics", func() {
 			Expect(metrics).To(ContainMetric("app.memory.quota"))
 
 			for _, metric := range metrics {
-				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:app-1"))
-				Expect(metric.MetricValue.Tags).To(ContainElement("guid:app-1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:hello-datadog-cf-ruby-dev"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 			}
 		})
@@ -186,7 +155,8 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"}, "env_name")
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"},
+			"env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
@@ -201,7 +171,7 @@ var _ = Describe("AppMetrics", func() {
 					DiskBytesQuota:   proto.Uint64(uint64(1)),
 					MemoryBytes:      proto.Uint64(uint64(1)),
 					MemoryBytesQuota: proto.Uint64(uint64(1)),
-					ApplicationId:    proto.String("app-1"),
+					ApplicationId:    proto.String("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"),
 				},
 
 				// fields that gets sent as tags
@@ -217,15 +187,14 @@ var _ = Describe("AppMetrics", func() {
 			Expect(metrics).To(HaveLen(10))
 
 			for _, metric := range metrics {
-				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:app-1"))
-				Expect(metric.MetricValue.Tags).To(ContainElement("guid:app-1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:hello-datadog-cf-ruby-dev"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("custom:tag"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("foo:bar"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 			}
 		})
 	})
-
 })
 
 type containMetric struct {
@@ -243,7 +212,7 @@ func (m *containMetric) Match(actual interface{}) (success bool, err error) {
 	var ok bool
 	m.haystack, ok = actual.([]metric.MetricPackage)
 	if !ok {
-		return false, errors.New("Actual must be of type []metrics.MetricPackage")
+		return false, errors.New("actual must be of type []metrics.MetricPackage")
 	}
 	for _, pkg := range m.haystack {
 		if pkg.MetricKey.Name == m.needle {

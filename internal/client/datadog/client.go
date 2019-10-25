@@ -17,10 +17,8 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/gosteno"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
+	"github.com/hashicorp/go-retryablehttp"
 )
-
-const DefaultAPIURL = "https://app.datadoghq.com/api/v1"
 
 type Client struct {
 	apiURL       string
@@ -159,12 +157,11 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 
 // PostMetrics forwards the metrics to datadog
 func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
-	c.log.Infof("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
-
+	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	for _, data := range seriesBytes {
 		if uint32(len(data)) > c.maxPostBytes {
-			c.log.Infof("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
+			c.log.Debugf("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
 			continue
 		}
 
@@ -193,6 +190,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 	// response code is received, then a retry is invoked on this request after a wait period
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.log.Errorf("error returned by the http client, %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -212,7 +210,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 func (c *Client) seriesURL() (string, error) {
 	apiURL, err := url.Parse(c.apiURL)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing API URL %s: %v", c.apiURL, err)
+		return "", fmt.Errorf("error parsing API URL %s: %v", c.apiURL, err)
 	}
 	if !strings.Contains(apiURL.EscapedPath(), "api/v1/series") {
 		apiURL.Path = path.Join(apiURL.Path, "api/v1/series")
@@ -292,7 +290,7 @@ func GetProxyTransportFunc(proxy *Proxy, logger *gosteno.Logger) func(*http.Requ
 		parsedURL, err := url.Parse(proxyURL)
 		if err != nil {
 			logger.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
-			return nil, fmt.Errorf("Could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
+			return nil, fmt.Errorf("could not parse the configured %s proxy URL: %s", r.URL.Scheme, err)
 		}
 
 		// Clean up the proxy URL for logging

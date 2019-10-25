@@ -19,7 +19,7 @@ import:
   subpackages:
   - proto
 - package: github.com/cloudfoundry-community/go-cfclient
-  version: b75ec7d52c9cd9b691cf80da587d076afbed4957
+  version: 35bcce23fc5f8b9969723ac38c0de1f82c4d3471
 - package: github.com/pkg/errors
   version: ~0.8.0
 - package: github.com/gorilla/websocket

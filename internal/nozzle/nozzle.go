@@ -12,7 +12,6 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
-	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
 	noaaerrors "github.com/cloudfoundry/noaa/errors"
@@ -29,7 +28,7 @@ type Nozzle struct {
 	consumer              *consumer.Consumer
 	ddClients             []*datadog.Client
 	processor             *processor.Processor
-	cfClient              *cfclient.Client
+	cfClient              *cloudfoundry.CFClient
 	processedMetrics      chan []metric.MetricPackage
 	log                   *gosteno.Logger
 	parseAppMetricsEnable bool
@@ -169,7 +168,7 @@ func (n *Nozzle) run() error {
 func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, error) {
 	if n.config.TrafficControllerURL == "" {
 		if n.cfClient != nil {
-			n.config.TrafficControllerURL = n.cfClient.Endpoint.DopplerEndpoint
+			n.config.TrafficControllerURL = n.cfClient.GetDopplerEndpoint()
 		} else {
 			return nil, fmt.Errorf("either the TrafficController URL or the CC URL needs to be set")
 		}
