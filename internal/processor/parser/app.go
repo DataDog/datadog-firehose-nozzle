@@ -193,7 +193,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 	}
 	app, err := am.getAppData(guid)
 	if err != nil || app == nil {
-		am.log.Errorf("there was an error grabbing data for app %s: %v", guid, err)
+		// the problem was already logged in getAppData method
 		return metricsPackages, err
 	}
 
