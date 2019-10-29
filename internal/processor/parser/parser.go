@@ -2,9 +2,10 @@ package parser
 
 import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/cloudfoundry/sonde-go/events"
+
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 type Parser interface {
-	Parse(envelope *events.Envelope) ([]metric.MetricPackage, error)
+	Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error)
 }

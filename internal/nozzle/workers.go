@@ -3,7 +3,7 @@ package nozzle
 import (
 	"time"
 
-	"github.com/cloudfoundry/sonde-go/events"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 func (d *Nozzle) startWorkers() {
@@ -77,9 +77,17 @@ func (d *Nozzle) readProcessedMetrics() {
 	}
 }
 
-func (d *Nozzle) handleMessage(envelope *events.Envelope) {
-	if envelope.GetEventType() == events.Envelope_CounterEvent && envelope.CounterEvent.GetName() == "TruncatingBuffer.DroppedMessages" && envelope.GetOrigin() == "doppler" {
-		d.log.Infof("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle.")
-		d.AlertSlowConsumerError()
+func (d *Nozzle) handleMessage(envelope *loggregator_v2.Envelope) {
+	switch envelope.GetMessage().(type) {
+	case *loggregator_v2.Envelope_Counter:
+		// TODO: make sure this is correct (docs at https://docs.pivotal.io/platform/2-7/monitoring/key-cap-scaling.html)
+		if envelope.GetCounter().GetName() == "dropped" {
+			origin, ook := envelope.GetTags()["origin"]
+			direction, dok := envelope.GetTags()["direction"]
+			if ook && origin == "loggregator.rlp" && dok && direction == "egress" && envelope.GetCounter().GetDelta() > 0 {
+				d.log.Infof("We've intercepted an upstream message which indicates that the nozzle is not keeping up. Please try scaling up the nozzle.")
+				d.AlertSlowConsumerError()
+			}
+		}
 	}
 }

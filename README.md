@@ -18,7 +18,8 @@ properties:
         override: true
         secret: <password>
         scope: openid,oauth.approvals,doppler.firehose
-        authorities: oauth.login,doppler.firehose
+        # TODO: verify that this is correct
+        authorities: oauth.login,doppler.firehose,logs.admin
 ```
 
 ### Dependencies

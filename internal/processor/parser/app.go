@@ -7,9 +7,10 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
-	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+
+	"github.com/cloudfoundry/gosteno"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 type appCache struct {
@@ -177,11 +178,16 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 }
 
 // Parse takes an envelope, and extract app metrics from it
-func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
+func (am *AppParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
 	metricsPackages := []metric.MetricPackage{}
-	message := envelope.GetContainerMetric()
 
-	guid := message.GetApplicationId()
+	if !util.IsContainerMetric(envelope) {
+		return metricsPackages, fmt.Errorf("not an app metric")
+	}
+
+	message := envelope.GetGauge()
+
+	guid := envelope.GetSourceId()
 	if guid == "" {
 		am.log.Errorf("there was an error grabbing ApplicationId from message")
 		return metricsPackages, nil
@@ -202,7 +208,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 		am.log.Errorf("there was an error parsing metrics: %v", err)
 		return metricsPackages, err
 	}
-	containerMetrics, err := app.parseContainerMetric(message, am.customTags)
+	containerMetrics, err := app.parseContainerMetric(message, envelope.GetInstanceId(), am.customTags)
 	if err != nil {
 		am.log.Errorf("there was an error parsing container metrics: %v", err)
 		return metricsPackages, err
@@ -262,7 +268,7 @@ func (a *App) getMetrics(customTags []string) ([]metric.MetricPackage, error) {
 	return a.mkMetrics(names, ms, customTags)
 }
 
-func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags []string) ([]metric.MetricPackage, error) {
+func (a *App) parseContainerMetric(message *loggregator_v2.Gauge, instanceId string, customTags []string) ([]metric.MetricPackage, error) {
 	var names = []string{
 		"app.cpu.pct",
 		"app.disk.used",
@@ -270,14 +276,16 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags [
 		"app.memory.used",
 		"app.memory.quota",
 	}
+
+	// App.Parse checks that this is container metric, so we're guaranteed that all these tags are present
 	var ms = []float64{
-		float64(message.GetCpuPercentage()),
-		float64(message.GetDiskBytes()),
-		float64(message.GetDiskBytesQuota()),
-		float64(message.GetMemoryBytes()),
-		float64(message.GetMemoryBytesQuota()),
+		float64(message.GetMetrics()["cpu"].Value),
+		float64(message.GetMetrics()["disk"].Value),
+		float64(message.GetMetrics()["disk_quota"].Value),
+		float64(message.GetMetrics()["memory"].Value),
+		float64(message.GetMetrics()["memory_quota"].Value),
 	}
-	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
+	tags := []string{fmt.Sprintf("instance:%v", instanceId)}
 	tags = append(tags, customTags...)
 	return a.mkMetrics(names, ms, tags)
 }

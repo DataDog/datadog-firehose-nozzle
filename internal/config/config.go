@@ -25,7 +25,7 @@ type Config struct {
 	UAAURL                      string
 	Client                      string
 	ClientSecret                string
-	TrafficControllerURL        string
+	RLPGatewayURL               string
 	FirehoseSubscriptionID      string
 	DataDogURL                  string
 	DataDogAPIKey               string
@@ -104,7 +104,7 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvVar("NOZZLE_UAAURL", &config.UAAURL)
 	overrideWithEnvVar("NOZZLE_CLIENT", &config.Client)
 	overrideWithEnvVar("NOZZLE_CLIENT_SECRET", &config.ClientSecret)
-	overrideWithEnvVar("NOZZLE_TRAFFICCONTROLLERURL", &config.TrafficControllerURL)
+	overrideWithEnvVar("NOZZLE_RLP_GATEWAY_URL", &config.RLPGatewayURL)
 	overrideWithEnvVar("NOZZLE_FIREHOSESUBSCRIPTIONID", &config.FirehoseSubscriptionID)
 	overrideWithEnvVar("NOZZLE_DATADOGURL", &config.DataDogURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)

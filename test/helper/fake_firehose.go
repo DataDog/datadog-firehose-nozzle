@@ -1,19 +1,24 @@
 package helper
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"time"
 
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gorilla/websocket"
+	"github.com/golang/protobuf/jsonpb"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
+
+var marshaler = jsonpb.Marshaler{
+	EmitDefaults: true,
+}
 
 type FakeFirehose struct {
 	server *httptest.Server
+	closeServerLoop chan bool
+	serveBatch chan *loggregator_v2.EnvelopeBatch
 	lock   sync.Mutex
 
 	validToken string
@@ -21,16 +26,14 @@ type FakeFirehose struct {
 	lastAuthorization string
 	requested         bool
 
-	events       []events.Envelope
-	closeMessage []byte
-
-	ws *websocket.Conn
+	events       []*loggregator_v2.Envelope
 }
 
 func NewFakeFirehose(validToken string) *FakeFirehose {
 	return &FakeFirehose{
 		validToken:   validToken,
-		closeMessage: websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+		closeServerLoop: make(chan bool, 1),
+		serveBatch:    make(chan *loggregator_v2.EnvelopeBatch, 1),
 	}
 }
 
@@ -40,17 +43,8 @@ func (f *FakeFirehose) Start() {
 }
 
 func (f *FakeFirehose) Close() {
-	f.CloseWebSocket()
+	f.closeServerLoop <- true
 	f.server.Close()
-}
-
-func (f *FakeFirehose) CloseWebSocket() {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	if f.ws != nil {
-		f.ws.WriteControl(websocket.CloseMessage, f.closeMessage, time.Time{})
-		f.ws.Close()
-	}
 }
 
 func (f *FakeFirehose) URL() string {
@@ -69,40 +63,54 @@ func (f *FakeFirehose) Requested() bool {
 	return f.requested
 }
 
-func (f *FakeFirehose) AddEvent(event events.Envelope) {
+func (f *FakeFirehose) AddEvent(event loggregator_v2.Envelope) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	buffer, _ := proto.Marshal(&event)
-	err := f.ws.WriteMessage(websocket.BinaryMessage, buffer)
-	if err != nil {
-		panic(err)
-	}
+	f.events = append(f.events, &event)
 }
 
-func (f *FakeFirehose) SetCloseMessage(message []byte) {
+func (f *FakeFirehose) ServeBatch() {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.closeMessage = make([]byte, len(message))
-	copy(f.closeMessage, message)
+	f.serveBatch <- &loggregator_v2.EnvelopeBatch{
+		Batch: f.events,
+	}
+	f.events = []*loggregator_v2.Envelope{}
+}
+
+func (f *FakeFirehose) writeBatch(rw http.ResponseWriter, batch *loggregator_v2.EnvelopeBatch) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	marshalledBatch, _ := marshaler.MarshalToString(batch)
+	toWrite := fmt.Sprintf("data: %s\n\n", marshalledBatch)
+	fmt.Fprint(rw, toWrite)
 }
 
 func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
+	rw.Header().Set("Content-Type", "text/event-stream")
+	rw.Header().Set("Cache-Control", "no-cache")
+	rw.Header().Set("Connection", "keep-alive")
 
+	flusher, _ := rw.(http.Flusher)
+
+	f.lock.Lock()
 	f.lastAuthorization = r.Header.Get("Authorization")
 	f.requested = true
+	f.lock.Unlock()
 
 	if f.lastAuthorization != f.validToken {
 		log.Printf("Bad token passed to firehose: %s", f.lastAuthorization)
 		rw.WriteHeader(403)
-		r.Body.Close()
 		return
 	}
 
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(*http.Request) bool { return true },
+	for {
+		select {
+		case b := <- f.serveBatch:
+			f.writeBatch(rw, b)
+			flusher.Flush()
+		case <- f.closeServerLoop:
+			return
+		}
 	}
-
-	f.ws, _ = upgrader.Upgrade(rw, r, nil)
 }

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
+
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 const (
@@ -68,7 +70,7 @@ func NewProcessor(
 }
 
 // ProcessMetric takes an envelope, parses it and sends the processed metrics to the nozzle
-func (p *Processor) ProcessMetric(envelope *events.Envelope) {
+func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 	var err error
 	var metricsPackages []metric.MetricPackage
 
@@ -103,7 +105,7 @@ func (p *Processor) StopAppMetrics() {
 	appParser.Stop()
 }
 
-func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPackage, error) {
+func (p *Processor) parseAppMetric(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
 	var metricsPackages []metric.MetricPackage
 	var err error
 
@@ -111,7 +113,7 @@ func (p *Processor) parseAppMetric(envelope *events.Envelope) ([]metric.MetricPa
 		return metricsPackages, fmt.Errorf("app metrics are not configured")
 	}
 
-	if envelope.GetEventType() != events.Envelope_ContainerMetric {
+	if !util.IsContainerMetric(envelope) {
 		return metricsPackages, fmt.Errorf("not an app metric")
 	}
 

@@ -36,3 +36,21 @@ func NewLogger(verbose bool, logFilePath, name string, syslogNamespace string) *
 
 	return logger
 }
+
+type RLPLogForwarder struct {
+	// The loggregator.WithRLPGatewayClientLogger only takes log.Logger as argument,
+	// so this forwarder serves as it's "output" to proxy logs to our gosteno.Logger
+	log *gosteno.Logger
+}
+
+func NewRLPLogForwarder(gostenoLog *gosteno.Logger) (*RLPLogForwarder) {
+	return &RLPLogForwarder{
+		log: gostenoLog,
+	}
+}
+
+func (f RLPLogForwarder) Write(p []byte) (n int, err error) {
+	message := "message forwarded from RLP client: " + string(p)
+	f.log.Debugf(message)
+	return len(p), nil
+}

@@ -2,15 +2,15 @@ package parser
 
 import (
 	"fmt"
-	"github.com/cloudfoundry/sonde-go/events"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 
-func parseHost(envelope *events.Envelope) string {
-	if envelope.GetIndex() != "" {
-		return envelope.GetIndex()
-	} else if envelope.GetOrigin() != "" {
-		return envelope.GetOrigin()
+func parseHost(envelope *loggregator_v2.Envelope) string {
+	if index, ok := envelope.GetTags()["index"]; ok && index != "" {
+		return index
+	} else if origin, ok := envelope.GetTags()["origin"]; ok && origin != "" {
+		return origin
 	}
 
 	return ""

@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sort"
 	"time"
+
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 func HashTags(tags []string) string {
@@ -29,4 +31,20 @@ func GetTickerWithJitter(wholeIntervalSeconds uint32, jitterPct float64) (*time.
 		time.Sleep(time.Duration(jitter))
 	}
 	return ticker, jitterWait
+}
+
+func IsContainerMetric(envelope *loggregator_v2.Envelope) bool {
+	result := false
+	switch envelope.GetMessage().(type) {
+	case *loggregator_v2.Envelope_Gauge:
+		result = true
+		// TOOD: verify that this is the right set of keys
+		for _, key := range []string{"cpu", "memory", "disk", "memory_quota", "disk_quota"} {
+			if _, ok := envelope.GetGauge().GetMetrics()[key]; !ok {
+				result = false
+			}
+		}
+	}
+
+	return result
 }

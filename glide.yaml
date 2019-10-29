@@ -11,9 +11,6 @@ import:
   subpackages:
   - consumer
   - errors
-- package: github.com/cloudfoundry/sonde-go
-  subpackages:
-  - events
 - package: github.com/gogo/protobuf
   version: ~0.4.0
   subpackages:
@@ -26,6 +23,8 @@ import:
   version: ~1.4.0
 - package: github.com/hashicorp/go-retryablehttp
   version: ~0.5.4
+- package: code.cloudfoundry.org/go-loggregator
+  version: ~7.7.0
 testImport:
 - package: github.com/onsi/ginkgo
   version: ~1.7.0

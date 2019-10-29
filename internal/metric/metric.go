@@ -3,8 +3,6 @@ package metric
 import (
 	"errors"
 	"fmt"
-
-	"github.com/cloudfoundry/sonde-go/events"
 )
 
 type Point struct {
@@ -35,7 +33,6 @@ func (p *Point) UnmarshalJSON(in []byte) error {
 }
 
 type MetricKey struct {
-	EventType events.Envelope_EventType
 	Name      string
 	TagsHash  string
 }

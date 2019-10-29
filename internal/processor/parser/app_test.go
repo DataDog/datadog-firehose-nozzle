@@ -7,14 +7,13 @@ import (
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 )
@@ -108,25 +107,43 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
-			event := &events.Envelope{
-				Origin:    proto.String("test-origin"),
-				Timestamp: proto.Int64(1000000000),
-				EventType: events.Envelope_ContainerMetric.Enum(),
-
-				ContainerMetric: &events.ContainerMetric{
-					CpuPercentage:    proto.Float64(float64(1)),
-					DiskBytes:        proto.Uint64(uint64(1)),
-					DiskBytesQuota:   proto.Uint64(uint64(1)),
-					MemoryBytes:      proto.Uint64(uint64(1)),
-					MemoryBytesQuota: proto.Uint64(uint64(1)),
-					ApplicationId:    proto.String("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"),
+			event := &loggregator_v2.Envelope{
+				Timestamp: 1000000000,
+				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				InstanceId: "4",
+				Tags: map[string]string{
+					"origin": "test-origin",
+					"deployment": "deployment-name",
+					"job": "doppler",
+					"index": "1",
+					"ip": "10.0.1.2",
 				},
-
-				// fields that gets sent as tags
-				Deployment: proto.String("deployment-name"),
-				Job:        proto.String("doppler"),
-				Index:      proto.String("1"),
-				Ip:         proto.String("10.0.1.2"),
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"cpu": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+						},
+					},
+				},
 			}
 
 			metrics, err := a.Parse(event)
@@ -160,25 +177,43 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
-			event := &events.Envelope{
-				Origin:    proto.String("test-origin"),
-				Timestamp: proto.Int64(1000000000),
-				EventType: events.Envelope_ContainerMetric.Enum(),
-
-				ContainerMetric: &events.ContainerMetric{
-					CpuPercentage:    proto.Float64(float64(1)),
-					DiskBytes:        proto.Uint64(uint64(1)),
-					DiskBytesQuota:   proto.Uint64(uint64(1)),
-					MemoryBytes:      proto.Uint64(uint64(1)),
-					MemoryBytesQuota: proto.Uint64(uint64(1)),
-					ApplicationId:    proto.String("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"),
+			event := &loggregator_v2.Envelope{
+				Timestamp: 1000000000,
+				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				InstanceId: "4",
+				Tags: map[string]string{
+					"origin": "test-origin",
+					"deployment": "deployment-name",
+					"job": "doppler",
+					"index": "1",
+					"ip": "10.0.1.2",
 				},
-
-				// fields that gets sent as tags
-				Deployment: proto.String("deployment-name"),
-				Job:        proto.String("doppler"),
-				Index:      proto.String("1"),
-				Ip:         proto.String("10.0.1.2"),
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"cpu": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+						},
+					},
+				},
 			}
 
 			metrics, err := a.Parse(event)

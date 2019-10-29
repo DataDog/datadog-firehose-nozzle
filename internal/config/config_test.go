@@ -18,6 +18,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut.cf-app.com"))
 		Expect(conf.Client).To(Equal("user"))
 		Expect(conf.ClientSecret).To(Equal("user_password"))
+		Expect(conf.RLPGatewayURL).To(Equal("https://some-url.blah"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("<enter api key>"))
 		Expect(conf.HTTPProxyURL).To(Equal("http://user:password@host.com:port"))
@@ -62,6 +63,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_UAAURL", "https://uaa.walnut-env.cf-app.com")
 		os.Setenv("NOZZLE_CLIENT", "env-user")
 		os.Setenv("NOZZLE_CLIENT_SECRET", "env-user-password")
+		os.Setenv("NOZZLE_RLP_GATEWAY_URL", "https://even-more-different.com")
 		os.Setenv("NOZZLE_DATADOGURL", "https://app.datadoghq-env.com/api/v1/series")
 		os.Setenv("NOZZLE_DATADOGAPIKEY", "envapi-key>")
 		os.Setenv("HTTP_PROXY", "http://test:proxy")
@@ -88,6 +90,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
 		Expect(conf.Client).To(Equal("env-user"))
 		Expect(conf.ClientSecret).To(Equal("env-user-password"))
+		Expect(conf.RLPGatewayURL).To(Equal("https://even-more-different.com"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq-env.com/api/v1/series"))
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
 		Expect(conf.HTTPProxyURL).To(Equal("http://test:proxy"))
@@ -122,7 +125,7 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
 		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`
 		expected += `"MetricPrefix":"datadogclient","NoProxy":[""],"NumCacheWorkers":2,"NumWorkers":1,`
-		expected += `"OrgDataCollectionInterval":100,"TrafficControllerURL":"wss://doppler.walnut.cf-app.com:4443",`
+		expected += `"OrgDataCollectionInterval":100,"RLPGatewayURL":"https://some-url.blah",`
 		expected += `"UAAURL":"https://uaa.walnut.cf-app.com","WorkerTimeoutSeconds":30}`
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
