@@ -79,7 +79,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_NUM_WORKERS", "3")
 		os.Setenv("NOZZLE_NUM_CACHE_WORKERS", "5")
 		os.Setenv("NOZZLE_GRAB_INTERVAL", "50")
-		os.Setenv("NOZZLE_CLOUDCONTROLLERAPIBATCHSIZE", "100")
+		os.Setenv("NOZZLE_CLOUD_CONTROLLER_API_BATCH_SIZE", "100")
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))

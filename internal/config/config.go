@@ -74,7 +74,7 @@ func Parse(configPath string) (*Config, error) {
 
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
-	overrideWithEnvUint32("NOZZLE_CLOUDCONTROLLERAPIBATCHSIZE", &config.CloudControllerAPIBatchSize)
+	overrideWithEnvUint32("NOZZLE_CLOUD_CONTROLLER_API_BATCH_SIZE", &config.CloudControllerAPIBatchSize)
 	overrideWithEnvUint32("NOZZLE_DATADOGTIMEOUTSECONDS", &config.DataDogTimeoutSeconds)
 	overrideWithEnvVar("NOZZLE_METRICPREFIX", &config.MetricPrefix)
 	overrideWithEnvVar("NOZZLE_DEPLOYMENT", &config.Deployment)
