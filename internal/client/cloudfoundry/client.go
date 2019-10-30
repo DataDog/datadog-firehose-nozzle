@@ -17,10 +17,11 @@ import (
 )
 
 type CFClient struct {
-	ApiVersion int
-	NumWorkers int
-	client     *cfclient.Client
-	logger     *gosteno.Logger
+	ApiVersion   int
+	NumWorkers   int
+	client       *cfclient.Client
+	logger       *gosteno.Logger
+	apiBatchSize string
 }
 
 // CFApplication represents a Cloud Controller Application.
@@ -127,10 +128,11 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	}
 
 	cfc := CFClient{
-		ApiVersion: 0,
-		NumWorkers: config.NumWorkers,
-		client:     cfClient,
-		logger:     logger,
+		ApiVersion:   0,
+		NumWorkers:   config.NumWorkers,
+		client:       cfClient,
+		logger:       logger,
+		apiBatchSize: fmt.Sprint(config.CloudControllerAPIBatchSize),
 	}
 	return &cfc, nil
 }
@@ -298,7 +300,7 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("per_page", cfc.apiBatchSize)
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -337,7 +339,7 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	var cfprocesses []cfclient.Process
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("per_page", cfc.apiBatchSize)
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -370,7 +372,7 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("per_page", cfc.apiBatchSize)
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/spaces?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -403,7 +405,7 @@ func (cfc *CFClient) getV3Orgs() ([]cfclient.Org, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", "5000") // 5000 is the max
+		q.Set("per_page", cfc.apiBatchSize)
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)

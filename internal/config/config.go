@@ -10,42 +10,44 @@ import (
 )
 
 const (
-	defaultGrabInterval         int    = 10
-	defaultWorkers              int    = 4
-	defaultIdleTimeoutSeconds   uint32 = 60
-	defaultWorkerTimeoutSeconds uint32 = 10
+	defaultCloudControllerAPIBatchSize uint32 = 2500
+	defaultGrabInterval                int    = 10
+	defaultWorkers                     int    = 4
+	defaultIdleTimeoutSeconds          uint32 = 60
+	defaultWorkerTimeoutSeconds        uint32 = 10
 )
 
 // Config contains all the config parameters
 type Config struct {
-	UAAURL                     string
-	Client                     string
-	ClientSecret               string
-	TrafficControllerURL       string
-	FirehoseSubscriptionID     string
-	DataDogURL                 string
-	DataDogAPIKey              string
-	DataDogAdditionalEndpoints map[string][]string
-	HTTPProxyURL               string
-	HTTPSProxyURL              string
-	NoProxy                    []string
-	CloudControllerEndpoint    string
-	DataDogTimeoutSeconds      uint32
-	FlushDurationSeconds       uint32
-	FlushMaxBytes              uint32
-	InsecureSSLSkipVerify      bool
-	MetricPrefix               string
-	Deployment                 string
-	DeploymentFilter           string
-	DisableAccessControl       bool
-	IdleTimeoutSeconds         uint32
-	AppMetrics                 bool
-	NumWorkers                 int
-	NumCacheWorkers            int
-	GrabInterval               int
-	CustomTags                 []string
-	EnvironmentName            string
-	WorkerTimeoutSeconds       uint32
+	UAAURL                      string
+	Client                      string
+	ClientSecret                string
+	TrafficControllerURL        string
+	FirehoseSubscriptionID      string
+	DataDogURL                  string
+	DataDogAPIKey               string
+	DataDogAdditionalEndpoints  map[string][]string
+	HTTPProxyURL                string
+	HTTPSProxyURL               string
+	NoProxy                     []string
+	CloudControllerEndpoint     string
+	CloudControllerAPIBatchSize uint32
+	DataDogTimeoutSeconds       uint32
+	FlushDurationSeconds        uint32
+	FlushMaxBytes               uint32
+	InsecureSSLSkipVerify       bool
+	MetricPrefix                string
+	Deployment                  string
+	DeploymentFilter            string
+	DisableAccessControl        bool
+	IdleTimeoutSeconds          uint32
+	AppMetrics                  bool
+	NumWorkers                  int
+	NumCacheWorkers             int
+	GrabInterval                int
+	CustomTags                  []string
+	EnvironmentName             string
+	WorkerTimeoutSeconds        uint32
 }
 
 // Parse parses the config from the json configuration and environment variables
@@ -72,6 +74,7 @@ func Parse(configPath string) (*Config, error) {
 
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
+	overrideWithEnvUint32("NOZZLE_CLOUDCONTROLLERAPIBATCHSIZE", &config.CloudControllerAPIBatchSize)
 	overrideWithEnvUint32("NOZZLE_DATADOGTIMEOUTSECONDS", &config.DataDogTimeoutSeconds)
 	overrideWithEnvVar("NOZZLE_METRICPREFIX", &config.MetricPrefix)
 	overrideWithEnvVar("NOZZLE_DEPLOYMENT", &config.Deployment)
@@ -110,6 +113,12 @@ func Parse(configPath string) (*Config, error) {
 
 	if config.WorkerTimeoutSeconds == 0 {
 		config.WorkerTimeoutSeconds = defaultWorkerTimeoutSeconds
+	}
+
+	if config.CloudControllerAPIBatchSize == 0 {
+		config.CloudControllerAPIBatchSize = defaultCloudControllerAPIBatchSize
+	} else if config.CloudControllerAPIBatchSize < 100 || config.CloudControllerAPIBatchSize > 5000 {
+		return nil, fmt.Errorf("CloudControllerAPIBatchSize must be an integer >= 100 and <= 5000")
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)

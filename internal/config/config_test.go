@@ -41,6 +41,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.NumWorkers).To(Equal(1))
 		Expect(conf.NumCacheWorkers).To(Equal(2))
 		Expect(conf.GrabInterval).To(Equal(50))
+		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(1000))
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -52,6 +53,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.IdleTimeoutSeconds).To(BeEquivalentTo(60))
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
 		Expect(conf.GrabInterval).To(Equal(10))
+		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(2500))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -77,6 +79,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_NUM_WORKERS", "3")
 		os.Setenv("NOZZLE_NUM_CACHE_WORKERS", "5")
 		os.Setenv("NOZZLE_GRAB_INTERVAL", "50")
+		os.Setenv("NOZZLE_CLOUDCONTROLLERAPIBATCHSIZE", "100")
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
@@ -100,5 +103,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.NumWorkers).To(Equal(3))
 		Expect(conf.NumCacheWorkers).To(Equal(5))
 		Expect(conf.GrabInterval).To(Equal(50))
+		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(100))
 	})
 })

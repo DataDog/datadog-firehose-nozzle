@@ -19,6 +19,7 @@
   "DisableAccessControl": false,
   "IdleTimeoutSeconds" : 60,
   "CloudControllerEndpoint": "string",
+  "CloudControllerAPIBatchSize": 2500,
   "AppMetrics": true,
   "NumWorkers": 1,
   "CustomTags": []
