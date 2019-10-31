@@ -36,5 +36,6 @@
   "NoProxy": [ "*.aventail.com", "home.com", ".seanet.com" ],
   "EnvironmentName": "env_name",
   "DBPath": "/var/vcap/nozzle.db",
-  "GrabInterval": 50
+  "GrabInterval": 50,
+  "OrgDataQuerySeconds": 100
 }

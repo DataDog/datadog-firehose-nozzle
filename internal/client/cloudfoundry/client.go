@@ -515,6 +515,48 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 	return results, appResp.Pages, nil
 }
 
+func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
+	// NOTE: this is used by the OrgCollector
+	var allOrgs []cfclient.Org
+	query := url.Values{}
+	query.Set("results-per-page", "100")
+
+	for p := 1; ; p++{
+		query.Set("page", strconv.Itoa(p))
+		moreOrgs, err := cfc.client.ListOrgsByQuery(query)
+		if err != nil {
+			return nil, err
+		}
+		allOrgs = append(allOrgs, moreOrgs...)
+		if len(moreOrgs) < 100 {
+			break
+		}
+	}
+
+	return allOrgs, nil
+}
+
+func (cfc *CFClient) GetV2OrgQuotas() ([]cfclient.OrgQuota, error) {
+	// NOTE: this is used by the OrgCollector
+	var allQuotas []cfclient.OrgQuota
+	query := url.Values{}
+	query.Set("results-per-page", "100")
+
+	for p := 1; ; p++{
+		query.Set("page", strconv.Itoa(p))
+		moreQuotas, err := cfc.client.ListOrgQuotasByQuery(query)
+		if err != nil {
+			return nil, err
+		}
+		allQuotas = append(allQuotas, moreQuotas...)
+		if len(moreQuotas) < 100 {
+			break
+		}
+	}
+
+	return allQuotas, nil
+}
+
 func (a *CFApplication) setV2AppData(data cfclient.App) {
 	a.GUID = data.Guid
 	a.Name = data.Name

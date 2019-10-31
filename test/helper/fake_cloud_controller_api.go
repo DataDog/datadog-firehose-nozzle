@@ -15,6 +15,7 @@ import (
 type FakeCloudControllerAPI struct {
 	ReceivedContents chan []byte
 	ReceivedRequests chan *http.Request
+	UsedEndpoints    []string
 
 	server *httptest.Server
 	lock   sync.Mutex
@@ -42,6 +43,7 @@ func NewFakeCloudControllerAPI(tokenType string, accessToken string) *FakeCloudC
 	return &FakeCloudControllerAPI{
 		ReceivedContents: make(chan []byte, 100),
 		ReceivedRequests: make(chan *http.Request, 100),
+		UsedEndpoints:    []string{},
 		tokenType:        tokenType,
 		accessToken:      accessToken,
 		RequestTime:      0,
@@ -72,6 +74,7 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 
 	f.ReceivedContents <- contents
 	f.ReceivedRequests <- r
+	f.UsedEndpoints = append(f.UsedEndpoints, r.URL.Path)
 
 	time.Sleep(f.RequestTime * time.Millisecond)
 	f.writeResponse(rw, r)
@@ -2823,6 +2826,118 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					]
 				}`)))
 		}
+	case "/v2/quota_definitions":
+		rw.Write([]byte(fmt.Sprintf(`{
+			"total_results": 2,
+			"total_pages": 1,
+			"prev_url": null,
+			"next_url": null,
+			"resources": [
+			   {
+				  "metadata": {
+					 "guid": "1345a873-ead6-4ae2-9d7d-e270c1a05c82",
+					 "url": "/v2/quota_definitions/1345a873-ead6-4ae2-9d7d-e270c1a05c82",
+					 "created_at": "2019-05-17T13:06:27Z",
+					 "updated_at": "2019-05-17T13:06:27Z"
+				  },
+				  "entity": {
+					 "name": "default",
+					 "non_basic_services_allowed": true,
+					 "total_services": 100,
+					 "total_routes": 1000,
+					 "total_private_domains": -1,
+					 "memory_limit": 10240,
+					 "trial_db_allowed": false,
+					 "instance_memory_limit": -1,
+					 "app_instance_limit": -1,
+					 "app_task_limit": -1,
+					 "total_service_keys": -1,
+					 "total_reserved_route_ports": 0
+				  }
+			   },
+			   {
+				  "metadata": {
+					 "guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e",
+					 "url": "/v2/quota_definitions/1cf98856-aba8-49a8-8b21-d82a25898c4e",
+					 "created_at": "2019-05-17T13:06:27Z",
+					 "updated_at": "2019-05-17T13:06:27Z"
+				  },
+				  "entity": {
+					 "name": "runaway",
+					 "non_basic_services_allowed": true,
+					 "total_services": -1,
+					 "total_routes": 1000,
+					 "total_private_domains": -1,
+					 "memory_limit": 102400,
+					 "trial_db_allowed": false,
+					 "instance_memory_limit": -1,
+					 "app_instance_limit": -1,
+					 "app_task_limit": -1,
+					 "total_service_keys": -1,
+					 "total_reserved_route_ports": 0
+				  }
+			   }
+			]
+		}`)))
+	case "/v2/organizations":
+		rw.Write([]byte(fmt.Sprintf(`{
+			"total_results": 2,
+			"total_pages": 1,
+			"prev_url": null,
+			"next_url": null,
+			"resources": [
+				{
+					"metadata": {
+						"guid": "671557cf-edcd-49df-9863-ee14513d13c7",
+						"url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7",
+						"created_at": "2019-05-17T13:06:27Z",
+						"updated_at": "2019-10-04T11:10:22Z"
+					},
+					"entity": {
+						"name": "system",
+						"billing_enabled": false,
+						"quota_definition_guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e",
+						"status": "active",
+						"default_isolation_segment_guid": null,
+						"quota_definition_url": "/v2/quota_definitions/1cf98856-aba8-49a8-8b21-d82a25898c4e",
+						"spaces_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/spaces",
+						"domains_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/domains",
+						"private_domains_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/private_domains",
+						"users_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/users",
+						"managers_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/managers",
+						"billing_managers_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/billing_managers",
+						"auditors_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/auditors",
+						"app_events_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/app_events",
+						"space_quota_definitions_url": "/v2/organizations/671557cf-edcd-49df-9863-ee14513d13c7/space_quota_definitions"
+					}
+				},
+				{
+					"metadata": {
+						"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
+						"url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526",
+						"created_at": "2019-05-21T09:42:45Z",
+						"updated_at": "2019-05-21T09:42:45Z"
+					},
+					"entity": {
+						"name": "datadog-application-monitoring-org",
+						"billing_enabled": false,
+						"quota_definition_guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e",
+						"status": "active",
+						"default_isolation_segment_guid": null,
+						"quota_definition_url": "/v2/quota_definitions/1cf98856-aba8-49a8-8b21-d82a25898c4e",
+						"spaces_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/spaces",
+						"domains_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/domains",
+						"private_domains_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/private_domains",
+						"users_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/users",
+						"managers_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/managers",
+						"billing_managers_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/billing_managers",
+						"auditors_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/auditors",
+						"app_events_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/app_events",
+						"space_quota_definitions_url": "/v2/organizations/8c19a50e-7974-4c67-adea-9640fae21526/space_quota_definitions"
+					}
+				}
+			]
+			}`)))
 	case "/v3/organizations":
 		switch r.URL.Query().Get("page") {
 		case "", "1":
