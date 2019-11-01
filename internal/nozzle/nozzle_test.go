@@ -128,7 +128,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		It("runs orgCollector to obtain org metrics", func() {
 			// need to use function to always return the current UsedEndpoints, since it's appended to
 			// and thus the address of the slice changes
-			Eventually(func () []string {return fakeCCAPI.UsedEndpoints}, 10, 1).Should(ContainElement("/v2/quota_definitions"))
+			Eventually(fakeCCAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/v2/quota_definitions"))
 		})
 
 		It("adds internal metrics and generates aggregate messages when idle", func() {

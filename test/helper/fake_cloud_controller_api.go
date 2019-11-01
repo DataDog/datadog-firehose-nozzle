@@ -15,7 +15,7 @@ import (
 type FakeCloudControllerAPI struct {
 	ReceivedContents chan []byte
 	ReceivedRequests chan *http.Request
-	UsedEndpoints    []string
+	usedEndpoints    []string
 
 	server *httptest.Server
 	lock   sync.Mutex
@@ -43,7 +43,7 @@ func NewFakeCloudControllerAPI(tokenType string, accessToken string) *FakeCloudC
 	return &FakeCloudControllerAPI{
 		ReceivedContents: make(chan []byte, 100),
 		ReceivedRequests: make(chan *http.Request, 100),
-		UsedEndpoints:    []string{},
+		usedEndpoints:    []string{},
 		tokenType:        tokenType,
 		accessToken:      accessToken,
 		RequestTime:      0,
@@ -75,7 +75,7 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	f.ReceivedContents <- contents
 	f.ReceivedRequests <- r
 	f.lock.Lock()
-	f.UsedEndpoints = append(f.UsedEndpoints, r.URL.Path)
+	f.usedEndpoints = append(f.usedEndpoints, r.URL.Path)
 	f.lock.Unlock()
 
 	time.Sleep(f.RequestTime * time.Millisecond)
@@ -84,6 +84,12 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	f.lock.Lock()
 	f.requested = true
 	f.lock.Unlock()
+}
+
+func (f *FakeCloudControllerAPI) GetUsedEndpoints() []string {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.usedEndpoints
 }
 
 // AuthToken returns auth token
