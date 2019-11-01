@@ -74,7 +74,9 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 
 	f.ReceivedContents <- contents
 	f.ReceivedRequests <- r
+	f.lock.Lock()
 	f.UsedEndpoints = append(f.UsedEndpoints, r.URL.Path)
+	f.lock.Unlock()
 
 	time.Sleep(f.RequestTime * time.Millisecond)
 	f.writeResponse(rw, r)
