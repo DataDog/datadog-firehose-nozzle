@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultCloudControllerAPIBatchSize uint32 = 2500
+	defaultCloudControllerAPIBatchSize uint32 = 500
 	defaultGrabInterval                int    = 10
 	defaultWorkers                     int    = 4
 	defaultIdleTimeoutSeconds          uint32 = 60
