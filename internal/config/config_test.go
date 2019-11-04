@@ -105,4 +105,24 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.GrabInterval).To(Equal(50))
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(100))
 	})
+
+	It("correctly serializes to log string", func() {
+		// For logs, we want this to be serialized as one long line without newlines
+		expected := `{"AppMetrics":true,"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
+		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
+		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
+		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
+		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
+		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnvironmentName":"env_name",`
+		expected += `"FirehoseSubscriptionID":"datadog-nozzle","FlushDurationSeconds":15,"FlushMaxBytes":57671680,`
+		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
+		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`
+		expected += `"MetricPrefix":"datadogclient","NoProxy":[""],"NumCacheWorkers":2,"NumWorkers":1,`
+		expected += `"TrafficControllerURL":"wss://doppler.walnut.cf-app.com:4443","UAAURL":"https://uaa.walnut.cf-app.com","WorkerTimeoutSeconds":30}`
+		conf, err := Parse("testdata/test_config.json")
+		Expect(err).ToNot(HaveOccurred())
+		result, err := conf.AsLogString()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(expected))
+	})
 })

@@ -54,6 +54,7 @@ type Config struct {
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
 func (c *Config) AsLogString() (string, error) {
+	// convert the config object to map by marshalling and unmarshalling it back
 	serialized, err := json.Marshal(c)
 	if err != nil {
 		return "", err
@@ -63,11 +64,21 @@ func (c *Config) AsLogString() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	for _, attr := range []string{"ClientSecret", "DataDogAPIKey"} {
 		if _, ok := asMap[attr]; ok {
 			asMap[attr] = "*****"
 		}
 	}
+	if addKeys, ok := asMap["DataDogAdditionalEndpoints"]; ok && addKeys != nil {
+		for _, v := range addKeys.(map[string]interface{}) {
+			keyList := v.([]interface{})
+			for i := range keyList {
+				keyList[i] = "*****"
+			}
+		}
+	}
+
 	finalSerialized, err := json.Marshal(asMap)
 	if err != nil {
 		return "", err
