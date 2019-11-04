@@ -518,7 +518,7 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 	// NOTE: this is used by the OrgCollector
 	query := url.Values{}
-	query.Set("results-per-page", "1")
+	query.Set("results-per-page", "100")
 
 	allOrgs, err := cfc.client.ListOrgsByQuery(query)
 	if err != nil {
