@@ -95,7 +95,7 @@ func (o *OrgCollector) pushMetrics() {
 	wg.Wait()
 	close(errors)
 
-	// Go through the channel, print all errors and return one of them if there are any
+	// Go through the channel and print all errors
 	for err := range errors {
 		o.log.Error(err.Error())
 	}
