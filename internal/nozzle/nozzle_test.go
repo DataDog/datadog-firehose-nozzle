@@ -117,7 +117,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(23)) // +3 is because of the internal metrics
+			Expect(payload.Series).To(HaveLen(25)) // +3 is because of the internal metrics, +2 because of org metrics
 		}, 2)
 
 		It("gets a valid authentication token", func() {
@@ -154,9 +154,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(23))
+			Expect(payload.Series).To(HaveLen(25))
 
-			validateMetrics(payload, 10, 0)
+			validateMetrics(payload, 11, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
@@ -164,7 +164,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
 
-			validateMetrics(payload, 10, 23)
+			validateMetrics(payload, 11, 25)
 		}, 3)
 
 		It("reports a slow-consumer error when the server disconnects abnormally", func() {

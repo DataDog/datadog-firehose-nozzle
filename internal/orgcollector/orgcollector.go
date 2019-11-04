@@ -54,6 +54,9 @@ func (o *OrgCollector) Stop() {
 
 func (o *OrgCollector) run() {
 	ticker := time.NewTicker(time.Duration(o.queryInterval) * time.Second)
+	// If the nozzle is restarted in the middle of o.queryInterval, there'd
+	// be a quite large gap in the data submitted
+	go o.pushMetrics()
 	for {
 		select {
 		case <-ticker.C:
