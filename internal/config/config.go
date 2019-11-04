@@ -15,7 +15,7 @@ const (
 	defaultWorkers                     int    = 4
 	defaultIdleTimeoutSeconds          uint32 = 60
 	defaultWorkerTimeoutSeconds        uint32 = 10
-	defaultOrgDataQuerySeconds         uint32 = 120
+	defaultOrgDataQuerySeconds         uint32 = 600
 )
 
 // Config contains all the config parameters

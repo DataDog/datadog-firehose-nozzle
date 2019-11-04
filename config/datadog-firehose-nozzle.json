@@ -22,5 +22,6 @@
   "CloudControllerAPIBatchSize": 500,
   "AppMetrics": true,
   "NumWorkers": 1,
-  "CustomTags": []
+  "CustomTags": [],
+  "OrgDataQuerySeconds": 600
 }

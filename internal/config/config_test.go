@@ -55,7 +55,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.WorkerTimeoutSeconds).To(BeEquivalentTo(10))
 		Expect(conf.GrabInterval).To(Equal(10))
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(500))
-		Expect(conf.OrgDataQuerySeconds).To(BeEquivalentTo(120))
+		Expect(conf.OrgDataQuerySeconds).To(BeEquivalentTo(600))
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
