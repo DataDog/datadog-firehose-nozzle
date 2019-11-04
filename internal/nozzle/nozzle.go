@@ -11,6 +11,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/orgcollector"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/noaa/consumer"
@@ -30,6 +31,7 @@ type Nozzle struct {
 	processor             *processor.Processor
 	cfClient              *cloudfoundry.CFClient
 	processedMetrics      chan []metric.MetricPackage
+	orgCollector          *orgcollector.OrgCollector
 	log                   *gosteno.Logger
 	parseAppMetricsEnable bool
 	stopper               chan bool
@@ -98,6 +100,21 @@ func (n *Nozzle) Start() error {
 		n.config.GrabInterval,
 		n.log)
 
+    n.orgCollector, err = orgcollector.NewOrgCollector(
+		n.config,
+		n.processedMetrics,
+		n.log,
+		n.config.CustomTags,
+	)
+	if err != nil {
+		n.log.Warnf("Failed to initialize Org metrics collector, org metrics will not be available: %s", err.Error())
+	}
+
+	// Start the org collector
+	if n.orgCollector != nil {
+		n.orgCollector.Start()
+	}
+
 	// Initialize the firehose consumer (with retry enable)
 	err = n.startFirehoseConsumer(authToken)
 	if err != nil {
@@ -119,6 +136,10 @@ func (n *Nozzle) Start() error {
 	n.consumer.Close()
 	// Stop processor
 	n.stopWorkers()
+	// Stop orgCollector
+	if n.orgCollector != nil {
+		n.orgCollector.Stop()
+	}
 	// Submit metrics left in cache if any
 	n.postMetrics()
 
@@ -192,6 +213,9 @@ func (n *Nozzle) Stop() {
 	// We only push value to the `stopper` channel of the Nozzle.
 	// Hence, if the nozzle is running (`run` method)
 	n.stopper <- true
+	if n.orgCollector != nil {
+		n.orgCollector.Stop()
+	}
 }
 
 // PostMetrics posts metrics do to datadog

@@ -515,6 +515,30 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 	return results, appResp.Pages, nil
 }
 
+func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
+	query := url.Values{}
+	query.Set("results-per-page", "100")
+
+	allOrgs, err := cfc.client.ListOrgsByQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return allOrgs, nil
+}
+
+func (cfc *CFClient) GetV2OrgQuotas() ([]cfclient.OrgQuota, error) {
+	query := url.Values{}
+	query.Set("results-per-page", "100")
+
+	allQuotas, err := cfc.client.ListOrgQuotasByQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return allQuotas, nil
+}
+
 func (a *CFApplication) setV2AppData(data cfclient.App) {
 	a.GUID = data.Guid
 	a.Name = data.Name

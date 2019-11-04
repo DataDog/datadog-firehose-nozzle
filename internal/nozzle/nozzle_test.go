@@ -27,6 +27,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeUAA        *helper.FakeUAA
 		fakeFirehose   *helper.FakeFirehose
 		fakeDatadogAPI *helper.FakeDatadogAPI
+		fakeCCAPI      *helper.FakeCloudControllerAPI
 		configuration  *config.Config
 		nozzle         *Nozzle
 		log            *gosteno.Logger
@@ -53,23 +54,30 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeToken := fakeUAA.AuthToken()
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
+			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
+			fakeCCAPI.Start()
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 
 			configuration = &config.Config{
-				UAAURL:               fakeUAA.URL(),
-				FlushDurationSeconds: 2,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: false,
-				WorkerTimeoutSeconds: 10,
-				MetricPrefix:         "datadog.nozzle.",
-				Deployment:           "nozzle-deployment",
-				AppMetrics:           false,
-				NumWorkers:           1,
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				Client:                    "bearer",
+				ClientSecret:              "123456789",
+				InsecureSSLSkipVerify:     true,
+				DataDogAPIKey:             "1234567890",
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      10,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 5,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -83,6 +91,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
+			fakeCCAPI.Close()
 		})
 
 		It("receives data from the firehose", func() {
@@ -108,12 +117,18 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(23)) // +3 is because of the internal metrics
+			Expect(payload.Series).To(HaveLen(25)) // +3 is because of the internal metrics, +2 because of org metrics
 		}, 2)
 
 		It("gets a valid authentication token", func() {
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
+		})
+
+		It("runs orgCollector to obtain org metrics", func() {
+			// need to use function to always return the current UsedEndpoints, since it's appended to
+			// and thus the address of the slice changes
+			Eventually(fakeCCAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/v2/quota_definitions"))
 		})
 
 		It("adds internal metrics and generates aggregate messages when idle", func() {
@@ -139,9 +154,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(23))
+			Expect(payload.Series).To(HaveLen(25))
 
-			validateMetrics(payload, 10, 0)
+			validateMetrics(payload, 11, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
@@ -149,7 +164,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
 
-			validateMetrics(payload, 10, 23)
+			validateMetrics(payload, 11, 25)
 		}, 3)
 
 		It("reports a slow-consumer error when the server disconnects abnormally", func() {
@@ -328,21 +343,25 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeToken := fakeUAA.AuthToken()
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
+			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
 			tokenFetcher = &helper.FakeTokenFetcher{}
 
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
+			fakeCCAPI.Start()
 
 			configuration = &config.Config{
-				FlushDurationSeconds: 1,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: true,
-				NumWorkers:           1,
-				AppMetrics:           false,
+				FlushDurationSeconds:      1,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      true,
+				NumWorkers:                1,
+				AppMetrics:                false,
+				OrgDataCollectionInterval: 120,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -356,6 +375,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
+			fakeCCAPI.Close()
 		})
 
 		It("can still tries to connect to the firehose", func() {
@@ -378,23 +398,27 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeToken := fakeUAA.AuthToken()
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
+			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
+			fakeCCAPI.Start()
 
 			configuration = &config.Config{
-				UAAURL:               fakeUAA.URL(),
-				FlushDurationSeconds: 2,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: false,
-				WorkerTimeoutSeconds: 1,
-				MetricPrefix:         "datadog.nozzle.",
-				Deployment:           "nozzle-deployment",
-				AppMetrics:           false,
-				NumWorkers:           1,
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      1,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 120,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -406,6 +430,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
+			fakeCCAPI.Close()
 		})
 
 		It("logs a warning", func() {
@@ -417,6 +442,57 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("Could not stop 1 workers after 1s"))
 		}, 4)
+	})
+
+	Context("without config.CloudControllerEndpoint specified", func() {
+		BeforeEach(func() {
+			fakeUAA = helper.NewFakeUAA("bearer", "123456789")
+			fakeToken := fakeUAA.AuthToken()
+			fakeFirehose = helper.NewFakeFirehose(fakeToken)
+			fakeDatadogAPI = helper.NewFakeDatadogAPI()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+
+			configuration = &config.Config{
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   "",
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      1,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 120,
+			}
+
+			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
+		})
+
+		AfterEach(func() {
+			fakeUAA.Close()
+			fakeFirehose.Close()
+			fakeDatadogAPI.Close()
+		})
+
+		It("doesn't fail to start", func() {
+			// there are various pieces of nozzle that use config.CloudControllerEndpoint
+			// (OrgCollector, AppCache), but we consider them optional, so let's make sure
+			// that Nozzle starts when config.CloudControllerEndpoint is nil
+			var err error
+			go func() {
+				err = nozzle.Start()
+			}()
+			time.Sleep(time.Second)
+			nozzle.Stop()
+			Expect(err).To(BeNil())
+		})
 	})
 })
 
