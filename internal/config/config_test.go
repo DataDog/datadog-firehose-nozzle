@@ -122,7 +122,8 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
 		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`
 		expected += `"MetricPrefix":"datadogclient","NoProxy":[""],"NumCacheWorkers":2,"NumWorkers":1,`
-		expected += `"TrafficControllerURL":"wss://doppler.walnut.cf-app.com:4443","UAAURL":"https://uaa.walnut.cf-app.com","WorkerTimeoutSeconds":30}`
+		expected += `"OrgDataQuerySeconds":100,"TrafficControllerURL":"wss://doppler.walnut.cf-app.com:4443",`
+		expected += `"UAAURL":"https://uaa.walnut.cf-app.com","WorkerTimeoutSeconds":30}`
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		result, err := conf.AsLogString()
