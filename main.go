@@ -34,6 +34,12 @@ func main() {
 	if config.FlushMaxBytes < flushMinBytes {
 		log.Fatalf("Config FlushMaxBytes is too low (%d): must be at least %d", config.FlushMaxBytes, flushMinBytes)
 	}
+	logString, err := config.AsLogString()
+	if err != nil {
+		log.Warnf("Failed to serialize config for logging: %s", err.Error())
+	} else {
+		log.Infof("Running nozzle with following config: %s", logString)
+	}
 	// Initialize UAATokenFetcher
 	tokenFetcher := uaatokenfetcher.New(
 		config.UAAURL,

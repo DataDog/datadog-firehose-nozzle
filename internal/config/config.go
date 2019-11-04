@@ -19,6 +19,8 @@ const (
 
 // Config contains all the config parameters
 type Config struct {
+	// NOTE: When adding new attributes that can be considered secrets,
+	// make sure to mark them for omission when logging config in AsLogString
 	UAAURL                      string
 	Client                      string
 	ClientSecret                string
@@ -48,6 +50,40 @@ type Config struct {
 	CustomTags                  []string
 	EnvironmentName             string
 	WorkerTimeoutSeconds        uint32
+}
+
+// AsLogString returns a string representation of the config that is safe to log (no secrets)
+func (c *Config) AsLogString() (string, error) {
+	// convert the config object to map by marshalling and unmarshalling it back
+	serialized, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	asMap := map[string]interface{}{}
+	err = json.Unmarshal(serialized, &asMap)
+	if err != nil {
+		return "", err
+	}
+
+	for _, attr := range []string{"ClientSecret", "DataDogAPIKey"} {
+		if _, ok := asMap[attr]; ok {
+			asMap[attr] = "*****"
+		}
+	}
+	if addKeys, ok := asMap["DataDogAdditionalEndpoints"]; ok && addKeys != nil {
+		for _, v := range addKeys.(map[string]interface{}) {
+			keyList := v.([]interface{})
+			for i := range keyList {
+				keyList[i] = "*****"
+			}
+		}
+	}
+
+	finalSerialized, err := json.Marshal(asMap)
+	if err != nil {
+		return "", err
+	}
+	return string(finalSerialized), nil
 }
 
 // Parse parses the config from the json configuration and environment variables
