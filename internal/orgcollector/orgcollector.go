@@ -53,13 +53,16 @@ func (o *OrgCollector) Stop() {
 }
 
 func (o *OrgCollector) run() {
-	ticker := time.NewTicker(time.Duration(o.queryInterval) * time.Second)
+	// Query the data with random jitter so that we don't overload the cloud controller
+	ticker, jitterWait := util.GetTickerWithJitter(o.queryInterval, 0.1)
+	defer ticker.Stop()
 	// If the nozzle is restarted in the middle of o.queryInterval, there'd
 	// be a quite large gap in the data submitted
 	go o.pushMetrics()
 	for {
 		select {
 		case <-ticker.C:
+			jitterWait()
 			go o.pushMetrics()
 		case <-o.stopper:
 			return
