@@ -122,7 +122,6 @@ func (o *OrgCollector) pushMetrics() {
 		}
 		value := metric.MetricValue{
 			Tags: tags,
-			// TODO: what host do we want to provide?
 			Points: []metric.Point{
 				metric.Point{
 					Timestamp: time.Now().Unix(),
