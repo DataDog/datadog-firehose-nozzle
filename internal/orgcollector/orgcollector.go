@@ -17,12 +17,12 @@ import (
 )
 
 type OrgCollector struct {
-	cfClient              *cloudfoundry.CFClient
-	log                   *gosteno.Logger
-	processedMetrics      chan<- []metric.MetricPackage
-	customTags            []string
-	queryInterval		  uint32
-	stopper               chan bool
+	cfClient         *cloudfoundry.CFClient
+	log              *gosteno.Logger
+	processedMetrics chan<- []metric.MetricPackage
+	customTags       []string
+	queryInterval    uint32
+	stopper          chan bool
 }
 
 func NewOrgCollector(
@@ -65,6 +65,7 @@ func (o *OrgCollector) run() {
 }
 
 func (o *OrgCollector) pushMetrics() {
+	o.log.Info("Collecting org quotas ...")
 	var wg sync.WaitGroup
 	errors := make(chan error, 10)
 	// Fetch orgs
@@ -130,10 +131,11 @@ func (o *OrgCollector) pushMetrics() {
 			},
 		}
 		metricsPackages = append(metricsPackages, metric.MetricPackage{
-			MetricKey: &key,
+			MetricKey:   &key,
 			MetricValue: &value,
 		})
 	}
+	o.log.Debugf("Collected org quotas for %d orgs", len(metricsPackages))
 	o.processedMetrics <- metricsPackages
 }
 
