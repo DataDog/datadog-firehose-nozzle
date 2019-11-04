@@ -37,5 +37,5 @@
   "EnvironmentName": "env_name",
   "DBPath": "/var/vcap/nozzle.db",
   "GrabInterval": 50,
-  "OrgDataQuerySeconds": 100
+  "OrgDataCollectionInterval": 100
 }

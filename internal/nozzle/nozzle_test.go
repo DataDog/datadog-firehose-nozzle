@@ -61,23 +61,23 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeDatadogAPI.Start()
 
 			configuration = &config.Config{
-				UAAURL:               fakeUAA.URL(),
-				FlushDurationSeconds: 2,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				CloudControllerEndpoint: fakeCCAPI.URL(),
-				Client:        			"bearer",
-				ClientSecret:      	   "123456789",
-				InsecureSSLSkipVerify: true,
-				DataDogAPIKey:        "1234567890",
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: false,
-				WorkerTimeoutSeconds: 10,
-				MetricPrefix:         "datadog.nozzle.",
-				Deployment:           "nozzle-deployment",
-				AppMetrics:           false,
-				NumWorkers:           1,
-				OrgDataQuerySeconds:  5,
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				Client:                    "bearer",
+				ClientSecret:              "123456789",
+				InsecureSSLSkipVerify:     true,
+				DataDogAPIKey:             "1234567890",
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      10,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 5,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -352,16 +352,16 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeCCAPI.Start()
 
 			configuration = &config.Config{
-				FlushDurationSeconds: 1,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				CloudControllerEndpoint: fakeCCAPI.URL(),
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: true,
-				NumWorkers:           1,
-				AppMetrics:           false,
-				OrgDataQuerySeconds:  120,
+				FlushDurationSeconds:      1,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      true,
+				NumWorkers:                1,
+				AppMetrics:                false,
+				OrgDataCollectionInterval: 120,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -405,20 +405,20 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeCCAPI.Start()
 
 			configuration = &config.Config{
-				UAAURL:               fakeUAA.URL(),
-				FlushDurationSeconds: 2,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				CloudControllerEndpoint: fakeCCAPI.URL(),
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: false,
-				WorkerTimeoutSeconds: 1,
-				MetricPrefix:         "datadog.nozzle.",
-				Deployment:           "nozzle-deployment",
-				AppMetrics:           false,
-				NumWorkers:           1,
-				OrgDataQuerySeconds:  120,
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      1,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 120,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
@@ -455,20 +455,20 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeDatadogAPI.Start()
 
 			configuration = &config.Config{
-				UAAURL:               fakeUAA.URL(),
-				FlushDurationSeconds: 2,
-				FlushMaxBytes:        10240,
-				DataDogURL:           fakeDatadogAPI.URL(),
-				DataDogAPIKey:        "1234567890",
-				CloudControllerEndpoint: "",
-				TrafficControllerURL: strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
-				DisableAccessControl: false,
-				WorkerTimeoutSeconds: 1,
-				MetricPrefix:         "datadog.nozzle.",
-				Deployment:           "nozzle-deployment",
-				AppMetrics:           false,
-				NumWorkers:           1,
-				OrgDataQuerySeconds:  120,
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				DataDogAPIKey:             "1234567890",
+				CloudControllerEndpoint:   "",
+				TrafficControllerURL:      strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1),
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      1,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 120,
 			}
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)

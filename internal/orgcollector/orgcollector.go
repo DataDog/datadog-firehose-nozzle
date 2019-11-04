@@ -39,7 +39,7 @@ func NewOrgCollector(
 		log:              log,
 		processedMetrics: processedMetrics,
 		customTags:       customTags,
-		queryInterval:    config.OrgDataQuerySeconds,
+		queryInterval:    config.OrgDataCollectionInterval,
 		stopper:          make(chan bool),
 	}, nil
 }

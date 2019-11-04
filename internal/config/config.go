@@ -15,7 +15,7 @@ const (
 	defaultWorkers                     int    = 4
 	defaultIdleTimeoutSeconds          uint32 = 60
 	defaultWorkerTimeoutSeconds        uint32 = 10
-	defaultOrgDataQuerySeconds         uint32 = 600
+	defaultOrgDataCollectionInterval   uint32 = 600
 )
 
 // Config contains all the config parameters
@@ -51,7 +51,7 @@ type Config struct {
 	CustomTags                  []string
 	EnvironmentName             string
 	WorkerTimeoutSeconds        uint32
-	OrgDataQuerySeconds         uint32
+	OrgDataCollectionInterval   uint32
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
@@ -121,7 +121,7 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvUint32("NOZZLE_FLUSHDURATIONSECONDS", &config.FlushDurationSeconds)
 	overrideWithEnvUint32("NOZZLE_FLUSHMAXBYTES", &config.FlushMaxBytes)
 	overrideWithEnvInt("NOZZLE_GRAB_INTERVAL", &config.GrabInterval)
-	overrideWithEnvUint32("NOZZLE_ORG_DATA_QUERY_SECONDS", &config.OrgDataQuerySeconds)
+	overrideWithEnvUint32("NOZZLE_ORG_DATA_COLLECTION_INTERVAL", &config.OrgDataCollectionInterval)
 
 	overrideWithEnvBool("NOZZLE_INSECURESSLSKIPVERIFY", &config.InsecureSSLSkipVerify)
 	overrideWithEnvBool("NOZZLE_DISABLEACCESSCONTROL", &config.DisableAccessControl)
@@ -160,8 +160,8 @@ func Parse(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("CloudControllerAPIBatchSize must be an integer >= 100 and <= 5000")
 	}
 
-	if config.OrgDataQuerySeconds == 0 {
-		config.OrgDataQuerySeconds = defaultOrgDataQuerySeconds
+	if config.OrgDataCollectionInterval == 0 {
+		config.OrgDataCollectionInterval = defaultOrgDataCollectionInterval
 	}
 
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)

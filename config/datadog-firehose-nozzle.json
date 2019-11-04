@@ -23,5 +23,5 @@
   "AppMetrics": true,
   "NumWorkers": 1,
   "CustomTags": [],
-  "OrgDataQuerySeconds": 600
+  "OrgDataCollectionInterval": 600
 }
