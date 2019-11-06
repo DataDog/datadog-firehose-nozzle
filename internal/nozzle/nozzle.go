@@ -213,9 +213,6 @@ func (n *Nozzle) Stop() {
 	// We only push value to the `stopper` channel of the Nozzle.
 	// Hence, if the nozzle is running (`run` method)
 	n.stopper <- true
-	if n.orgCollector != nil {
-		n.orgCollector.Stop()
-	}
 }
 
 // PostMetrics posts metrics do to datadog
