@@ -34,11 +34,12 @@ func GetTickerWithJitter(wholeIntervalSeconds uint32, jitterPct float64) (*time.
 }
 
 func IsContainerMetric(envelope *loggregator_v2.Envelope) bool {
+	// We can tell whether or not a Gauge envelope is container metric by checking
+	// a predefined set of metrics: https://github.com/cloudfoundry/loggregator-api#containermetric
 	result := false
 	switch envelope.GetMessage().(type) {
 	case *loggregator_v2.Envelope_Gauge:
 		result = true
-		// TOOD: verify that this is the right set of keys
 		for _, key := range []string{"cpu", "memory", "disk", "memory_quota", "disk_quota"} {
 			if _, ok := envelope.GetGauge().GetMetrics()[key]; !ok {
 				result = false

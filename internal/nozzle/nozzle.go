@@ -229,8 +229,8 @@ func (n *Nozzle) startFirehoseConsumer(authToken string) error {
 	})
 
 	go func(messages chan *loggregator_v2.Envelope, es loggregator.EnvelopeStream) {
-		// TODO: it seems that no errors are returned; they're only logged and the underlying
-		// logic retries forever, so we don't need the errors channel any more with loggregator v2 (?)
+		// NOTE: errors in the underlying es() function calls are not returned; they're only logged and
+		// the logic retries forever.
 		for {
 			for _, e := range es() {
 				messages <- e
