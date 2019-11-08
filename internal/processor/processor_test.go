@@ -23,6 +23,7 @@ var _ = Describe("MetricProcessor", func() {
 	It("processes value & counter metrics", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
+			InstanceId: "123",
 			Tags: map[string]string{
 				"origin": "origin",
 				"deployment": "deployment-name",
@@ -41,6 +42,7 @@ var _ = Describe("MetricProcessor", func() {
 		})
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 2000000000,
+			InstanceId: "123",
 			Tags: map[string]string{
 				"origin": "origin",
 				"deployment": "deployment-name",
@@ -65,6 +67,7 @@ var _ = Describe("MetricProcessor", func() {
 
 		Expect(metricPkgs).To(HaveLen(4))
 		for _, m := range metricPkgs {
+			Expect(m.MetricValue.Tags).To(ContainElement("instance_id:123"))
 			if m.MetricKey.Name == "valueName" || m.MetricKey.Name == "origin.valueName" {
 				Expect(m.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 1, Value: 5.0}}))
 			} else if m.MetricKey.Name == "counterName" || m.MetricKey.Name == "origin.counterName" {

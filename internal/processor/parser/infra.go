@@ -119,6 +119,7 @@ func parseTags(
 	if origin, ok := envelope.GetTags()["origin"]; ok {
 		tags = appendTagIfNotEmpty(tags, "name", origin)
 	}
+	tags = appendTagIfNotEmpty(tags, "instance_id", envelope.GetInstanceId())
 
 	// Add an environment tag and another deployment tag with the uuid part replaced with environment name
 	tags = appendTagIfNotEmpty(tags, "env", environment)
