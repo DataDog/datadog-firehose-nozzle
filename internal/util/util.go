@@ -41,7 +41,7 @@ func IsContainerMetric(envelope *loggregator_v2.Envelope) bool {
 	case *loggregator_v2.Envelope_Gauge:
 		result = true
 		for _, key := range []string{"cpu", "memory", "disk", "memory_quota", "disk_quota"} {
-			if _, ok := envelope.GetGauge().GetMetrics()[key]; !ok {
+			if v, ok := envelope.GetGauge().GetMetrics()[key]; !ok || v == nil || (v.Unit == "" && v.Value == 0) {
 				result = false
 			}
 		}
