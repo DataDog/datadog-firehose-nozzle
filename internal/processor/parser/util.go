@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
@@ -21,4 +22,14 @@ func appendTagIfNotEmpty(tags []string, key, value string) []string {
 		tags = append(tags, fmt.Sprintf("%s:%s", key, value))
 	}
 	return tags
+}
+
+func getContainerInstanceID(gauge *loggregator_v2.Gauge, instanceID string) string {
+	if gauge == nil {
+		return ""
+	}
+	if id, ok := gauge.GetMetrics()["instance_index"]; ok && id != nil {
+		return strconv.Itoa(int(id.GetValue()))
+	}
+	return instanceID
 }

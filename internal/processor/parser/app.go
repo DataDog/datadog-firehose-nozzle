@@ -268,7 +268,7 @@ func (a *App) getMetrics(customTags []string) ([]metric.MetricPackage, error) {
 	return a.mkMetrics(names, ms, customTags)
 }
 
-func (a *App) parseContainerMetric(message *loggregator_v2.Gauge, instanceId string, customTags []string) ([]metric.MetricPackage, error) {
+func (a *App) parseContainerMetric(message *loggregator_v2.Gauge, instanceID string, customTags []string) ([]metric.MetricPackage, error) {
 	var names = []string{
 		"app.cpu.pct",
 		"app.disk.used",
@@ -285,7 +285,7 @@ func (a *App) parseContainerMetric(message *loggregator_v2.Gauge, instanceId str
 		float64(message.GetMetrics()["memory"].Value),
 		float64(message.GetMetrics()["memory_quota"].Value),
 	}
-	tags := []string{fmt.Sprintf("instance:%v", instanceId)}
+	tags := []string{fmt.Sprintf("instance:%v", getContainerInstanceID(message, instanceID))}
 	tags = append(tags, customTags...)
 	return a.mkMetrics(names, ms, tags)
 }

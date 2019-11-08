@@ -170,6 +170,79 @@ var _ = Describe("AppMetrics", func() {
 		})
 	})
 
+	Context("expected tags", func() {
+		It("adds proper instance tag", func() {
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
+			Expect(err).To(BeNil())
+			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
+
+			event := &loggregator_v2.Envelope{
+				Timestamp: 1000000000,
+				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				InstanceId: "4",
+				Tags: map[string]string{
+					"origin": "test-origin",
+					"deployment": "deployment-name",
+					"job": "doppler",
+					"index": "1",
+					"ip": "10.0.1.2",
+				},
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"cpu": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"memory_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+							"disk_quota": &loggregator_v2.GaugeValue{
+								Unit: "gauge",
+								Value: float64(1),
+							},
+						},
+					},
+				},
+			}
+
+			metricsWithInstanceTag := map[string]bool{
+				"app.cpu.pct": true,
+				"app.disk.used": true,
+				"app.disk.quota": true,
+				"app.memory.used": true,
+				"app.memory.quota": true,
+			}
+
+			metrics, err := a.Parse(event)
+			Expect(metrics).To(HaveLen(10))
+			for _, metric := range metrics {
+				if metricsWithInstanceTag[metric.MetricKey.Name] {
+					Expect(metric.MetricValue.Tags).To(ContainElement("instance:4"))
+				}
+			}
+
+			// instance_index should be preferred over InstanceId
+			event.GetGauge().GetMetrics()["instance_index"] = &loggregator_v2.GaugeValue{Value: float64(3)}
+			metrics, err = a.Parse(event)
+			Expect(metrics).To(HaveLen(10))
+			for _, metric := range metrics {
+				if metricsWithInstanceTag[metric.MetricKey.Name] {
+					Expect(metric.MetricValue.Tags).To(ContainElement("instance:3"))
+				}
+			}
+		})
+	})
+
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
 			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"},
