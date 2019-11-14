@@ -1,12 +1,6 @@
 package nozzle
 
 import (
-	"context"
-	"crypto/tls"
-	"fmt"
-	"log"
-	"net/http"
-	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,7 +8,6 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/orgcollector"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
@@ -28,13 +21,11 @@ import (
 type Nozzle struct {
 	config                *config.Config
 	messages              chan *loggregator_v2.Envelope
-	messageSelectors      []*loggregator_v2.Selector
-	rlpGatewayClient      *loggregator.RLPGatewayClient
-	logStreamURL          string
 	authTokenFetcher      AuthTokenFetcher
 	ddClients             []*datadog.Client
 	processor             *processor.Processor
 	cfClient              *cloudfoundry.CFClient
+	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
 	orgCollector          *orgcollector.OrgCollector
 	log                   *gosteno.Logger
@@ -46,37 +37,11 @@ type Nozzle struct {
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
-	stopConsumer          func()
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
 type AuthTokenFetcher interface {
 	FetchAuthToken() string
-}
-
-type rlpGatewayClientDoer struct {
-	token  string
-	client *http.Client
-}
-
-func (d *rlpGatewayClientDoer) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", d.token)
-	return d.client.Do(req)
-}
-
-func newRLPGatewayClientDoer(token string, insecureSkipVerify bool) *rlpGatewayClientDoer {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecureSkipVerify,
-			},
-		},
-	}
-
-	return &rlpGatewayClientDoer{
-		token:  token,
-		client: client,
-	}
 }
 
 // NewNozzle creates a new nozzle
@@ -132,24 +97,6 @@ func (n *Nozzle) Start() error {
 		n.config.GrabInterval,
 		n.log)
 
-	n.messageSelectors = []*loggregator_v2.Selector{
-		{
-			Message: &loggregator_v2.Selector_Counter{
-				Counter: &loggregator_v2.CounterSelector{},
-			},
-		},
-		{
-			Message: &loggregator_v2.Selector_Gauge{
-				Gauge: &loggregator_v2.GaugeSelector{},
-			},
-		},
-	}
-
-	err = n.setLogStreamURL(n.config)
-	if err != nil {
-		return err
-	}
-
     n.orgCollector, err = orgcollector.NewOrgCollector(
 		n.config,
 		n.processedMetrics,
@@ -183,7 +130,7 @@ func (n *Nozzle) Start() error {
 	n.log.Info("DataDog Firehose Nozzle shutting down...")
 	// Close Firehose Consumer
 	n.log.Infof("Closing connection with loggregator gateway due to %v", err)
-	n.stopConsumer()
+	n.loggregatorClient.Stop()
 	// Stop processor
 	n.stopWorkers()
 	// Stop orgCollector
@@ -196,37 +143,13 @@ func (n *Nozzle) Start() error {
 	return err
 }
 
-func (n *Nozzle) setLogStreamURL(c *config.Config) error {
-	if c.RLPGatewayURL != "" {
-		n.logStreamURL = c.RLPGatewayURL
-		return nil
-	}
-
-	if c.CloudControllerEndpoint == "" {
-		return fmt.Errorf("neither cloud controller endpoint nor RLP gateway URL specified, can't determine log stream URL")
-	}
-
-	re := regexp.MustCompile("://(api)")
-	n.logStreamURL = re.ReplaceAllString(c.CloudControllerEndpoint, "://log-stream")
-	return nil
-}
-
 func (n *Nozzle) startFirehoseConsumer(authToken string) error {
-	logForwarder := *logger.NewRLPLogForwarder(n.log)
-	n.rlpGatewayClient = loggregator.NewRLPGatewayClient(
-		n.logStreamURL,
-		loggregator.WithRLPGatewayClientLogger(log.New(logForwarder, "", log.LstdFlags)),
-		loggregator.WithRLPGatewayHTTPClient(
-			newRLPGatewayClientDoer(authToken, n.config.InsecureSSLSkipVerify),
-		),
-	)
-
-	ctx := context.Background()
-	ctx, n.stopConsumer = context.WithCancel(context.Background())
-	es := n.rlpGatewayClient.Stream(ctx, &loggregator_v2.EgressBatchRequest{
-		ShardId:   n.config.FirehoseSubscriptionID,
-		Selectors: n.messageSelectors,
-	})
+	var err error
+	n.loggregatorClient, err = cloudfoundry.NewLoggregatorClient(n.config, n.log, authToken)
+	if err != nil {
+		return err
+	}
+	envelopeStream := n.loggregatorClient.EnvelopeStream()
 
 	go func(messages chan *loggregator_v2.Envelope, es loggregator.EnvelopeStream) {
 		// NOTE: errors in the underlying es() function calls are not returned; they're only logged and
@@ -236,7 +159,7 @@ func (n *Nozzle) startFirehoseConsumer(authToken string) error {
 				messages <- e
 			}
 		}
-	}(n.messages, es)
+	}(n.messages, envelopeStream)
 	return nil
 }
 
