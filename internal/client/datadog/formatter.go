@@ -103,6 +103,7 @@ func splitPoints(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.
 			a[k] = metric.MetricValue{
 				Tags:   v.Tags,
 				Points: v.Points,
+				Host:   v.Host,
 			}
 			continue
 		}
@@ -110,10 +111,12 @@ func splitPoints(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.
 		a[k] = metric.MetricValue{
 			Tags:   v.Tags,
 			Points: v.Points[:split],
+			Host:   v.Host,
 		}
 		b[k] = metric.MetricValue{
 			Tags:   v.Tags,
 			Points: v.Points[split:],
+			Host:   v.Host,
 		}
 	}
 	return a, b
