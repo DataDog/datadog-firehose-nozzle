@@ -80,8 +80,8 @@ func (p InfraParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPa
 		for i := 0; i < len(names); i++ {
 			metrics = append(metrics, metric.MetricPackage{
 				MetricKey: &metric.MetricKey{
-					Name:      names[i],
-					TagsHash:  tagsHash,
+					Name:     names[i],
+					TagsHash: tagsHash,
 				},
 				MetricValue: &metricValues,
 			})
@@ -120,6 +120,7 @@ func parseTags(
 		tags = appendTagIfNotEmpty(tags, "name", origin)
 	}
 	tags = appendTagIfNotEmpty(tags, "instance_id", envelope.GetInstanceId())
+	tags = appendTagIfNotEmpty(tags, "source_id", envelope.GetSourceId())
 
 	// Add an environment tag and another deployment tag with the uuid part replaced with environment name
 	tags = appendTagIfNotEmpty(tags, "env", environment)

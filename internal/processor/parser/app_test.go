@@ -166,6 +166,7 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:hello-datadog-cf-ruby-dev"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("source_id:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 			}
 		})
 	})

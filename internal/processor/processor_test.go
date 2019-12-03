@@ -22,18 +22,18 @@ var _ = Describe("MetricProcessor", func() {
 
 	It("processes value & counter metrics", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
-			Timestamp: 1000000000,
+			Timestamp:  1000000000,
 			InstanceId: "123",
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"valueName": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 					},
@@ -41,16 +41,16 @@ var _ = Describe("MetricProcessor", func() {
 			},
 		})
 		p.ProcessMetric(&loggregator_v2.Envelope{
-			Timestamp: 2000000000,
+			Timestamp:  2000000000,
 			InstanceId: "123",
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Counter{
 				Counter: &loggregator_v2.Counter{
-					Name: "counterName",
+					Name:  "counterName",
 					Delta: uint64(6),
 					Total: uint64(11),
 				},
@@ -82,15 +82,15 @@ var _ = Describe("MetricProcessor", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"fooMetric": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 					},
@@ -120,19 +120,19 @@ var _ = Describe("MetricProcessor", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"fooMetric": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 						"barMetric": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(6),
 						},
 					},
@@ -174,15 +174,15 @@ var _ = Describe("MetricProcessor", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"bosh-hm-forwarder.foo": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 					},
@@ -216,47 +216,47 @@ var _ = Describe("MetricProcessor", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Log{
 				Log: &loggregator_v2.Log{
 					Payload: []byte("log message"),
-					Type: loggregator_v2.Log_OUT,
+					Type:    loggregator_v2.Log_OUT,
 				},
 			},
 		})
 		p.ProcessMetric(&loggregator_v2.Envelope{
-			Timestamp: 1000000000,
-			SourceId: "app-id",
+			Timestamp:  1000000000,
+			SourceId:   "app-id",
 			InstanceId: "4",
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name",
-				"job": "doppler",
+				"job":        "doppler",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"cpu": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(20.0),
 						},
 						"memory": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(19939949),
 						},
 						"disk": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(29488929),
 						},
 						"memory_quota": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(19939949),
 						},
 						"disk_quota": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(29488929),
 						},
 					},
@@ -270,19 +270,20 @@ var _ = Describe("MetricProcessor", func() {
 	It("adds tags", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
+			SourceId:  "some.source",
 			Tags: map[string]string{
-				"origin": "test-origin",
+				"origin":     "test-origin",
 				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
-				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
-				"ip": "10.0.1.2",
-				"protocol": "http",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"ip":         "10.0.1.2",
+				"protocol":   "http",
 				"request_id": "a1f5-deadbeef",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"fooMetric": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 					},
@@ -305,6 +306,7 @@ var _ = Describe("MetricProcessor", func() {
 				"origin:test-origin",
 				"protocol:http",
 				"request_id:a1f5-deadbeef",
+				"source_id:some.source",
 			}))
 		}
 
@@ -313,19 +315,19 @@ var _ = Describe("MetricProcessor", func() {
 		p.ProcessMetric(&loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "test-origin",
+				"origin":     "test-origin",
 				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
-				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
-				"ip": "10.0.1.2",
-				"protocol": "http",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"ip":         "10.0.1.2",
+				"protocol":   "http",
 				"request_id": "a1f5-deadbeef",
-				"index": "1",
+				"index":      "1",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"fooMetric": &loggregator_v2.GaugeValue{
-							Unit: "counter",
+							Unit:  "counter",
 							Value: float64(5),
 						},
 					},
@@ -365,19 +367,19 @@ var _ = Describe("MetricProcessor", func() {
 			p.ProcessMetric(&loggregator_v2.Envelope{
 				Timestamp: 1000000000,
 				Tags: map[string]string{
-					"origin": "test-origin",
+					"origin":     "test-origin",
 					"deployment": "deployment-name",
-					"job": "doppler",
-					"ip": "10.0.1.2",
-					"protocol": "http",
+					"job":        "doppler",
+					"ip":         "10.0.1.2",
+					"protocol":   "http",
 					"request_id": "a1f5-deadbeef",
-					"index": "1",
+					"index":      "1",
 				},
 				Message: &loggregator_v2.Envelope_Gauge{
 					Gauge: &loggregator_v2.Gauge{
 						Metrics: map[string]*loggregator_v2.GaugeValue{
 							"fooMetric": &loggregator_v2.GaugeValue{
-								Unit: "counter",
+								Unit:  "counter",
 								Value: float64(5),
 							},
 						},
