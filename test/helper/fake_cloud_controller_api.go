@@ -7,8 +7,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"time"
-
-	"github.com/cloudfoundry/sonde-go/events"
 )
 
 // FakeCloudControllerAPI mocks a cloud controller
@@ -28,7 +26,6 @@ type FakeCloudControllerAPI struct {
 	lastAuthorization string
 	requested         bool
 
-	events       []events.Envelope
 	closeMessage []byte
 
 	// Used to make the controller slow to answer
@@ -79,6 +76,7 @@ func (f *FakeCloudControllerAPI) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	f.lock.Unlock()
 
 	time.Sleep(f.RequestTime * time.Millisecond)
+	rw.Header().Set("Content-Type", "application/json")
 	f.writeResponse(rw, r)
 
 	f.lock.Lock()
@@ -3017,5 +3015,7 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 			"access_token": "%s"
 		}
 		`, f.tokenType, f.accessToken)))
+	case "/v2/read":
+		http.Redirect(rw, r, "http://asdasdasd.com", http.StatusPermanentRedirect)
 	}
 }

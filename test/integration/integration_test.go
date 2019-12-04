@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gogo/protobuf/proto"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 
 	datadogclient "github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -41,6 +40,7 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		os.Setenv("NOZZLE_FLUSHMAXBYTES", "10240")
 		os.Setenv("NOZZLE_UAAURL", fakeUAA.URL())
 		os.Setenv("NOZZLE_DATADOGURL", fakeDatadogAPI.URL())
+		os.Setenv("NOZZLE_RLP_GATEWAY_URL", fakeFirehose.URL())
 		os.Setenv("NOZZLE_TRAFFICCONTROLLERURL", strings.Replace(fakeFirehose.URL(), "http:", "ws:", 1))
 		os.Setenv("NOZZLE_NUM_WORKERS", "1")
 		os.Setenv("NOZZLE_ENVIRONMENT_NAME", "env_name")
@@ -65,46 +65,63 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 	It("forwards metrics in a batch", func(done Done) {
 		// Give time for the websocket connection to start
 		time.Sleep(time.Second)
-		fakeFirehose.AddEvent(events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("metricName"),
-				Value: proto.Float64(5),
-				Unit:  proto.String("gauge"),
+		fakeFirehose.AddEvent(loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			Tags: map[string]string{
+				"origin": "origin",
+				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"index": "1",
 			},
-			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
-			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
-			Index:      proto.String("1"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"metricName": &loggregator_v2.GaugeValue{
+							Unit: "gauge",
+							Value: float64(5),
+						},
+					},
+				},
+			},
 		})
 
-		fakeFirehose.AddEvent(events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(2000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("metricName"),
-				Value: proto.Float64(10),
-				Unit:  proto.String("gauge"),
+		fakeFirehose.AddEvent(loggregator_v2.Envelope{
+			Timestamp: 2000000000,
+			Tags: map[string]string{
+				"origin": "origin",
+				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job": "gorouter-partition-aaaaaaaaaaaaaaaaaaaa",
+				"index": "1",
 			},
-			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
-			Job:        proto.String("gorouter-partition-aaaaaaaaaaaaaaaaaaaa"),
-			Index:      proto.String("1"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"metricName": &loggregator_v2.GaugeValue{
+							Unit: "gauge",
+							Value: float64(10),
+						},
+					},
+				},
+			},
 		})
 
-		fakeFirehose.AddEvent(events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(3000000000),
-			EventType: events.Envelope_CounterEvent.Enum(),
-			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("counterName"),
-				Delta: proto.Uint64(3),
-				Total: proto.Uint64(15),
+		fakeFirehose.AddEvent(loggregator_v2.Envelope{
+			Timestamp: 3000000000,
+			Tags: map[string]string{
+				"origin": "origin",
+				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
 			},
-			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
-			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
+			Message: &loggregator_v2.Envelope_Counter{
+				Counter: &loggregator_v2.Counter{
+					Name: "counterName",
+					Delta: uint64(3),
+					Total: uint64(15),
+				},
+			},
 		})
+
+		fakeFirehose.ServeBatch()
 
 		// eventually receive a batch from fake DD
 		var messageBytes []byte

@@ -17,8 +17,8 @@ properties:
         authorized-grant-types: authorization_code,client_credentials,refresh_token
         override: true
         secret: <password>
-        scope: openid,oauth.approvals,doppler.firehose
-        authorities: oauth.login,doppler.firehose
+        scope: openid,oauth.approvals,logs.admin,cloud_controller.admin_read_only
+        authorities: oauth.login,logs.admin,cloud_controller.admin_read_only
 ```
 
 ### Dependencies

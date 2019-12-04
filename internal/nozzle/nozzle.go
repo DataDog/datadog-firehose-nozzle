@@ -1,8 +1,6 @@
 package nozzle
 
 import (
-	"crypto/tls"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,22 +12,20 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/orgcollector"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/noaa/consumer"
-	noaaerrors "github.com/cloudfoundry/noaa/errors"
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gorilla/websocket"
+
+	"code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 // Nozzle is the struct that holds the state of the nozzle
 type Nozzle struct {
 	config                *config.Config
-	errors                <-chan error
-	messages              <-chan *events.Envelope
+	messages              chan *loggregator_v2.Envelope
 	authTokenFetcher      AuthTokenFetcher
-	consumer              *consumer.Consumer
 	ddClients             []*datadog.Client
 	processor             *processor.Processor
 	cfClient              *cloudfoundry.CFClient
+	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
 	orgCollector          *orgcollector.OrgCollector
 	log                   *gosteno.Logger
@@ -59,6 +55,7 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
+		messages: make(chan *loggregator_v2.Envelope, 10000),
 	}
 }
 
@@ -132,8 +129,8 @@ func (n *Nozzle) Start() error {
 	// Whenever a stop signal is received the Run methode above will return. The code below will then be executed
 	n.log.Info("DataDog Firehose Nozzle shutting down...")
 	// Close Firehose Consumer
-	n.log.Infof("Closing connection with traffic controller due to %v", err)
-	n.consumer.Close()
+	n.log.Infof("Closing connection with loggregator gateway due to %v", err)
+	n.loggregatorClient.Stop()
 	// Stop processor
 	n.stopWorkers()
 	// Stop orgCollector
@@ -148,14 +145,21 @@ func (n *Nozzle) Start() error {
 
 func (n *Nozzle) startFirehoseConsumer(authToken string) error {
 	var err error
-	// Initialize the firehose consumer (with retry enable)
-	n.consumer, err = n.newFirehoseConsumer(authToken)
+	n.loggregatorClient, err = cloudfoundry.NewLoggregatorClient(n.config, n.log, authToken)
 	if err != nil {
 		return err
 	}
-	// Run the Firehose consumer
-	// It consumes messages from the Firehose and push them to n.messages
-	n.messages, n.errors = n.consumer.FilteredFirehose(n.config.FirehoseSubscriptionID, authToken, consumer.Metrics)
+	envelopeStream := n.loggregatorClient.EnvelopeStream()
+
+	go func(messages chan *loggregator_v2.Envelope, es loggregator.EnvelopeStream) {
+		// NOTE: errors in the underlying es() function calls are not returned; they're only logged and
+		// the logic retries forever.
+		for {
+			for _, e := range es() {
+				messages <- e
+			}
+		}
+	}(n.messages, envelopeStream)
 	return nil
 }
 
@@ -173,39 +177,10 @@ func (n *Nozzle) run() error {
 		case <-ticker.C:
 			// Submit metrics to Datadog
 			n.postMetrics()
-		case e := <-n.errors:
-			// Log error message and figure out if we should retry or shutdown
-			retry := n.handleError(e)
-			n.handleError(e)
-			if !retry {
-				return e
-			}
 		case <-n.stopper:
 			return nil
 		}
 	}
-}
-
-func (n *Nozzle) newFirehoseConsumer(authToken string) (*consumer.Consumer, error) {
-	if n.config.TrafficControllerURL == "" {
-		if n.cfClient != nil {
-			n.config.TrafficControllerURL = n.cfClient.GetDopplerEndpoint()
-		} else {
-			return nil, fmt.Errorf("either the TrafficController URL or the CC URL needs to be set")
-		}
-	}
-
-	c := consumer.New(
-		n.config.TrafficControllerURL,
-		&tls.Config{InsecureSkipVerify: n.config.InsecureSSLSkipVerify},
-		nil)
-	c.SetIdleTimeout(time.Duration(n.config.IdleTimeoutSeconds) * time.Second)
-	// retry settings
-	c.SetMaxRetryCount(5)
-	c.SetMinRetryDelay(500 * time.Millisecond)
-	c.SetMaxRetryDelay(time.Minute)
-
-	return c, nil
 }
 
 // Stop stops the Nozzle
@@ -250,47 +225,9 @@ func (n *Nozzle) postMetrics() {
 	n.ResetSlowConsumerError()
 }
 
-func (n *Nozzle) handleError(err error) bool {
-	noaaErr, retry := err.(noaaerrors.RetryError)
-	err = noaaErr.Err
-
-	// If error is ErrMaxRetriesReached then we log it and shutdown the nozzle
-	if err == consumer.ErrMaxRetriesReached {
-		n.log.Errorf("Error ErrMaxRetriesReached: %v", err.Error())
-		n.log.Info("Too many retries, shutting down...")
-		return false
-	}
-
-	// For other errors, we log it and shutdown the nozzle
-	switch e := err.(type) {
-	case *websocket.CloseError:
-		switch e.Code {
-		case websocket.CloseNormalClosure:
-			// NOTE: errors with `Code` `websocket.CloseNormalClosure` should not happen since `CloseMessage` control
-			// on websocket connection can only happen when we close it.
-			// Also this type of error is caught by the consumer. The consumer return nil instead of the error.
-			// This is so that the consumer stops instead of retrying
-			// see github.com/cloudfoundry/noaa/consumer/async.go#listenForMessages
-			n.log.Errorf("Unexpected web socket error with CloseNormalClosure code: %v", err)
-		case websocket.ClosePolicyViolation:
-			n.log.Errorf("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
-			n.AlertSlowConsumerError()
-		default:
-			n.log.Errorf("Error while reading from the firehose: %v", err)
-		}
-	default:
-		n.log.Errorf("Error while reading from the firehose: %v", err)
-	}
-
-	if retry {
-		// If error is a retry error, we log it and let the consumer retry.
-		n.log.Info("The Firehose consumer hit a retry error, retrying ...")
-	}
-	return retry
-}
-
-func (n *Nozzle) keepMessage(envelope *events.Envelope) bool {
-	return n.config.DeploymentFilter == "" || n.config.DeploymentFilter == envelope.GetDeployment()
+func (n *Nozzle) keepMessage(envelope *loggregator_v2.Envelope) bool {
+	deployment, _ := envelope.GetTags()["deployment"]
+	return n.config.DeploymentFilter == "" || n.config.DeploymentFilter == deployment
 }
 
 // ResetSlowConsumerError resets the alert

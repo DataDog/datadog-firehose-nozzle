@@ -48,6 +48,7 @@ func main() {
 		config.InsecureSSLSkipVerify,
 		log,
 	)
+
 	threadDumpChan := registerGoRoutineDumpSignalChannel()
 	defer close(threadDumpChan)
 	go dumpGoRoutine(threadDumpChan)
@@ -55,7 +56,10 @@ func main() {
 	// Initialize and start Nozzle
 	log.Infof("Targeting datadog API URL: %s \n", config.DataDogURL)
 	datadog_nozzle := nozzle.NewNozzle(config, tokenFetcher, log)
-	datadog_nozzle.Start()
+	err = datadog_nozzle.Start()
+	if err != nil {
+		log.Error(err.Error())
+	}
 }
 
 func registerGoRoutineDumpSignalChannel() chan os.Signal {

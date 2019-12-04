@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -126,7 +125,7 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("respects the timeout", func() {
-			k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
+			k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
 			err := c.PostMetrics(metricsMap)
@@ -134,7 +133,7 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("attempts to retry the connection", func() {
-			k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
+			k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
 			err := c.PostMetrics(metricsMap)
@@ -150,7 +149,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sets Content-Type header when making POST requests", func() {
-		k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
+		k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
 		err := c.PostMetrics(metricsMap)
@@ -162,7 +161,7 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sends tags", func() {
-		k, v := makeFakeMetric("metricName", 1000, 5, events.Envelope_ValueMetric, defaultTags)
+		k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
 		err := c.PostMetrics(metricsMap)
@@ -249,11 +248,11 @@ var _ = Describe("DatadogClient", func() {
 
 	It("uses tags as an identifier for batching purposes (registers metrics with same name and different tags as separate)", func() {
 		for i := 0; i < 5; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), events.Envelope_ValueMetric, []string{"test_tag:1"})
+			k, v := makeFakeMetric("metricName", 1000, uint64(i), []string{"test_tag:1"})
 			metricsMap.Add(k, v)
 		}
 		for i := 0; i < 5; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), events.Envelope_ValueMetric, []string{"test_tag:2"})
+			k, v := makeFakeMetric("metricName", 1000, uint64(i), []string{"test_tag:2"})
 			metricsMap.Add(k, v)
 		}
 
@@ -299,9 +298,9 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("posts ValueMetrics in JSON format & adds the metric prefix", func() {
-		k, v := makeFakeMetric("valueName", 1, 5, events.Envelope_ValueMetric, defaultTags)
+		k, v := makeFakeMetric("valueName", 1, 5, defaultTags)
 		metricsMap.Add(k, v)
-		k, v = makeFakeMetric("valueName", 2, 76, events.Envelope_ValueMetric, defaultTags)
+		k, v = makeFakeMetric("valueName", 2, 76, defaultTags)
 		metricsMap.Add(k, v)
 
 		err := c.PostMetrics(metricsMap)
@@ -325,9 +324,9 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("posts CounterEvents in JSON format & adds the metric prefix", func() {
-		k, v := makeFakeMetric("counterName", 1, 5, events.Envelope_CounterEvent, defaultTags)
+		k, v := makeFakeMetric("counterName", 1, 5, defaultTags)
 		metricsMap.Add(k, v)
-		k, v = makeFakeMetric("counterName", 2, 11, events.Envelope_CounterEvent, defaultTags)
+		k, v = makeFakeMetric("counterName", 2, 11, defaultTags)
 		metricsMap.Add(k, v)
 
 		err := c.PostMetrics(metricsMap)
@@ -352,7 +351,7 @@ var _ = Describe("DatadogClient", func() {
 
 	It("breaks up a message that exceeds the FlushMaxBytes", func() {
 		for i := 0; i < 1000; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), events.Envelope_ValueMetric, defaultTags)
+			k, v := makeFakeMetric("metricName", 1000, uint64(i), defaultTags)
 			metricsMap.Add(k, v)
 		}
 
@@ -369,7 +368,7 @@ var _ = Describe("DatadogClient", func() {
 	It("discards metrics that exceed that max size", func() {
 		name := proto.String(strings.Repeat("some-big-name", 1000))
 		c.maxPostBytes = 10
-		k, v := makeFakeMetric(*name, 1000, 5, events.Envelope_ValueMetric, defaultTags)
+		k, v := makeFakeMetric(*name, 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
 		err := c.PostMetrics(metricsMap)
@@ -483,11 +482,10 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
-func makeFakeMetric(name string, timeStamp, value uint64, eventType events.Envelope_EventType, tags []string) (metric.MetricKey, metric.MetricValue) {
+func makeFakeMetric(name string, timeStamp, value uint64, tags []string) (metric.MetricKey, metric.MetricValue) {
 	key := metric.MetricKey{
 		Name:      name,
 		TagsHash:  util.HashTags(tags),
-		EventType: eventType,
 	}
 
 	point := metric.Point{

@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
+
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 )
 
 type appCache struct {
@@ -122,7 +123,7 @@ func (am *AppParser) updateCacheLoop() {
 	// Start a ticker to update the cache at regular intervals with a random jitter of 10 %
 	// to distribute the load on CF Cloud Controller when there are lots of nozzle instances
 	// IOW, if the grabInterval is 10 minutes, the warmup will start between 9:00 and 9:59
-	ticker, jitterWait := util.GetTickerWithJitter(uint32(am.grabInterval * 60), 0.1)
+	ticker, jitterWait := util.GetTickerWithJitter(uint32(am.grabInterval*60), 0.1)
 	defer ticker.Stop()
 	for {
 		select {
@@ -169,19 +170,24 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		return nil, err
 	}
 	app, err = am.AppCache.Add(*cfapp)
-	if err != nil{
-		am.log.Errorf("an error occurred when adding app to the cache: %v",err)
+	if err != nil {
+		am.log.Errorf("an error occurred when adding app to the cache: %v", err)
 	}
 
 	return app, nil
 }
 
 // Parse takes an envelope, and extract app metrics from it
-func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, error) {
+func (am *AppParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
 	metricsPackages := []metric.MetricPackage{}
-	message := envelope.GetContainerMetric()
 
-	guid := message.GetApplicationId()
+	if !util.IsContainerMetric(envelope) {
+		return metricsPackages, fmt.Errorf("not an app metric")
+	}
+
+	message := envelope.GetGauge()
+
+	guid := envelope.GetSourceId()
 	if guid == "" {
 		am.log.Errorf("there was an error grabbing ApplicationId from message")
 		return metricsPackages, nil
@@ -202,7 +208,7 @@ func (am *AppParser) Parse(envelope *events.Envelope) ([]metric.MetricPackage, e
 		am.log.Errorf("there was an error parsing metrics: %v", err)
 		return metricsPackages, err
 	}
-	containerMetrics, err := app.parseContainerMetric(message, am.customTags)
+	containerMetrics, err := app.parseContainerMetric(message, envelope.GetInstanceId(), am.customTags)
 	if err != nil {
 		am.log.Errorf("there was an error parsing container metrics: %v", err)
 		return metricsPackages, err
@@ -262,7 +268,7 @@ func (a *App) getMetrics(customTags []string) ([]metric.MetricPackage, error) {
 	return a.mkMetrics(names, ms, customTags)
 }
 
-func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags []string) ([]metric.MetricPackage, error) {
+func (a *App) parseContainerMetric(message *loggregator_v2.Gauge, instanceID string, customTags []string) ([]metric.MetricPackage, error) {
 	var names = []string{
 		"app.cpu.pct",
 		"app.disk.used",
@@ -270,14 +276,16 @@ func (a *App) parseContainerMetric(message *events.ContainerMetric, customTags [
 		"app.memory.used",
 		"app.memory.quota",
 	}
+
+	// App.Parse checks that this is container metric, so we're guaranteed that all these tags are present
 	var ms = []float64{
-		float64(message.GetCpuPercentage()),
-		float64(message.GetDiskBytes()),
-		float64(message.GetDiskBytesQuota()),
-		float64(message.GetMemoryBytes()),
-		float64(message.GetMemoryBytesQuota()),
+		float64(message.GetMetrics()["cpu"].Value),
+		float64(message.GetMetrics()["disk"].Value),
+		float64(message.GetMetrics()["disk_quota"].Value),
+		float64(message.GetMetrics()["memory"].Value),
+		float64(message.GetMetrics()["memory_quota"].Value),
 	}
-	tags := []string{fmt.Sprintf("instance:%v", message.GetInstanceIndex())}
+	tags := []string{fmt.Sprintf("instance:%v", getContainerInstanceID(message, instanceID))}
 	tags = append(tags, customTags...)
 	return a.mkMetrics(names, ms, tags)
 }
@@ -293,6 +301,8 @@ func (a *App) mkMetrics(names []string, ms []float64, moreTags []string) ([]metr
 	tags := make([]string, len(a.Tags))
 	copy(tags, a.Tags)
 	tags = append(tags, moreTags...)
+	// source_id in envelope always matches app.GUID for app metrics
+	tags = appendTagIfNotEmpty(tags, "source_id", a.GUID)
 
 	for i, name := range names {
 		key := metric.MetricKey{
@@ -331,21 +341,21 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	a.Buildpacks = cfapp.Buildpacks
 
 	var tags = []string{}
-	tags = appendTagIfNotEmpty(tags,"app_name", a.Name)
-	tags = appendTagIfNotEmpty(tags,"org_name", a.OrgName)
-	tags = appendTagIfNotEmpty(tags,"org_id", a.OrgID)
-	tags = appendTagIfNotEmpty(tags,"space_name", a.SpaceName)
-	tags = appendTagIfNotEmpty(tags,"space_id", a.SpaceID)
-	tags = appendTagIfNotEmpty(tags,"guid", a.GUID)
+	tags = appendTagIfNotEmpty(tags, "app_name", a.Name)
+	tags = appendTagIfNotEmpty(tags, "org_name", a.OrgName)
+	tags = appendTagIfNotEmpty(tags, "org_id", a.OrgID)
+	tags = appendTagIfNotEmpty(tags, "space_name", a.SpaceName)
+	tags = appendTagIfNotEmpty(tags, "space_id", a.SpaceID)
+	tags = appendTagIfNotEmpty(tags, "guid", a.GUID)
 	if len(tags) != 6 {
-		return fmt.Errorf("some tags could not be found app_name:%s, " +
+		return fmt.Errorf("some tags could not be found app_name:%s, "+
 			"org_name:%s, org_id:%s, space_name:%s, space_id:%s, guid:%s", a.Name, a.OrgName, a.OrgID, a.SpaceName,
 			a.SpaceID, a.GUID)
 	}
 
 	if len(a.Buildpacks) > 0 {
 		for _, bp := range a.Buildpacks {
-			tags = appendTagIfNotEmpty(tags,"buildpack", bp)
+			tags = appendTagIfNotEmpty(tags, "buildpack", bp)
 		}
 	}
 	a.Tags = tags

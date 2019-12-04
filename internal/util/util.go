@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sort"
 	"time"
+
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
 
 func HashTags(tags []string) string {
@@ -29,4 +31,21 @@ func GetTickerWithJitter(wholeIntervalSeconds uint32, jitterPct float64) (*time.
 		time.Sleep(time.Duration(jitter))
 	}
 	return ticker, jitterWait
+}
+
+func IsContainerMetric(envelope *loggregator_v2.Envelope) bool {
+	// We can tell whether or not a Gauge envelope is container metric by checking
+	// a predefined set of metrics: https://github.com/cloudfoundry/loggregator-api#containermetric
+	result := false
+	switch envelope.GetMessage().(type) {
+	case *loggregator_v2.Envelope_Gauge:
+		result = true
+		for _, key := range []string{"cpu", "memory", "disk", "memory_quota", "disk_quota"} {
+			if v, ok := envelope.GetGauge().GetMetrics()[key]; !ok || v == nil || (v.Unit == "" && v.Value == 0) {
+				result = false
+			}
+		}
+	}
+
+	return result
 }

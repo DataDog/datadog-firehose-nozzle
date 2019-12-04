@@ -1,9 +1,8 @@
 package processor
 
 import (
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/gogo/protobuf/proto"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,26 +21,39 @@ var _ = Describe("MetricProcessor", func() {
 	})
 
 	It("processes value & counter metrics", func() {
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("valueName"),
-				Value: proto.Float64(5),
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp:  1000000000,
+			InstanceId: "123",
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"valueName": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+					},
+				},
+			},
 		})
-
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(2000000000),
-			EventType: events.Envelope_CounterEvent.Enum(),
-			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("counterName"),
-				Delta: proto.Uint64(6),
-				Total: proto.Uint64(11),
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp:  2000000000,
+			InstanceId: "123",
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
+			},
+			Message: &loggregator_v2.Envelope_Counter{
+				Counter: &loggregator_v2.Counter{
+					Name:  "counterName",
+					Delta: uint64(6),
+					Total: uint64(11),
+				},
 			},
 		})
 
@@ -55,6 +67,7 @@ var _ = Describe("MetricProcessor", func() {
 
 		Expect(metricPkgs).To(HaveLen(4))
 		for _, m := range metricPkgs {
+			Expect(m.MetricValue.Tags).To(ContainElement("instance_id:123"))
 			if m.MetricKey.Name == "valueName" || m.MetricKey.Name == "origin.valueName" {
 				Expect(m.MetricValue.Points).To(Equal([]metric.Point{{Timestamp: 1, Value: 5.0}}))
 			} else if m.MetricKey.Name == "counterName" || m.MetricKey.Name == "origin.counterName" {
@@ -66,16 +79,23 @@ var _ = Describe("MetricProcessor", func() {
 	})
 
 	It("generates metrics twice: once with origin in name, once without", func() {
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("fooMetric"),
-				Value: proto.Float64(5),
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"fooMetric": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+					},
+				},
+			},
 		})
 
 		var metricPkg []metric.MetricPackage
@@ -96,17 +116,78 @@ var _ = Describe("MetricProcessor", func() {
 		Expect(newFound).To(BeTrue())
 	})
 
-	It("adds a new alias for `bosh-hm-forwarder` metrics", func() {
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("bosh-hm-forwarder.foo"),
-				Value: proto.Float64(5),
+	It("extracts multiple values from Gauge if it has multiple metrics", func() {
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"fooMetric": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+						"barMetric": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(6),
+						},
+					},
+				},
+			},
+		})
+
+		var metricPkg []metric.MetricPackage
+		Eventually(mchan).Should(Receive(&metricPkg))
+
+		Expect(metricPkg).To(HaveLen(4))
+
+		legacyFooFound := false
+		legacyBarFound := false
+		newFooFound := false
+		newBarFound := false
+		for _, m := range metricPkg {
+			if m.MetricKey.Name == "origin.fooMetric" {
+				legacyFooFound = true
+				Expect(m.MetricValue.Points[0].Value).To(Equal(5.0))
+			} else if m.MetricKey.Name == "fooMetric" {
+				newFooFound = true
+				Expect(m.MetricValue.Points[0].Value).To(Equal(5.0))
+			} else if m.MetricKey.Name == "origin.barMetric" {
+				legacyBarFound = true
+				Expect(m.MetricValue.Points[0].Value).To(Equal(6.0))
+			} else if m.MetricKey.Name == "barMetric" {
+				newBarFound = true
+				Expect(m.MetricValue.Points[0].Value).To(Equal(6.0))
+			}
+		}
+		Expect(legacyFooFound).To(BeTrue())
+		Expect(newFooFound).To(BeTrue())
+		Expect(legacyBarFound).To(BeTrue())
+		Expect(newBarFound).To(BeTrue())
+	})
+
+	It("adds a new alias for `bosh-hm-forwarder` metrics", func() {
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
+			},
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"bosh-hm-forwarder.foo": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+					},
+				},
+			},
 		})
 
 		var metricPkg []metric.MetricPackage
@@ -132,52 +213,81 @@ var _ = Describe("MetricProcessor", func() {
 	})
 
 	It("ignores messages that aren't value metrics or counter events", func() {
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_LogMessage.Enum(),
-			LogMessage: &events.LogMessage{
-				Message:     []byte("log message"),
-				MessageType: events.LogMessage_OUT.Enum(),
-				Timestamp:   proto.Int64(1000000000),
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Message: &loggregator_v2.Envelope_Log{
+				Log: &loggregator_v2.Log{
+					Payload: []byte("log message"),
+					Type:    loggregator_v2.Log_OUT,
+				},
+			},
 		})
-
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ContainerMetric.Enum(),
-			ContainerMetric: &events.ContainerMetric{
-				ApplicationId: proto.String("app-id"),
-				InstanceIndex: proto.Int32(4),
-				CpuPercentage: proto.Float64(20.0),
-				MemoryBytes:   proto.Uint64(19939949),
-				DiskBytes:     proto.Uint64(29488929),
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp:  1000000000,
+			SourceId:   "app-id",
+			InstanceId: "4",
+			Tags: map[string]string{
+				"origin":     "origin",
+				"deployment": "deployment-name",
+				"job":        "doppler",
 			},
-			Deployment: proto.String("deployment-name"),
-			Job:        proto.String("doppler"),
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"cpu": &loggregator_v2.GaugeValue{
+							Unit:  "gauge",
+							Value: float64(20.0),
+						},
+						"memory": &loggregator_v2.GaugeValue{
+							Unit:  "gauge",
+							Value: float64(19939949),
+						},
+						"disk": &loggregator_v2.GaugeValue{
+							Unit:  "gauge",
+							Value: float64(29488929),
+						},
+						"memory_quota": &loggregator_v2.GaugeValue{
+							Unit:  "gauge",
+							Value: float64(19939949),
+						},
+						"disk_quota": &loggregator_v2.GaugeValue{
+							Unit:  "gauge",
+							Value: float64(29488929),
+						},
+					},
+				},
+			},
 		})
 
 		Consistently(mchan).ShouldNot(Receive())
 	})
 
 	It("adds tags", func() {
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("test-origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-
-			// fields that gets sent as tags
-			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
-			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
-			Ip:         proto.String("10.0.1.2"),
-
-			// additional tags
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
+			SourceId:  "some.source",
 			Tags: map[string]string{
+				"origin":     "test-origin",
+				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"ip":         "10.0.1.2",
 				"protocol":   "http",
 				"request_id": "a1f5-deadbeef",
+			},
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"fooMetric": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+					},
+				},
 			},
 		})
 
@@ -196,26 +306,32 @@ var _ = Describe("MetricProcessor", func() {
 				"origin:test-origin",
 				"protocol:http",
 				"request_id:a1f5-deadbeef",
+				"source_id:some.source",
 			}))
 		}
 
 		// Check it does the correct dogate tag replacements when env_name and index are set
 		p.environment = "env_name"
-		p.ProcessMetric(&events.Envelope{
-			Origin:    proto.String("test-origin"),
-			Timestamp: proto.Int64(1000000000),
-			EventType: events.Envelope_ValueMetric.Enum(),
-
-			// fields that gets sent as tags
-			Deployment: proto.String("deployment-name-aaaaaaaaaaaaaaaaaaaa"),
-			Job:        proto.String("doppler-partition-aaaaaaaaaaaaaaaaaaaa"),
-			Index:      proto.String("1"),
-			Ip:         proto.String("10.0.1.2"),
-
-			// additional tags
+		p.ProcessMetric(&loggregator_v2.Envelope{
+			Timestamp: 1000000000,
 			Tags: map[string]string{
+				"origin":     "test-origin",
+				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"ip":         "10.0.1.2",
 				"protocol":   "http",
 				"request_id": "a1f5-deadbeef",
+				"index":      "1",
+			},
+			Message: &loggregator_v2.Envelope_Gauge{
+				Gauge: &loggregator_v2.Gauge{
+					Metrics: map[string]*loggregator_v2.GaugeValue{
+						"fooMetric": &loggregator_v2.GaugeValue{
+							Unit:  "counter",
+							Value: float64(5),
+						},
+					},
+				},
 			},
 		})
 
@@ -248,21 +364,26 @@ var _ = Describe("MetricProcessor", func() {
 		})
 
 		It("adds custom tags to infra metrics", func() {
-			p.ProcessMetric(&events.Envelope{
-				Origin:    proto.String("test-origin"),
-				Timestamp: proto.Int64(1000000000),
-				EventType: events.Envelope_ValueMetric.Enum(),
-
-				// fields that gets sent as tags
-				Deployment: proto.String("deployment-name"),
-				Job:        proto.String("doppler"),
-				Index:      proto.String("1"),
-				Ip:         proto.String("10.0.1.2"),
-
-				// additional tags
+			p.ProcessMetric(&loggregator_v2.Envelope{
+				Timestamp: 1000000000,
 				Tags: map[string]string{
+					"origin":     "test-origin",
+					"deployment": "deployment-name",
+					"job":        "doppler",
+					"ip":         "10.0.1.2",
 					"protocol":   "http",
 					"request_id": "a1f5-deadbeef",
+					"index":      "1",
+				},
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"fooMetric": &loggregator_v2.GaugeValue{
+								Unit:  "counter",
+								Value: float64(5),
+							},
+						},
+					},
 				},
 			})
 
