@@ -21,15 +21,11 @@ properties:
         authorities: oauth.login,logs.admin,cloud_controller.admin_read_only
 ```
 
-### Dependencies
-
-We manage dependencies using Glide. So, in order to build, install or run tests, you should first [install glide](https://github.com/Masterminds/glide). Then, `glide install`.
-
 ### Running
 
 The datadog nozzle uses a configuration file to obtain the firehose URL, datadog API key and other configuration parameters. The firehose and the datadog servers both require authentication -- the firehose requires a valid username/password and datadog requires a valid API key.
 
-You can start the firehose nozzle by executing:
+Start the firehose nozzle by executing:
 ```
 go run main.go -config config/datadog-firehose-nozzle.json"
 ```
@@ -56,18 +52,9 @@ For example:
 
 Alternatively, you can use environment variables (`HTTP_PROXY` and `HTTPS_PROXY`).
 
-### Tests
-
-You need [ginkgo](http://onsi.github.io/ginkgo/) to run the tests. The tests can be executed by:
-```
-ginkgo -r
-
-```
-
 ## Deploying
 
 ### [Bosh](http://bosh.io)
 
-There is a bosh release that will configure, start and monitor the datadog nozzle:
-[https://github.com/DataDog/datadog-firehose-nozzle-release](https://github.com/DataDog/datadog-firehose-nozzle-release
-)
+There is a bosh release that will configure, start and monitor the Datadog nozzle:
+[https://github.com/DataDog/datadog-firehose-nozzle-release](https://github.com/DataDog/datadog-firehose-nozzle-release)
