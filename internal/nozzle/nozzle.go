@@ -63,12 +63,6 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 func (n *Nozzle) Start() error {
 	n.log.Info("Starting DataDog Firehose Nozzle...")
 
-	// Fetch Authentication Token
-	var authToken string
-	if !n.config.DisableAccessControl {
-		authToken = n.authTokenFetcher.FetchAuthToken()
-	}
-
 	// Fetch Custom Tags
 	if n.config.CustomTags == nil {
 		n.config.CustomTags = []string{}
@@ -113,7 +107,7 @@ func (n *Nozzle) Start() error {
 	}
 
 	// Initialize the firehose consumer (with retry enable)
-	err = n.startFirehoseConsumer(authToken)
+	err = n.startFirehoseConsumer(n.authTokenFetcher)
 	if err != nil {
 		return err
 	}
@@ -143,9 +137,9 @@ func (n *Nozzle) Start() error {
 	return err
 }
 
-func (n *Nozzle) startFirehoseConsumer(authToken string) error {
+func (n *Nozzle) startFirehoseConsumer(authTokenFetcher AuthTokenFetcher) error {
 	var err error
-	n.loggregatorClient, err = cloudfoundry.NewLoggregatorClient(n.config, n.log, authToken)
+	n.loggregatorClient, err = cloudfoundry.NewLoggregatorClient(n.config, n.log, authTokenFetcher)
 	if err != nil {
 		return err
 	}

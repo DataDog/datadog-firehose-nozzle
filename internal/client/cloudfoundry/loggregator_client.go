@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
@@ -16,6 +17,11 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
+// AuthTokenFetcher is an interface for fetching an auth token from uaa
+type AuthTokenFetcher interface {
+	FetchAuthToken() string
+}
+
 type LoggregatorClient struct {
 	RLPGatewayClient *loggregator.RLPGatewayClient
 	stopConsumer     context.CancelFunc
@@ -23,16 +29,41 @@ type LoggregatorClient struct {
 }
 
 type rlpGatewayClientDoer struct {
-	token  string
-	client *http.Client
+	token        string
+	disableACS   bool
+	tokenFetcher AuthTokenFetcher
+	client       *http.Client
 }
 
 func (d *rlpGatewayClientDoer) Do(req *http.Request) (*http.Response, error) {
+	if !d.disableACS && d.token == "" {
+		d.token = d.tokenFetcher.FetchAuthToken()
+	}
+
 	req.Header.Set("Authorization", d.token)
-	return d.client.Do(req)
+	resp, err := d.client.Do(req)
+	if err != nil {
+		return resp, err
+	}
+
+	// If token is bad, try to refresh token and retry request once but only if access
+	// control is enabled
+	if d.disableACS {
+		return resp, err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		time.Sleep(100 * time.Millisecond)
+		d.token = d.tokenFetcher.FetchAuthToken()
+
+		req.Header.Set("Authorization", d.token)
+		resp, err = d.client.Do(req)
+	}
+
+	return resp, err
 }
 
-func newRLPGatewayClientDoer(token string, insecureSkipVerify bool) *rlpGatewayClientDoer {
+func newRLPGatewayClientDoer(disableACS bool, tokenFetcher AuthTokenFetcher, insecureSkipVerify bool) *rlpGatewayClientDoer {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -42,12 +73,14 @@ func newRLPGatewayClientDoer(token string, insecureSkipVerify bool) *rlpGatewayC
 	}
 
 	return &rlpGatewayClientDoer{
-		token:  token,
-		client: client,
+		token:        "",
+		disableACS:   disableACS,
+		tokenFetcher: tokenFetcher,
+		client:       client,
 	}
 }
 
-func NewLoggregatorClient(cfg *config.Config, lgr *gosteno.Logger, authToken string) (*LoggregatorClient, error) {
+func NewLoggregatorClient(cfg *config.Config, lgr *gosteno.Logger, authTokenFetcher AuthTokenFetcher) (*LoggregatorClient, error) {
 	var logStreamURL string
 	if cfg.RLPGatewayURL != "" {
 		logStreamURL = cfg.RLPGatewayURL
@@ -64,7 +97,7 @@ func NewLoggregatorClient(cfg *config.Config, lgr *gosteno.Logger, authToken str
 			logStreamURL,
 			loggregator.WithRLPGatewayClientLogger(log.New(logForwarder, "", log.LstdFlags)),
 			loggregator.WithRLPGatewayHTTPClient(
-				newRLPGatewayClientDoer(authToken, cfg.InsecureSSLSkipVerify),
+				newRLPGatewayClientDoer(cfg.DisableAccessControl, authTokenFetcher, cfg.InsecureSSLSkipVerify),
 			),
 		),
 		shardId:      cfg.FirehoseSubscriptionID,
