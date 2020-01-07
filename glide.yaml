@@ -6,11 +6,6 @@ import:
   version: be6a0cef0130f933079e4c958abac60fadea0c85
 - package: github.com/cloudfoundry/gosteno
   version: 0c8581caea35ac903728230e447792e2365dcc34
-- package: github.com/cloudfoundry/noaa
-  version: 5beab4261046115d89e363902e75155f7370849c
-  subpackages:
-  - consumer
-  - errors
 - package: github.com/gogo/protobuf
   version: ~0.4.0
   subpackages:
@@ -19,8 +14,6 @@ import:
   version: 35bcce23fc5f8b9969723ac38c0de1f82c4d3471
 - package: github.com/pkg/errors
   version: ~0.8.0
-- package: github.com/gorilla/websocket
-  version: ~1.4.0
 - package: github.com/hashicorp/go-retryablehttp
   version: ~0.5.4
 - package: code.cloudfoundry.org/go-loggregator

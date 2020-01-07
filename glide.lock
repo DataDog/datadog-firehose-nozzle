@@ -1,5 +1,5 @@
-hash: 84f200db96cb77b0c97e5718363de985a4af62bf5e4e3ea5ef0df265dfb43ca6
-updated: 2019-10-29T15:27:46.414011+01:00
+hash: 4ebf2d3f88fb83f3c6d7994fbe81f0aa4e53aff9d1d8c22286fe1b52ddc3206e
+updated: 2020-01-07T10:53:49.175053+01:00
 imports:
 - name: code.cloudfoundry.org/go-diodes
   version: f77fb823c7ee0156ed4cdadaf4f79ac3fd84613f
@@ -19,30 +19,14 @@ imports:
   version: 35bcce23fc5f8b9969723ac38c0de1f82c4d3471
 - name: github.com/cloudfoundry-incubator/uaago
   version: be6a0cef0130f933079e4c958abac60fadea0c85
-- name: github.com/cloudfoundry/go-loggregator
-  version: b8d176783c8a6280a34f0e19e0e8f57d722773a1
-  subpackages:
-  - rpc/loggregator_v2
 - name: github.com/cloudfoundry/gosteno
   version: 0c8581caea35ac903728230e447792e2365dcc34
   subpackages:
   - syslog
-- name: github.com/cloudfoundry/noaa
-  version: 5beab4261046115d89e363902e75155f7370849c
-  subpackages:
-  - consumer
-  - consumer/internal
-  - errors
-- name: github.com/cloudfoundry/sonde-go
-  version: b33733203bb48d7c56de7cb639d77f78b0449d19
-  subpackages:
-  - events
 - name: github.com/gogo/protobuf
   version: 100ba4e885062801d56799d78530b73b178a78f3
   subpackages:
-  - gogoproto
   - proto
-  - protoc-gen-gogo/descriptor
 - name: github.com/golang/protobuf
   version: ed6926b37a637426117ccab59282c3839528a700
   subpackages:
@@ -59,12 +43,6 @@ imports:
   version: d3fcbee8e1810ecee4bdbf415f42f84cfd0e3361
 - name: github.com/hashicorp/go-retryablehttp
   version: 85a8ee556d7323a4faf0f4c17ee900e9ff1482e8
-- name: github.com/mailru/easyjson
-  version: 6c0755d89d1e153c9986ad90e886a626bd66aad0
-  subpackages:
-  - buffer
-  - jlexer
-  - jwriter
 - name: github.com/Masterminds/semver
   version: fe7c21038085e01e67044ec1efe3afb1eaa59f75
 - name: github.com/pkg/errors
