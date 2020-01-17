@@ -14,7 +14,7 @@ type FakeUAA struct {
 	tokenType   string
 	accessToken string
 
-	requested bool
+	timesRequested int
 }
 
 func NewFakeUAA(tokenType string, accessToken string) *FakeUAA {
@@ -40,7 +40,13 @@ func (f *FakeUAA) URL() string {
 func (f *FakeUAA) Requested() bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	return f.requested
+	return f.timesRequested > 0
+}
+
+func (f *FakeUAA) TimesRequested() int {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.timesRequested
 }
 
 func (f *FakeUAA) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -52,7 +58,7 @@ func (f *FakeUAA) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 	`, f.tokenType, f.accessToken)))
 	f.lock.Lock()
-	f.requested = true
+	f.timesRequested++
 	f.lock.Unlock()
 }
 

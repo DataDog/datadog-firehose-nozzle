@@ -134,6 +134,21 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
 		})
 
+		It("refreshes authentication token when expired", func() {
+			Eventually(fakeUAA.Requested).Should(BeTrue())
+			Eventually(fakeFirehose.Requested).Should(BeTrue())
+
+			fakeFirehose.SetToken("invalid")
+			fakeFirehose.CloseServerLoop()
+			fakeFirehose.SetToken("123456789")
+
+			Eventually(fakeUAA.TimesRequested).Should(BeNumerically(">", 1))
+
+			fakeFirehose.ServeBatch()
+			var contents []byte
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+		})
+
 		It("runs orgCollector to obtain org metrics", func() {
 			// need to use function to always return the current UsedEndpoints, since it's appended to
 			// and thus the address of the slice changes

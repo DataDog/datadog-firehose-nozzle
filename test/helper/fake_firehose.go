@@ -2,10 +2,10 @@ package helper
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -25,6 +25,7 @@ type FakeFirehose struct {
 
 	lastAuthorization string
 	requested         bool
+	badRequest        bool
 
 	events       []*loggregator_v2.Envelope
 }
@@ -45,6 +46,10 @@ func (f *FakeFirehose) Start() {
 func (f *FakeFirehose) Close() {
 	f.closeServerLoop <- true
 	f.server.Close()
+}
+
+func (f *FakeFirehose) CloseServerLoop() {
+	f.closeServerLoop <- true
 }
 
 func (f *FakeFirehose) URL() string {
@@ -96,13 +101,14 @@ func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	f.lock.Lock()
 	f.lastAuthorization = r.Header.Get("Authorization")
 	f.requested = true
-	f.lock.Unlock()
 
 	if f.lastAuthorization != f.validToken {
-		log.Printf("Bad token passed to firehose: %s", f.lastAuthorization)
 		rw.WriteHeader(403)
+		time.Sleep(100 * time.Millisecond)
+		f.lock.Unlock()
 		return
 	}
+	f.lock.Unlock()
 
 	for {
 		select {
@@ -113,4 +119,10 @@ func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (f *FakeFirehose) SetToken(token string) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.validToken = token
 }
