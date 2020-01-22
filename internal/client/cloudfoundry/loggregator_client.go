@@ -52,7 +52,7 @@ func (d *rlpGatewayClientDoer) Do(req *http.Request) (*http.Response, error) {
 		return resp, err
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+	if resp.StatusCode >= http.StatusBadRequest {
 		time.Sleep(100 * time.Millisecond)
 		d.token = d.tokenFetcher.FetchAuthToken()
 
