@@ -5,9 +5,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/gosteno"
 )
 
 func checkAppAttributes(app *CFApplication) {
@@ -38,8 +38,8 @@ func checkSpaceAttributes(space *v3SpaceResource) {
 	Expect(space.Relationships.Organization.Data.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 }
 
-func checkOrgAttributes(org *cfclient.Org) {
-	Expect(org.Guid).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
+func checkOrgAttributes(org *v3OrgResource) {
+	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 	Expect(org.Name).To(Equal("system"))
 }
 
@@ -58,11 +58,11 @@ var _ = Describe("CloudFoundryClient", func() {
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
 		cfg := config.Config{
-			CloudControllerEndpoint:	ccAPIURL,
-			Client:          			"bearer",
-			ClientSecret:      			"123456789",
-			InsecureSSLSkipVerify: 		true,
-			NumWorkers:					0,
+			CloudControllerEndpoint: ccAPIURL,
+			Client:                  "bearer",
+			ClientSecret:            "123456789",
+			InsecureSSLSkipVerify:   true,
+			NumWorkers:              0,
 		}
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
@@ -233,4 +233,3 @@ var _ = Describe("CloudFoundryClient", func() {
 		})
 	})
 })
-

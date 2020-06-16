@@ -12,10 +12,10 @@ import (
 	"github.com/onsi/gomega/types"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
-	"github.com/cloudfoundry/gosteno"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/cloudfoundry/gosteno"
 )
 
 var _ = Describe("AppMetrics", func() {
@@ -33,11 +33,11 @@ var _ = Describe("AppMetrics", func() {
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
 		cfg := config.Config{
-			CloudControllerEndpoint:	ccAPIURL,
-			Client:          			"bearer",
-			ClientSecret:      			"123456789",
-			InsecureSSLSkipVerify: 		true,
-			NumWorkers:					5,
+			CloudControllerEndpoint: ccAPIURL,
+			Client:                  "bearer",
+			ClientSecret:            "123456789",
+			InsecureSSLSkipVerify:   true,
+			NumWorkers:              5,
 		}
 		var err error
 		fakeCfClient, err = cloudfoundry.NewClient(&cfg, log)
@@ -74,18 +74,18 @@ var _ = Describe("AppMetrics", func() {
 			Expect(a).NotTo(BeNil())
 			Expect(a.AppCache.IsWarmedUp()).To(BeFalse())
 			// Eventually, the cache is ready
-			Eventually(a.AppCache.IsWarmedUp, 10 * time.Second).Should(BeTrue())
+			Eventually(a.AppCache.IsWarmedUp, 10*time.Second).Should(BeTrue())
 		})
 	})
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when not in the cache", func() {
 			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
+			var req *http.Request
+			// Wait for cache warmup to finish
+			Eventually(fakeCloudControllerAPI.ReceivedRequests).ShouldNot(Receive())
 			_, err := a.getAppData("app-5")
 			Expect(err).ToNot(BeNil()) // error expected because fake CC won't return an app, so unmarshalling will fail
-			var req *http.Request
-			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive()) // /v2/info
-			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive()) // /oauth/token
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive(&req))
 			Expect(req.URL.Path).To(Equal("/v2/apps/app-5"))
 		})
@@ -108,37 +108,37 @@ var _ = Describe("AppMetrics", func() {
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
-				Timestamp: 1000000000,
-				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				Timestamp:  1000000000,
+				SourceId:   "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
 				InstanceId: "4",
 				Tags: map[string]string{
-					"origin": "test-origin",
+					"origin":     "test-origin",
 					"deployment": "deployment-name",
-					"job": "doppler",
-					"index": "1",
-					"ip": "10.0.1.2",
+					"job":        "doppler",
+					"index":      "1",
+					"ip":         "10.0.1.2",
 				},
 				Message: &loggregator_v2.Envelope_Gauge{
 					Gauge: &loggregator_v2.Gauge{
 						Metrics: map[string]*loggregator_v2.GaugeValue{
 							"cpu": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 						},
@@ -178,37 +178,37 @@ var _ = Describe("AppMetrics", func() {
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
-				Timestamp: 1000000000,
-				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				Timestamp:  1000000000,
+				SourceId:   "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
 				InstanceId: "4",
 				Tags: map[string]string{
-					"origin": "test-origin",
+					"origin":     "test-origin",
 					"deployment": "deployment-name",
-					"job": "doppler",
-					"index": "1",
-					"ip": "10.0.1.2",
+					"job":        "doppler",
+					"index":      "1",
+					"ip":         "10.0.1.2",
 				},
 				Message: &loggregator_v2.Envelope_Gauge{
 					Gauge: &loggregator_v2.Gauge{
 						Metrics: map[string]*loggregator_v2.GaugeValue{
 							"cpu": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 						},
@@ -217,10 +217,10 @@ var _ = Describe("AppMetrics", func() {
 			}
 
 			metricsWithInstanceTag := map[string]bool{
-				"app.cpu.pct": true,
-				"app.disk.used": true,
-				"app.disk.quota": true,
-				"app.memory.used": true,
+				"app.cpu.pct":      true,
+				"app.disk.used":    true,
+				"app.disk.quota":   true,
+				"app.memory.used":  true,
 				"app.memory.quota": true,
 			}
 
@@ -247,42 +247,42 @@ var _ = Describe("AppMetrics", func() {
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
 			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"},
-			"env_name")
+				"env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
-				Timestamp: 1000000000,
-				SourceId: "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				Timestamp:  1000000000,
+				SourceId:   "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
 				InstanceId: "4",
 				Tags: map[string]string{
-					"origin": "test-origin",
+					"origin":     "test-origin",
 					"deployment": "deployment-name",
-					"job": "doppler",
-					"index": "1",
-					"ip": "10.0.1.2",
+					"job":        "doppler",
+					"index":      "1",
+					"ip":         "10.0.1.2",
 				},
 				Message: &loggregator_v2.Envelope_Gauge{
 					Gauge: &loggregator_v2.Gauge{
 						Metrics: map[string]*loggregator_v2.GaugeValue{
 							"cpu": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"memory_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 							"disk_quota": &loggregator_v2.GaugeValue{
-								Unit: "gauge",
+								Unit:  "gauge",
 								Value: float64(1),
 							},
 						},

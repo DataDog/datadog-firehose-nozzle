@@ -55,7 +55,7 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
-		messages: make(chan *loggregator_v2.Envelope, 10000),
+		messages:              make(chan *loggregator_v2.Envelope, 10000),
 	}
 }
 
@@ -91,7 +91,7 @@ func (n *Nozzle) Start() error {
 		n.config.GrabInterval,
 		n.log)
 
-    n.orgCollector, err = orgcollector.NewOrgCollector(
+	n.orgCollector, err = orgcollector.NewOrgCollector(
 		n.config,
 		n.processedMetrics,
 		n.log,
