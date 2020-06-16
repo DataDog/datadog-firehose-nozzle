@@ -26,7 +26,7 @@ func appendTagIfNotEmpty(tags []string, key, value string) []string {
 
 func appendMetadataTags(tags []string, metadataCollection map[string]string, keyPrefix string) []string {
 	for key, value := range metadataCollection {
-		appendTagIfNotEmpty(tags, fmt.Sprintf("%s.%s", keyPrefix, key), value)
+		tags = appendTagIfNotEmpty(tags, fmt.Sprintf("%s.%s", keyPrefix, key), value)
 	}
 	return tags
 }

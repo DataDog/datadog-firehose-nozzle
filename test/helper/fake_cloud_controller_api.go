@@ -1102,6 +1102,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 										}
 									}
 								},
+								"metadata": {
+									"annotations": {"aa1": "aav1", "aa2": "aav2"},
+									"labels": {"al1": "alv1", "al2": "alv2"}
+								},
 								"links": {
 									"self": {
 										"href": "https://cloudfoundry.env/v3/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f"
@@ -1345,6 +1349,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 											"guid": "827da8e5-1676-42ec-9028-46fbfe04fb86"
 										}
 									}
+								},
+								"metadata": {
+									"annotations": {"aa1": "aav1", "aa2": "aav2"},
+									"labels": {"al1": "alv1", "al2": "alv2"}
 								},
 								"links": {
 									"self": {
@@ -2695,6 +2703,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						}
 					}
 					},
+					"metadata": {
+						"annotations": {"sa1": "sav1", "sa2": "sav2"},
+						"labels": {"sl1": "slv1", "sl2": "slv2"}
+					},
 					"links": {
 						"self": {
 							"href": "https://cloudfoundry.env/v3/spaces/417b893e-291e-48ec-94c7-7b2348604365"
@@ -2814,13 +2826,17 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"updated_at": "2019-05-21T09:42:46Z",
 						"name": "datadog-application-monitoring-space",
 						"relationships": {
-						"organization": {
-							"data": {
-							"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
+							"organization": {
+								"data": {
+								"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
+								}
 							}
-						}
 						},
-							"links": {
+						"metadata": {
+							"annotations": {"sa1": "sav1", "sa2": "sav2"},
+							"labels": {"sl1": "slv1", "sl2": "slv2"}
+						},
+						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/spaces/827da8e5-1676-42ec-9028-46fbfe04fb86"
 							},
@@ -2969,6 +2985,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"name": "system",
 						"created_at": "2019-05-17T13:06:27Z",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"metadata": {
+							"annotations": {"oa1": "oav1", "oa2": "oav2"},
+							"labels": {"ol1": "olv1", "ol2": "olv2"}
+						},
 						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
@@ -2999,6 +3019,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
 						"name": "datadog-application-monitoring-org",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"metadata": {
+							"annotations": {"oa1": "oav1", "oa2": "oav2"},
+							"labels": {"ol1": "olv1", "ol2": "olv2"}
+						},
 						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/organizations/8c19a50e-7974-4c67-adea-9640fae21526"

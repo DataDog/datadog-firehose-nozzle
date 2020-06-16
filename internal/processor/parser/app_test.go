@@ -121,23 +121,23 @@ var _ = Describe("AppMetrics", func() {
 				Message: &loggregator_v2.Envelope_Gauge{
 					Gauge: &loggregator_v2.Gauge{
 						Metrics: map[string]*loggregator_v2.GaugeValue{
-							"cpu": &loggregator_v2.GaugeValue{
+							"cpu": {
 								Unit:  "gauge",
 								Value: float64(1),
 							},
-							"memory": &loggregator_v2.GaugeValue{
+							"memory": {
 								Unit:  "gauge",
 								Value: float64(1),
 							},
-							"disk": &loggregator_v2.GaugeValue{
+							"disk": {
 								Unit:  "gauge",
 								Value: float64(1),
 							},
-							"memory_quota": &loggregator_v2.GaugeValue{
+							"memory_quota": {
 								Unit:  "gauge",
 								Value: float64(1),
 							},
-							"disk_quota": &loggregator_v2.GaugeValue{
+							"disk_quota": {
 								Unit:  "gauge",
 								Value: float64(1),
 							},
@@ -167,6 +167,18 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("source_id:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app.label.al1:alv1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app.label.al2:alv2"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app.annotation.aa1:aav1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("app.annotation.aa2:aav2"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("space.label.sl1:slv1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("space.label.sl2:slv2"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("space.annotation.sa1:sav1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("space.annotation.sa2:sav2"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("org.label.ol1:olv1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("org.label.ol2:olv2"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("org.annotation.oa1:oav1"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("org.annotation.oa2:oav2"))
 			}
 		})
 	})
