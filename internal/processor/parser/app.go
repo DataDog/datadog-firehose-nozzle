@@ -358,6 +358,15 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 			tags = appendTagIfNotEmpty(tags, "buildpack", bp)
 		}
 	}
+
+	// Append labels and annotations
+	tags = appendMetadataTags(tags, cfapp.Annotations.App, "app.annotation")
+	tags = appendMetadataTags(tags, cfapp.Annotations.Space, "space.annotation")
+	tags = appendMetadataTags(tags, cfapp.Annotations.Org, "org.annotation")
+	tags = appendMetadataTags(tags, cfapp.Labels.App, "app.label")
+	tags = appendMetadataTags(tags, cfapp.Labels.Space, "space.label")
+	tags = appendMetadataTags(tags, cfapp.Labels.Org, "org.label")
+
 	a.Tags = tags
 
 	return nil

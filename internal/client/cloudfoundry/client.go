@@ -38,6 +38,16 @@ type CFApplication struct {
 	TotalDiskQuota int
 	Memory         int
 	TotalMemory    int
+	Labels         struct {
+		Org   map[string]string
+		Space map[string]string
+		App   map[string]string
+	}
+	Annotations struct {
+		Org   map[string]string
+		Space map[string]string
+		App   map[string]string
+	}
 }
 
 type Data struct {
@@ -82,6 +92,10 @@ type v3AppResource struct {
 		Revisions            cfclient.Link `json:"revisions,omitempty"`
 		DeployedRevisions    cfclient.Link `json:"deployed_revisions,omitempty"`
 	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 type v3SpaceResponse struct {
@@ -101,11 +115,34 @@ type v3SpaceResource struct {
 		Self         cfclient.Link `json:"self"`
 		Organization cfclient.Link `json:"organization"`
 	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 type v3OrgResponse struct {
 	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []cfclient.Org      `json:"resources"`
+	Resources  []v3OrgResource     `json:"resources"`
+}
+
+type v3OrgResource struct {
+	GUID          string `json:"guid"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	Name          string `json:"name"`
+	Suspended     string `json:"suspended"`
+	Relationships struct {
+		Quota Data `json:"quota"`
+	} `json:"relationships"`
+	Links struct {
+		Self  cfclient.Link `json:"self"`
+		Quota cfclient.Link `json:"quota"`
+	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error) {
@@ -216,7 +253,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 	// Fetch orgs
 	wg.Add(1)
-	var orgs []cfclient.Org
+	var orgs []v3OrgResource
 	go func() {
 		defer wg.Done()
 		var err error
@@ -259,9 +296,9 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 
 	// Create an org Map
-	orgsPerGUID := map[string]cfclient.Org{}
+	orgsPerGUID := map[string]v3OrgResource{}
 	for _, org := range orgs {
-		orgsPerGUID[org.Guid] = org
+		orgsPerGUID[org.GUID] = org
 	}
 
 	// Populate CFApplication
@@ -400,8 +437,8 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	return spaces, nil
 }
 
-func (cfc *CFClient) getV3Orgs() ([]cfclient.Org, error) {
-	var cforgs []cfclient.Org
+func (cfc *CFClient) getV3Orgs() ([]v3OrgResource, error) {
+	var cforgs []v3OrgResource
 
 	for page := 1; ; page++ {
 		q := url.Values{}
@@ -568,6 +605,8 @@ func (a *CFApplication) setV3AppData(data v3AppResource) {
 	a.Name = data.Name
 	a.SpaceGUID = data.Relationships.Space.Data.GUID
 	a.Buildpacks = data.LifeCycle.Data.BuildPacks
+	a.Annotations.App = data.Metadata.Annotations
+	a.Labels.App = data.Metadata.Labels
 }
 
 func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
@@ -605,8 +644,12 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 func (a *CFApplication) setV3SpaceData(data v3SpaceResource) {
 	a.SpaceName = data.Name
 	a.OrgGUID = data.Relationships.Organization.Data.GUID
+	a.Annotations.Space = data.Metadata.Annotations
+	a.Labels.Space = data.Metadata.Labels
 }
 
-func (a *CFApplication) setV3OrgData(data cfclient.Org) {
+func (a *CFApplication) setV3OrgData(data v3OrgResource) {
 	a.OrgName = data.Name
+	a.Annotations.Org = data.Metadata.Annotations
+	a.Labels.Org = data.Metadata.Labels
 }
