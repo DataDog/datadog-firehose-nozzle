@@ -123,7 +123,7 @@ type v3OrgResource struct {
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 	Name          string `json:"name"`
-	Suspended     string `json:"suspended"`
+	Suspended     bool   `json:"suspended"`
 	Relationships struct {
 		Quota Data `json:"quota"`
 	} `json:"relationships"`
