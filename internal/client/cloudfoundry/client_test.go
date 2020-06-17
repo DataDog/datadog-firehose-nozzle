@@ -24,19 +24,21 @@ func checkAppAttributes(app *CFApplication, apiVersion int) {
 	Expect(app.Memory).To(Equal(256))
 	Expect(app.TotalMemory).To(Equal(256))
 	if apiVersion == 3 {
-		Expect(app.Annotations.App).To(Equal(map[string]string{"aa1": "aav1", "aa2": "aav2"}))
-		Expect(app.Annotations.Space).To(Equal(map[string]string{"sa1": "sav1", "sa2": "sav2"}))
-		Expect(app.Annotations.Org).To(Equal(map[string]string{"oa1": "oav1", "oa2": "oav2"}))
-		Expect(app.Labels.App).To(Equal(map[string]string{"al1": "alv1", "al2": "alv2"}))
-		Expect(app.Labels.Space).To(Equal(map[string]string{"sl1": "slv1", "sl2": "slv2"}))
-		Expect(app.Labels.Org).To(Equal(map[string]string{"ol1": "olv1", "ol2": "olv2"}))
+		Expect(app.Annotations).To(Equal(map[string]string{
+			"aa1": "aav1", "aa2": "aav2",
+			"sa1": "sav1", "sa2": "sav2",
+			"oa1": "oav1", "oa2": "oav2",
+			"ga1": "app", "ga2": "space", "ga3": "org",
+		}))
+		Expect(app.Labels).To(Equal(map[string]string{
+			"al1": "alv1", "al2": "alv2",
+			"sl1": "slv1", "sl2": "slv2",
+			"ol1": "olv1", "ol2": "olv2",
+			"gl1": "app", "gl2": "space", "gl3": "org",
+		}))
 	} else {
-		Expect(app.Annotations.App).To(BeNil())
-		Expect(app.Annotations.Space).To(BeNil())
-		Expect(app.Annotations.Org).To(BeNil())
-		Expect(app.Labels.App).To(BeNil())
-		Expect(app.Labels.Space).To(BeNil())
-		Expect(app.Labels.Org).To(BeNil())
+		Expect(app.Annotations).To(BeNil())
+		Expect(app.Labels).To(BeNil())
 	}
 }
 

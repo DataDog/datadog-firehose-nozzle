@@ -38,16 +38,8 @@ type CFApplication struct {
 	TotalDiskQuota int
 	Memory         int
 	TotalMemory    int
-	Labels         struct {
-		Org   map[string]string
-		Space map[string]string
-		App   map[string]string
-	}
-	Annotations struct {
-		Org   map[string]string
-		Space map[string]string
-		App   map[string]string
-	}
+	Labels         map[string]string
+	Annotations    map[string]string
 }
 
 type Data struct {
@@ -313,6 +305,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 		} else {
 			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGUID)
 		}
+		// Fill space then org data. Order matters for labels and annotations.
 		space, exists := spacesPerGUID[spaceGUID]
 		if exists {
 			updatedApp.setV3SpaceData(space)
@@ -605,8 +598,14 @@ func (a *CFApplication) setV3AppData(data v3AppResource) {
 	a.Name = data.Name
 	a.SpaceGUID = data.Relationships.Space.Data.GUID
 	a.Buildpacks = data.LifeCycle.Data.BuildPacks
-	a.Annotations.App = data.Metadata.Annotations
-	a.Labels.App = data.Metadata.Labels
+	a.Annotations = data.Metadata.Annotations
+	a.Labels = data.Metadata.Labels
+	if a.Annotations == nil {
+		a.Annotations = map[string]string{}
+	}
+	if a.Labels == nil {
+		a.Labels = map[string]string{}
+	}
 }
 
 func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
@@ -644,12 +643,32 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 func (a *CFApplication) setV3SpaceData(data v3SpaceResource) {
 	a.SpaceName = data.Name
 	a.OrgGUID = data.Relationships.Organization.Data.GUID
-	a.Annotations.Space = data.Metadata.Annotations
-	a.Labels.Space = data.Metadata.Labels
+
+	// Set space labels and annotations only if they're not overriden per application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
 }
 
 func (a *CFApplication) setV3OrgData(data v3OrgResource) {
 	a.OrgName = data.Name
-	a.Annotations.Org = data.Metadata.Annotations
-	a.Labels.Org = data.Metadata.Labels
+
+	// Set org labels and annotations only if they're not overriden per space or application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
 }
