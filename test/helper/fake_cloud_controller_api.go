@@ -1103,8 +1103,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 									}
 								},
 								"metadata": {
-									"annotations": {"aa1": "aav1", "aa2": "aav2", "ga1": "app"},
-									"labels": {"al1": "alv1", "al2": "alv2", "gl1": "app"}
+									"annotations": {
+										"app-annotation": "app-annotation-value",
+										"app-space-annotation": "app-space-annotation-app-value",
+										"app-org-annotation": "app-org-annotation-app-value",
+										"app-space-org-annotation": "app-space-org-annotation-app-value"
+									},
+									"labels": {
+										"app-label": "app-label-value",
+										"app-space-label": "app-space-label-app-value",
+										"app-org-label": "app-org-label-app-value",
+										"app-space-org-label": "app-space-org-label-app-value"
+									}
 								},
 								"links": {
 									"self": {
@@ -1351,8 +1361,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 									}
 								},
 								"metadata": {
-									"annotations": {"aa1": "aav1", "aa2": "aav2", "ga1": "app"},
-									"labels": {"al1": "alv1", "al2": "alv2", "gl1": "app"}
+									"annotations": {
+										"app-annotation": "app-annotation-value",
+										"app-space-annotation": "app-space-annotation-app-value",
+										"app-org-annotation": "app-org-annotation-app-value",
+										"app-space-org-annotation": "app-space-org-annotation-app-value"
+									},
+									"labels": {
+										"app-label": "app-label-value",
+										"app-space-label": "app-space-label-app-value",
+										"app-org-label": "app-org-label-app-value",
+										"app-space-org-label": "app-space-org-label-app-value"
+									}
 								},
 								"links": {
 									"self": {
@@ -2704,8 +2724,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						}
 					},
 					"metadata": {
-						"annotations": {"sa1": "sav1", "sa2": "sav2", "ga1": "space", "ga2": "space"},
-						"labels": {"sl1": "slv1", "sl2": "slv2", "gl1": "space", "gl2": "space"}
+						"annotations": {
+							"space-annotation": "space-annotation-value",
+							"app-space-annotation": "app-space-annotation-space-value",
+							"space-org-annotation": "space-org-annotation-space-value",
+							"app-space-org-annotation": "app-space-org-annotation-space-value"
+						},
+						"labels": {
+							"space-label": "space-label-value",
+							"app-space-label": "app-space-label-space-value",
+							"space-org-label": "space-org-label-space-value",
+							"app-space-org-label": "app-space-org-label-space-value"
+						}
 					},
 					"links": {
 						"self": {
@@ -2833,8 +2863,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 							}
 						},
 						"metadata": {
-							"annotations": {"sa1": "sav1", "sa2": "sav2", "ga1": "space", "ga2": "space"},
-							"labels": {"sl1": "slv1", "sl2": "slv2", "gl1": "space", "gl2": "space"}
+							"annotations": {
+								"space-annotation": "space-annotation-value",
+								"app-space-annotation": "app-space-annotation-space-value",
+								"space-org-annotation": "space-org-annotation-space-value",
+								"app-space-org-annotation": "app-space-org-annotation-space-value"
+							},
+							"labels": {
+								"space-label": "space-label-value",
+								"app-space-label": "app-space-label-space-value",
+								"space-org-label": "space-org-label-space-value",
+								"app-space-org-label": "app-space-org-label-space-value"
+							}
 						},
 						"links": {
 							"self": {
@@ -2986,8 +3026,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"created_at": "2019-05-17T13:06:27Z",
 						"updated_at": "2019-10-04T11:10:22Z",
 						"metadata": {
-							"annotations": {"oa1": "oav1", "oa2": "oav2", "ga1": "org", "ga2": "org", "ga3": "org"},
-							"labels": {"ol1": "olv1", "ol2": "olv2", "gl1": "org", "gl2": "org", "gl3": "org"}
+							"annotations": {
+								"org-annotation": "org-annotation-value",
+								"app-org-annotation": "app-org-annotation-org-value",
+								"space-org-annotation": "space-org-annotation-org-value",
+								"app-space-org-annotation": "app-space-org-annotation-org-value"
+							},
+							"labels": {
+								"org-label": "org-label-value",
+								"app-org-label": "app-org-label-org-value",
+								"space-org-label": "space-org-label-org-value",
+								"app-space-org-label": "app-space-org-label-org-value"
+							}
 						},
 						"links": {
 							"self": {
@@ -3020,8 +3070,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"name": "datadog-application-monitoring-org",
 						"updated_at": "2019-10-04T11:10:22Z",
 						"metadata": {
-							"annotations": {"oa1": "oav1", "oa2": "oav2", "ga1": "org", "ga2": "org", "ga3": "org"},
-							"labels": {"ol1": "olv1", "ol2": "olv2", "gl1": "org", "gl2": "org", "gl3": "org"}
+							"annotations": {
+								"org-annotation": "org-annotation-value",
+								"app-org-annotation": "app-org-annotation-org-value",
+								"space-org-annotation": "space-org-annotation-org-value",
+								"app-space-org-annotation": "app-space-org-annotation-org-value"
+							},
+							"labels": {
+								"org-label": "org-label-value",
+								"app-org-label": "app-org-label-org-value",
+								"space-org-label": "space-org-label-org-value",
+								"app-space-org-label": "app-space-org-label-org-value"
+							}
 						},
 						"links": {
 							"self": {

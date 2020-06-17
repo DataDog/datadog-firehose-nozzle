@@ -25,16 +25,22 @@ func checkAppAttributes(app *CFApplication, apiVersion int) {
 	Expect(app.TotalMemory).To(Equal(256))
 	if apiVersion == 3 {
 		Expect(app.Annotations).To(Equal(map[string]string{
-			"aa1": "aav1", "aa2": "aav2",
-			"sa1": "sav1", "sa2": "sav2",
-			"oa1": "oav1", "oa2": "oav2",
-			"ga1": "app", "ga2": "space", "ga3": "org",
+			"app-space-org-annotation": "app-space-org-annotation-app-value",
+			"app-space-annotation":     "app-space-annotation-app-value",
+			"app-org-annotation":       "app-org-annotation-app-value",
+			"app-annotation":           "app-annotation-value",
+			"space-org-annotation":     "space-org-annotation-space-value",
+			"space-annotation":         "space-annotation-value",
+			"org-annotation":           "org-annotation-value",
 		}))
 		Expect(app.Labels).To(Equal(map[string]string{
-			"al1": "alv1", "al2": "alv2",
-			"sl1": "slv1", "sl2": "slv2",
-			"ol1": "olv1", "ol2": "olv2",
-			"gl1": "app", "gl2": "space", "gl3": "org",
+			"app-space-org-label": "app-space-org-label-app-value",
+			"app-space-label":     "app-space-label-app-value",
+			"app-org-label":       "app-org-label-app-value",
+			"app-label":           "app-label-value",
+			"space-org-label":     "space-org-label-space-value",
+			"space-label":         "space-label-value",
+			"org-label":           "org-label-value",
 		}))
 	} else {
 		Expect(app.Annotations).To(BeNil())
