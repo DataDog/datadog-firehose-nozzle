@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -32,6 +33,7 @@ var _ = Describe("AppMetrics", func() {
 		fakeCloudControllerAPI.Start()
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
+		config.NozzleConfig = config.Config{}
 		cfg := config.Config{
 			CloudControllerEndpoint: ccAPIURL,
 			Client:                  "bearer",
@@ -102,7 +104,9 @@ var _ = Describe("AppMetrics", func() {
 	})
 
 	Context("metric evaluation test", func() {
-		It("parses an event properly", func() {
+		It("parses an event properly and adds metadata if configured", func() {
+			config.NozzleConfig.EnableMetadataCollection = true
+			config.NozzleConfig.MetadataKeysBlacklist = []*regexp.Regexp{regexp.MustCompile("blacklisted.*")}
 			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
@@ -181,6 +185,93 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/space-org-annotation:space-org-annotation-space-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/space-annotation:space-annotation-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/org-annotation:org-annotation-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/blacklisted_key:foo"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/blacklisted_key:bar"))
+			}
+		})
+		It("parses an event properly and doesn't add metadata if not configured", func() {
+			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
+			Expect(err).To(BeNil())
+			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
+
+			event := &loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				SourceId:   "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+				InstanceId: "4",
+				Tags: map[string]string{
+					"origin":     "test-origin",
+					"deployment": "deployment-name",
+					"job":        "doppler",
+					"index":      "1",
+					"ip":         "10.0.1.2",
+				},
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"cpu": {
+								Unit:  "gauge",
+								Value: float64(1),
+							},
+							"memory": {
+								Unit:  "gauge",
+								Value: float64(1),
+							},
+							"disk": {
+								Unit:  "gauge",
+								Value: float64(1),
+							},
+							"memory_quota": {
+								Unit:  "gauge",
+								Value: float64(1),
+							},
+							"disk_quota": {
+								Unit:  "gauge",
+								Value: float64(1),
+							},
+						},
+					},
+				},
+			}
+
+			metrics, err := a.Parse(event)
+
+			Expect(err).To(BeNil())
+			Expect(metrics).To(HaveLen(10))
+
+			Expect(metrics).To(ContainMetric("app.disk.configured"))
+			Expect(metrics).To(ContainMetric("app.disk.provisioned"))
+			Expect(metrics).To(ContainMetric("app.memory.configured"))
+			Expect(metrics).To(ContainMetric("app.memory.provisioned"))
+			Expect(metrics).To(ContainMetric("app.instances"))
+			Expect(metrics).To(ContainMetric("app.cpu.pct"))
+			Expect(metrics).To(ContainMetric("app.disk.used"))
+			Expect(metrics).To(ContainMetric("app.disk.quota"))
+			Expect(metrics).To(ContainMetric("app.memory.used"))
+			Expect(metrics).To(ContainMetric("app.memory.quota"))
+
+			for _, metric := range metrics {
+				Expect(metric.MetricValue.Tags).To(ContainElement("app_name:hello-datadog-cf-ruby-dev"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("source_id:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-space-org-label:app-space-org-label-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-space-label:app-space-label-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-org-label:app-org-label-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-label:app-label-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/space-org-label:space-org-label-space-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/space-label:space-label-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/org-label:org-label-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/app-space-org-annotation:app-space-org-annotation-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/app-space-annotation:app-space-annotation-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/app-org-annotation:app-org-annotation-app-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/app-annotation:app-annotation-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/space-org-annotation:space-org-annotation-space-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/space-annotation:space-annotation-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/org-annotation:org-annotation-value"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/whitelisted_key:foo"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/whitelisted_key:bar"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/blacklisted_key:foo"))
+				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/blacklisted_key:bar"))
 			}
 		})
 	})

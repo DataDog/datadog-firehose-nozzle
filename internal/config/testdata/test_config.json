@@ -37,5 +37,8 @@
   "EnvironmentName": "env_name",
   "DBPath": "/var/vcap/nozzle.db",
   "GrabInterval": 50,
-  "OrgDataCollectionInterval": 100
+  "OrgDataCollectionInterval": 100,
+  "EnableMetadataCollection": true,
+  "MetadataKeysWhitelistPatterns": ["whitelisted1", "whitelisted2"],
+  "MetadataKeysBlacklistPatterns": ["blacklisted1", "blacklisted2"]
 }
