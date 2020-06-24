@@ -38,6 +38,8 @@ type CFApplication struct {
 	TotalDiskQuota int
 	Memory         int
 	TotalMemory    int
+	Labels         map[string]string
+	Annotations    map[string]string
 }
 
 type Data struct {
@@ -82,6 +84,10 @@ type v3AppResource struct {
 		Revisions            cfclient.Link `json:"revisions,omitempty"`
 		DeployedRevisions    cfclient.Link `json:"deployed_revisions,omitempty"`
 	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 type v3SpaceResponse struct {
@@ -101,11 +107,34 @@ type v3SpaceResource struct {
 		Self         cfclient.Link `json:"self"`
 		Organization cfclient.Link `json:"organization"`
 	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 type v3OrgResponse struct {
 	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []cfclient.Org      `json:"resources"`
+	Resources  []v3OrgResource     `json:"resources"`
+}
+
+type v3OrgResource struct {
+	GUID          string `json:"guid"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	Name          string `json:"name"`
+	Suspended     bool   `json:"suspended"`
+	Relationships struct {
+		Quota Data `json:"quota"`
+	} `json:"relationships"`
+	Links struct {
+		Self  cfclient.Link `json:"self"`
+		Quota cfclient.Link `json:"quota"`
+	} `json:"links"`
+	Metadata struct {
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 }
 
 func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error) {
@@ -216,7 +245,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 	// Fetch orgs
 	wg.Add(1)
-	var orgs []cfclient.Org
+	var orgs []v3OrgResource
 	go func() {
 		defer wg.Done()
 		var err error
@@ -259,9 +288,9 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 
 	// Create an org Map
-	orgsPerGUID := map[string]cfclient.Org{}
+	orgsPerGUID := map[string]v3OrgResource{}
 	for _, org := range orgs {
-		orgsPerGUID[org.Guid] = org
+		orgsPerGUID[org.GUID] = org
 	}
 
 	// Populate CFApplication
@@ -276,6 +305,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 		} else {
 			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGUID)
 		}
+		// Fill space then org data. Order matters for labels and annotations.
 		space, exists := spacesPerGUID[spaceGUID]
 		if exists {
 			updatedApp.setV3SpaceData(space)
@@ -400,8 +430,8 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 	return spaces, nil
 }
 
-func (cfc *CFClient) getV3Orgs() ([]cfclient.Org, error) {
-	var cforgs []cfclient.Org
+func (cfc *CFClient) getV3Orgs() ([]v3OrgResource, error) {
+	var cforgs []v3OrgResource
 
 	for page := 1; ; page++ {
 		q := url.Values{}
@@ -568,6 +598,14 @@ func (a *CFApplication) setV3AppData(data v3AppResource) {
 	a.Name = data.Name
 	a.SpaceGUID = data.Relationships.Space.Data.GUID
 	a.Buildpacks = data.LifeCycle.Data.BuildPacks
+	a.Annotations = data.Metadata.Annotations
+	a.Labels = data.Metadata.Labels
+	if a.Annotations == nil {
+		a.Annotations = map[string]string{}
+	}
+	if a.Labels == nil {
+		a.Labels = map[string]string{}
+	}
 }
 
 func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
@@ -605,8 +643,32 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 func (a *CFApplication) setV3SpaceData(data v3SpaceResource) {
 	a.SpaceName = data.Name
 	a.OrgGUID = data.Relationships.Organization.Data.GUID
+
+	// Set space labels and annotations only if they're not overriden per application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
 }
 
-func (a *CFApplication) setV3OrgData(data cfclient.Org) {
+func (a *CFApplication) setV3OrgData(data v3OrgResource) {
 	a.OrgName = data.Name
+
+	// Set org labels and annotations only if they're not overriden per space or application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
 }

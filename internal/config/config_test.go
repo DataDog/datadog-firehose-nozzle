@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"regexp"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,11 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.GrabInterval).To(Equal(50))
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(1000))
 		Expect(conf.OrgDataCollectionInterval).To(BeEquivalentTo(100))
+		Expect(conf.EnableMetadataCollection).To(BeTrue())
+		Expect(conf.MetadataKeysBlacklist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("blacklisted1"), regexp.MustCompile("blacklisted2")}))
+		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
+		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
+		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEquivalentTo([]string{"whitelisted1", "whitelisted2"}))
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -57,6 +63,11 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.GrabInterval).To(Equal(10))
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(500))
 		Expect(conf.OrgDataCollectionInterval).To(BeEquivalentTo(600))
+		Expect(conf.EnableMetadataCollection).To(BeFalse())
+		Expect(conf.MetadataKeysBlacklist).To(BeEmpty())
+		Expect(conf.MetadataKeysWhitelist).To(BeEmpty())
+		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEmpty())
+		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEmpty())
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -85,6 +96,9 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_GRAB_INTERVAL", "50")
 		os.Setenv("NOZZLE_CLOUD_CONTROLLER_API_BATCH_SIZE", "100")
 		os.Setenv("NOZZLE_ORG_DATA_COLLECTION_INTERVAL", "100")
+		os.Setenv("NOZZLE_METADATA_KEYS_WHITELIST", "whitelisted1,whitelisted2")
+		os.Setenv("NOZZLE_METADATA_KEYS_BLACKLIST", "blacklisted1,blacklisted2")
+		os.Setenv("NOZZLE_ENABLE_METADATA_COLLECTION", "true")
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
@@ -111,6 +125,11 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.GrabInterval).To(Equal(50))
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(100))
 		Expect(conf.OrgDataCollectionInterval).To(BeEquivalentTo(100))
+		Expect(conf.EnableMetadataCollection).To(BeTrue())
+		Expect(conf.MetadataKeysBlacklist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("blacklisted1"), regexp.MustCompile("blacklisted2")}))
+		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
+		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
+		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEquivalentTo([]string{"whitelisted1", "whitelisted2"}))
 	})
 
 	It("correctly serializes to log string", func() {
@@ -120,11 +139,12 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
-		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnvironmentName":"env_name",`
+		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
 		expected += `"FirehoseSubscriptionID":"datadog-nozzle","FlushDurationSeconds":15,"FlushMaxBytes":57671680,`
 		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
 		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`
-		expected += `"MetricPrefix":"datadogclient","NoProxy":[""],"NumCacheWorkers":2,"NumWorkers":1,`
+		expected += `"MetadataKeysBlacklistPatterns":["blacklisted1","blacklisted2"],"MetadataKeysWhitelistPatterns":["whitelisted1","whitelisted2"],`
+		expected += `"MetricPrefix":"datadogclient","NoProxy":["*.aventail.com","home.com",".seanet.com"],"NumCacheWorkers":2,"NumWorkers":1,`
 		expected += `"OrgDataCollectionInterval":100,"RLPGatewayURL":"https://some-url.blah",`
 		expected += `"UAAURL":"https://uaa.walnut.cf-app.com","WorkerTimeoutSeconds":30}`
 		conf, err := Parse("testdata/test_config.json")

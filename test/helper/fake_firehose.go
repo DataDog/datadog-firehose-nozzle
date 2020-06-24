@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/golang/protobuf/jsonpb"
 )
 
 var marshaler = jsonpb.Marshaler{
@@ -16,10 +16,10 @@ var marshaler = jsonpb.Marshaler{
 }
 
 type FakeFirehose struct {
-	server *httptest.Server
+	server          *httptest.Server
 	closeServerLoop chan bool
-	serveBatch chan *loggregator_v2.EnvelopeBatch
-	lock   sync.Mutex
+	serveBatch      chan *loggregator_v2.EnvelopeBatch
+	lock            sync.Mutex
 
 	validToken string
 
@@ -27,14 +27,14 @@ type FakeFirehose struct {
 	requested         bool
 	badRequest        bool
 
-	events       []*loggregator_v2.Envelope
+	events []*loggregator_v2.Envelope
 }
 
 func NewFakeFirehose(validToken string) *FakeFirehose {
 	return &FakeFirehose{
-		validToken:   validToken,
+		validToken:      validToken,
 		closeServerLoop: make(chan bool, 1),
-		serveBatch:    make(chan *loggregator_v2.EnvelopeBatch, 1),
+		serveBatch:      make(chan *loggregator_v2.EnvelopeBatch, 1),
 	}
 }
 
@@ -112,10 +112,10 @@ func (f *FakeFirehose) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	for {
 		select {
-		case b := <- f.serveBatch:
+		case b := <-f.serveBatch:
 			f.writeBatch(rw, b)
 			flusher.Flush()
-		case <- f.closeServerLoop:
+		case <-f.closeServerLoop:
 			return
 		}
 	}

@@ -29,11 +29,11 @@ var _ = Describe("OrgCollector", func() {
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
 		cfg := config.Config{
-			CloudControllerEndpoint:	ccAPIURL,
-			Client:          			"bearer",
-			ClientSecret:      			"123456789",
-			InsecureSSLSkipVerify: 		true,
-			NumWorkers:					0,
+			CloudControllerEndpoint: ccAPIURL,
+			Client:                  "bearer",
+			ClientSecret:            "123456789",
+			InsecureSSLSkipVerify:   true,
+			NumWorkers:              0,
 		}
 		pm = make(chan []metric.MetricPackage, 1)
 		customTags = []string{"foo:bar"}

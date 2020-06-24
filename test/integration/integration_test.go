@@ -68,16 +68,16 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		fakeFirehose.AddEvent(loggregator_v2.Envelope{
 			Timestamp: 1000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
-				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
-				"index": "1",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"index":      "1",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"metricName": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(5),
 						},
 					},
@@ -88,16 +88,16 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		fakeFirehose.AddEvent(loggregator_v2.Envelope{
 			Timestamp: 2000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
-				"job": "gorouter-partition-aaaaaaaaaaaaaaaaaaaa",
-				"index": "1",
+				"job":        "gorouter-partition-aaaaaaaaaaaaaaaaaaaa",
+				"index":      "1",
 			},
 			Message: &loggregator_v2.Envelope_Gauge{
 				Gauge: &loggregator_v2.Gauge{
 					Metrics: map[string]*loggregator_v2.GaugeValue{
 						"metricName": &loggregator_v2.GaugeValue{
-							Unit: "gauge",
+							Unit:  "gauge",
 							Value: float64(10),
 						},
 					},
@@ -108,13 +108,13 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		fakeFirehose.AddEvent(loggregator_v2.Envelope{
 			Timestamp: 3000000000,
 			Tags: map[string]string{
-				"origin": "origin",
+				"origin":     "origin",
 				"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
-				"job": "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
 			},
 			Message: &loggregator_v2.Envelope_Counter{
 				Counter: &loggregator_v2.Counter{
-					Name: "counterName",
+					Name:  "counterName",
 					Delta: uint64(3),
 					Total: uint64(15),
 				},

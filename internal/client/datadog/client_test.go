@@ -484,8 +484,8 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 
 func makeFakeMetric(name string, timeStamp, value uint64, tags []string) (metric.MetricKey, metric.MetricValue) {
 	key := metric.MetricKey{
-		Name:      name,
-		TagsHash:  util.HashTags(tags),
+		Name:     name,
+		TagsHash: util.HashTags(tags),
 	}
 
 	point := metric.Point{

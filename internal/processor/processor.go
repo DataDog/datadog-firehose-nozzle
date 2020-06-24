@@ -9,8 +9,8 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
-	"github.com/cloudfoundry/gosteno"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/cloudfoundry/gosteno"
 )
 
 const (

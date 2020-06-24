@@ -27,14 +27,15 @@ func main() {
 	log := logger.NewLogger(*logLevel, *logFilePath, "datadog-firehose-nozzle", "")
 
 	// Load Nozzle Config
-	config, err := config.Parse(*configFile)
+	var err error
+	config.NozzleConfig, err = config.Parse(*configFile)
 	if err != nil {
 		log.Fatalf("Error parsing config: %s", err.Error())
 	}
-	if config.FlushMaxBytes < flushMinBytes {
-		log.Fatalf("Config FlushMaxBytes is too low (%d): must be at least %d", config.FlushMaxBytes, flushMinBytes)
+	if config.NozzleConfig.FlushMaxBytes < flushMinBytes {
+		log.Fatalf("Config FlushMaxBytes is too low (%d): must be at least %d", config.NozzleConfig.FlushMaxBytes, flushMinBytes)
 	}
-	logString, err := config.AsLogString()
+	logString, err := config.NozzleConfig.AsLogString()
 	if err != nil {
 		log.Warnf("Failed to serialize config for logging: %s", err.Error())
 	} else {
@@ -42,10 +43,10 @@ func main() {
 	}
 	// Initialize UAATokenFetcher
 	tokenFetcher := uaatokenfetcher.New(
-		config.UAAURL,
-		config.Client,
-		config.ClientSecret,
-		config.InsecureSSLSkipVerify,
+		config.NozzleConfig.UAAURL,
+		config.NozzleConfig.Client,
+		config.NozzleConfig.ClientSecret,
+		config.NozzleConfig.InsecureSSLSkipVerify,
 		log,
 	)
 
@@ -54,9 +55,9 @@ func main() {
 	go dumpGoRoutine(threadDumpChan)
 
 	// Initialize and start Nozzle
-	log.Infof("Targeting datadog API URL: %s \n", config.DataDogURL)
-	datadog_nozzle := nozzle.NewNozzle(config, tokenFetcher, log)
-	err = datadog_nozzle.Start()
+	log.Infof("Targeting datadog API URL: %s \n", config.NozzleConfig.DataDogURL)
+	datadogNozzle := nozzle.NewNozzle(&config.NozzleConfig, tokenFetcher, log)
+	err = datadogNozzle.Start()
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -73,7 +74,7 @@ func dumpGoRoutine(dumpChan chan os.Signal) {
 	for range dumpChan {
 		goRoutineProfiles := pprof.Lookup("goroutine")
 		if goRoutineProfiles != nil {
-			goRoutineProfiles.WriteTo(os.Stdout, 2)
+			_ = goRoutineProfiles.WriteTo(os.Stdout, 2)
 		}
 	}
 }

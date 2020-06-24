@@ -33,8 +33,8 @@ func (p *Point) UnmarshalJSON(in []byte) error {
 }
 
 type MetricKey struct {
-	Name      string
-	TagsHash  string
+	Name     string
+	TagsHash string
 }
 
 type MetricValue struct {

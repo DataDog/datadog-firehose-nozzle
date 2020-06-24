@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -18,40 +19,47 @@ const (
 	defaultOrgDataCollectionInterval   uint32 = 600
 )
 
+var NozzleConfig Config
+
 // Config contains all the config parameters
 type Config struct {
 	// NOTE: When adding new attributes that can be considered secrets,
 	// make sure to mark them for omission when logging config in AsLogString
-	UAAURL                      string
-	Client                      string
-	ClientSecret                string
-	RLPGatewayURL               string
-	FirehoseSubscriptionID      string
-	DataDogURL                  string
-	DataDogAPIKey               string
-	DataDogAdditionalEndpoints  map[string][]string
-	HTTPProxyURL                string
-	HTTPSProxyURL               string
-	NoProxy                     []string
-	CloudControllerEndpoint     string
-	CloudControllerAPIBatchSize uint32
-	DataDogTimeoutSeconds       uint32
-	FlushDurationSeconds        uint32
-	FlushMaxBytes               uint32
-	InsecureSSLSkipVerify       bool
-	MetricPrefix                string
-	Deployment                  string
-	DeploymentFilter            string
-	DisableAccessControl        bool
-	IdleTimeoutSeconds          uint32
-	AppMetrics                  bool
-	NumWorkers                  int
-	NumCacheWorkers             int
-	GrabInterval                int
-	CustomTags                  []string
-	EnvironmentName             string
-	WorkerTimeoutSeconds        uint32
-	OrgDataCollectionInterval   uint32
+	UAAURL                        string
+	Client                        string
+	ClientSecret                  string
+	RLPGatewayURL                 string
+	FirehoseSubscriptionID        string
+	DataDogURL                    string
+	DataDogAPIKey                 string
+	DataDogAdditionalEndpoints    map[string][]string
+	HTTPProxyURL                  string
+	HTTPSProxyURL                 string
+	NoProxy                       []string
+	CloudControllerEndpoint       string
+	CloudControllerAPIBatchSize   uint32
+	DataDogTimeoutSeconds         uint32
+	FlushDurationSeconds          uint32
+	FlushMaxBytes                 uint32
+	InsecureSSLSkipVerify         bool
+	MetricPrefix                  string
+	Deployment                    string
+	DeploymentFilter              string
+	DisableAccessControl          bool
+	IdleTimeoutSeconds            uint32
+	AppMetrics                    bool
+	NumWorkers                    int
+	NumCacheWorkers               int
+	GrabInterval                  int
+	CustomTags                    []string
+	EnvironmentName               string
+	WorkerTimeoutSeconds          uint32
+	OrgDataCollectionInterval     uint32
+	EnableMetadataCollection      bool
+	MetadataKeysWhitelistPatterns []string
+	MetadataKeysBlacklistPatterns []string
+	MetadataKeysWhitelist         []*regexp.Regexp `json:"-"`
+	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
@@ -89,16 +97,16 @@ func (c *Config) AsLogString() (string, error) {
 }
 
 // Parse parses the config from the json configuration and environment variables
-func Parse(configPath string) (*Config, error) {
+func Parse(configPath string) (Config, error) {
 	configBytes, err := ioutil.ReadFile(configPath)
 	var config Config
 	if err != nil {
-		return nil, fmt.Errorf("Can not read config file [%s]: %s", configPath, err)
+		return Config{}, fmt.Errorf("can not read config file [%s]: %s", configPath, err)
 	}
 
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
-		return nil, fmt.Errorf("Can not parse config file %s: %s", configPath, err)
+		return Config{}, fmt.Errorf("can not parse config file %s: %s", configPath, err)
 	}
 
 	overrideWithEnvVar("NOZZLE_UAAURL", &config.UAAURL)
@@ -129,6 +137,24 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvUint32("NOZZLE_WORKERTIMEOUTSECONDS", &config.WorkerTimeoutSeconds)
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
+	overrideWithEnvBool("NOZZLE_ENABLE_METADATA_COLLECTION", &config.EnableMetadataCollection)
+
+	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_WHITELIST", &config.MetadataKeysWhitelistPatterns)
+	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_BLACKLIST", &config.MetadataKeysBlacklistPatterns)
+	for _, pattern := range config.MetadataKeysWhitelistPatterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return Config{}, fmt.Errorf("error compiling metadata key whitelist pattern %s: %v", pattern, err)
+		}
+		config.MetadataKeysWhitelist = append(config.MetadataKeysWhitelist, re)
+	}
+	for _, pattern := range config.MetadataKeysBlacklistPatterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return Config{}, fmt.Errorf("error compiling metadata key blacklist pattern %s: %v", pattern, err)
+		}
+		config.MetadataKeysBlacklist = append(config.MetadataKeysBlacklist, re)
+	}
 
 	if config.MetricPrefix == "" {
 		config.MetricPrefix = "cloudfoundry.nozzle."
@@ -157,7 +183,7 @@ func Parse(configPath string) (*Config, error) {
 	if config.CloudControllerAPIBatchSize == 0 {
 		config.CloudControllerAPIBatchSize = defaultCloudControllerAPIBatchSize
 	} else if config.CloudControllerAPIBatchSize < 100 || config.CloudControllerAPIBatchSize > 5000 {
-		return nil, fmt.Errorf("CloudControllerAPIBatchSize must be an integer >= 100 and <= 5000")
+		return Config{}, fmt.Errorf("CloudControllerAPIBatchSize must be an integer >= 100 and <= 5000")
 	}
 
 	if config.OrgDataCollectionInterval == 0 {
@@ -167,7 +193,7 @@ func Parse(configPath string) (*Config, error) {
 	overrideWithEnvInt("NOZZLE_NUM_WORKERS", &config.NumWorkers)
 	overrideWithEnvInt("NOZZLE_NUM_CACHE_WORKERS", &config.NumCacheWorkers)
 
-	return &config, nil
+	return config, nil
 }
 
 func overrideWithEnvVar(name string, value *string) {
@@ -195,7 +221,7 @@ func overrideWithEnvInt(name string, value *int) {
 		if err != nil {
 			panic(err)
 		}
-		*value = int(tmpValue)
+		*value = tmpValue
 	}
 }
 
@@ -212,5 +238,7 @@ func overrideWithEnvBool(name string, value *bool) {
 
 func overrideWithEnvSliceStrings(name string, value *[]string) {
 	envValue := os.Getenv(name)
-	*value = strings.Split(envValue, ",")
+	if envValue != "" {
+		*value = strings.Split(envValue, ",")
+	}
 }

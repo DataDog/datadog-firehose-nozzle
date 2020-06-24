@@ -1102,6 +1102,20 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 										}
 									}
 								},
+								"metadata": {
+									"annotations": {
+										"app-annotation": "app-annotation-value",
+										"app-space-annotation": "app-space-annotation-app-value",
+										"app-org-annotation": "app-org-annotation-app-value",
+										"app-space-org-annotation": "app-space-org-annotation-app-value"
+									},
+									"labels": {
+										"app-label": "app-label-value",
+										"app-space-label": "app-space-label-app-value",
+										"app-org-label": "app-org-label-app-value",
+										"app-space-org-label": "app-space-org-label-app-value"
+									}
+								},
 								"links": {
 									"self": {
 										"href": "https://cloudfoundry.env/v3/apps/6d254438-cc3b-44a6-b2e6-343ca92deb5f"
@@ -1344,6 +1358,22 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 										"data": {
 											"guid": "827da8e5-1676-42ec-9028-46fbfe04fb86"
 										}
+									}
+								},
+								"metadata": {
+									"annotations": {
+										"app-annotation": "app-annotation-value",
+										"app-space-annotation": "app-space-annotation-app-value",
+										"app-org-annotation": "app-org-annotation-app-value",
+										"app-space-org-annotation": "app-space-org-annotation-app-value",
+										"blacklisted_key": "bar"
+									},
+									"labels": {
+										"app-label": "app-label-value",
+										"app-space-label": "app-space-label-app-value",
+										"app-org-label": "app-org-label-app-value",
+										"app-space-org-label": "app-space-org-label-app-value",
+										"blacklisted_key": "bar"
 									}
 								},
 								"links": {
@@ -2669,18 +2699,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 			rw.Write([]byte(fmt.Sprintf(`
 			{
 				"pagination": {
-				"total_results": 6,
-				"total_pages": 2,
-				"first": {
-					"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
-				},
-				"last": {
-					"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
-				},
-				"next": {
-					"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
-				},
-				"previous": null
+					"total_results": 6,
+					"total_pages": 2,
+					"first": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
+					},
+					"last": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
+					},
+					"next": {
+						"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
+					},
+					"previous": null
 				},
 				"resources": [
 				{
@@ -2689,11 +2719,25 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					"updated_at": "2019-05-17T15:02:37Z",
 					"name": "system",
 					"relationships": {
-					"organization": {
-						"data": {
-						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						"organization": {
+							"data": {
+							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							}
 						}
-					}
+					},
+					"metadata": {
+						"annotations": {
+							"space-annotation": "space-annotation-value",
+							"app-space-annotation": "app-space-annotation-space-value",
+							"space-org-annotation": "space-org-annotation-space-value",
+							"app-space-org-annotation": "app-space-org-annotation-space-value"
+						},
+						"labels": {
+							"space-label": "space-label-value",
+							"app-space-label": "app-space-label-space-value",
+							"space-org-label": "space-org-label-space-value",
+							"app-space-org-label": "app-space-org-label-space-value"
+						}
 					},
 					"links": {
 						"self": {
@@ -2710,11 +2754,11 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					"updated_at": "2019-05-17T15:07:05Z",
 					"name": "notifications-with-ui",
 					"relationships": {
-					"organization": {
-						"data": {
-						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						"organization": {
+							"data": {
+							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							}
 						}
-					}
 					},
 					"links": {
 						"self": {
@@ -2731,11 +2775,11 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					"updated_at": "2019-05-17T15:07:43Z",
 					"name": "autoscaling",
 					"relationships": {
-					"organization": {
-						"data": {
-						"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+						"organization": {
+							"data": {
+							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							}
 						}
-					}
 					},
 					"links": {
 						"self": {
@@ -2752,18 +2796,18 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 			rw.Write([]byte(fmt.Sprintf(`
 				{
 					"pagination": {
-					"total_results": 6,
-					"total_pages": 2,
-					"first": {
-						"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
-					},
-					"last": {
-						"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
-					},
-					"next": null,
-					"previous": {
-						"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
-					}
+						"total_results": 6,
+						"total_pages": 2,
+						"first": {
+							"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
+						},
+						"last": {
+							"href": "https://cloudfoundry.env/v3/spaces?page=2&per_page=50"
+						},
+						"next": null,
+						"previous": {
+							"href": "https://cloudfoundry.env/v3/spaces?page=1&per_page=50"
+						}
 					},
 					"resources": [
 					{
@@ -2772,11 +2816,11 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"updated_at": "2019-05-17T15:12:19Z",
 						"name": "nfs",
 						"relationships": {
-						"organization": {
-							"data": {
-							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							"organization": {
+								"data": {
+								"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+								}
 							}
-						}
 						},
 						"links": {
 							"self": {
@@ -2793,11 +2837,11 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"updated_at": "2019-05-17T15:23:03Z",
 						"name": "gcp-service-broker-space",
 						"relationships": {
-						"organization": {
-							"data": {
-							"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+							"organization": {
+								"data": {
+								"guid": "671557cf-edcd-49df-9863-ee14513d13c7"
+								}
 							}
-						}
 						},
 						"links": {
 							"self": {
@@ -2814,13 +2858,27 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"updated_at": "2019-05-21T09:42:46Z",
 						"name": "datadog-application-monitoring-space",
 						"relationships": {
-						"organization": {
-							"data": {
-							"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
+							"organization": {
+								"data": {
+								"guid": "8c19a50e-7974-4c67-adea-9640fae21526"
+								}
 							}
-						}
 						},
-							"links": {
+						"metadata": {
+							"annotations": {
+								"space-annotation": "space-annotation-value",
+								"app-space-annotation": "app-space-annotation-space-value",
+								"space-org-annotation": "space-org-annotation-space-value",
+								"app-space-org-annotation": "app-space-org-annotation-space-value"
+							},
+							"labels": {
+								"space-label": "space-label-value",
+								"app-space-label": "app-space-label-space-value",
+								"space-org-label": "space-org-label-space-value",
+								"app-space-org-label": "app-space-org-label-space-value"
+							}
+						},
+						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/spaces/827da8e5-1676-42ec-9028-46fbfe04fb86"
 							},
@@ -2964,11 +3022,25 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					}
 				},
 				"resources": [
-				  {
+					{
 						"guid": "671557cf-edcd-49df-9863-ee14513d13c7",
 						"name": "system",
 						"created_at": "2019-05-17T13:06:27Z",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"metadata": {
+							"annotations": {
+								"org-annotation": "org-annotation-value",
+								"app-org-annotation": "app-org-annotation-org-value",
+								"space-org-annotation": "space-org-annotation-org-value",
+								"app-space-org-annotation": "app-space-org-annotation-org-value"
+							},
+							"labels": {
+								"org-label": "org-label-value",
+								"app-org-label": "app-org-label-org-value",
+								"space-org-label": "space-org-label-org-value",
+								"app-space-org-label": "app-space-org-label-org-value"
+							}
+						},
 						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/organizations/671557cf-edcd-49df-9863-ee14513d13c7"
@@ -2999,13 +3071,27 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
 						"name": "datadog-application-monitoring-org",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"metadata": {
+							"annotations": {
+								"org-annotation": "org-annotation-value",
+								"app-org-annotation": "app-org-annotation-org-value",
+								"space-org-annotation": "space-org-annotation-org-value",
+								"app-space-org-annotation": "app-space-org-annotation-org-value"
+							},
+							"labels": {
+								"org-label": "org-label-value",
+								"app-org-label": "app-org-label-org-value",
+								"space-org-label": "space-org-label-org-value",
+								"app-space-org-label": "app-space-org-label-org-value"
+							}
+						},
 						"links": {
 							"self": {
 								"href": "https://cloudfoundry.env/v3/organizations/8c19a50e-7974-4c67-adea-9640fae21526"
 							}
 						}
 					}
-		  	]
+		  		]
 			}`)))
 		}
 	case "/oauth/token":

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"code.cloudfoundry.org/localip"
 	"github.com/cloudfoundry/gosteno"
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -97,15 +97,15 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				envelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "origin",
+						"origin":     "origin",
 						"deployment": "deployment-name",
-						"job": "doppler",
+						"job":        "doppler",
 					},
 					Message: &loggregator_v2.Envelope_Gauge{
 						Gauge: &loggregator_v2.Gauge{
 							Metrics: map[string]*loggregator_v2.GaugeValue{
 								fmt.Sprintf("metricName-%d", i): &loggregator_v2.GaugeValue{
-									Unit: "counter",
+									Unit:  "counter",
 									Value: float64(i),
 								},
 							},
@@ -160,15 +160,15 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				envelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "origin",
+						"origin":     "origin",
 						"deployment": "deployment-name",
-						"job": "doppler",
+						"job":        "doppler",
 					},
 					Message: &loggregator_v2.Envelope_Gauge{
 						Gauge: &loggregator_v2.Gauge{
 							Metrics: map[string]*loggregator_v2.GaugeValue{
 								fmt.Sprintf("metricName-%d", i): &loggregator_v2.GaugeValue{
-									Unit: "counter",
+									Unit:  "counter",
 									Value: float64(i),
 								},
 							},
@@ -203,12 +203,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				envelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "loggregator.rlp",
+						"origin":    "loggregator.rlp",
 						"direction": "egress",
 					},
 					Message: &loggregator_v2.Envelope_Counter{
 						Counter: &loggregator_v2.Counter{
-							Name: "dropped",
+							Name:  "dropped",
 							Delta: uint64(1),
 							Total: uint64(2),
 						},
@@ -238,12 +238,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				envelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "loggregator.rlp",
+						"origin":    "loggregator.rlp",
 						"direction": "egress",
 					},
 					Message: &loggregator_v2.Envelope_Counter{
 						Counter: &loggregator_v2.Counter{
-							Name: "dropped",
+							Name:  "dropped",
 							Delta: uint64(1),
 							Total: uint64(2),
 						},
@@ -287,7 +287,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				goodEnvelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "origin",
+						"origin":     "origin",
 						"deployment": "good-deployment-name",
 					},
 				}
@@ -300,7 +300,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				badEnvelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
-						"origin": "origin",
+						"origin":     "origin",
 						"deployment": "bad-deployment-name",
 					},
 				}

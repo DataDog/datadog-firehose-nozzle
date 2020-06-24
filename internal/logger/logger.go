@@ -43,7 +43,7 @@ type RLPLogForwarder struct {
 	log *gosteno.Logger
 }
 
-func NewRLPLogForwarder(gostenoLog *gosteno.Logger) (*RLPLogForwarder) {
+func NewRLPLogForwarder(gostenoLog *gosteno.Logger) *RLPLogForwarder {
 	return &RLPLogForwarder{
 		log: gostenoLog,
 	}
