@@ -3,10 +3,13 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 )
+
+const autodiscoveryTagsMetaPrefix = "tags.datadoghq.com/"
 
 func parseHost(envelope *loggregator_v2.Envelope) string {
 	if index, ok := envelope.GetTags()["index"]; ok && index != "" {
@@ -27,7 +30,11 @@ func appendTagIfNotEmpty(tags []string, key, value string) []string {
 
 func appendMetadataTags(tags []string, metadataCollection map[string]string, keyPrefix string) []string {
 	for key, value := range metadataCollection {
-		if isMetadataKeyAllowed(key) {
+		if strings.HasPrefix(key, autodiscoveryTagsMetaPrefix) {
+			tags = appendTagIfNotEmpty(tags, strings.TrimPrefix(key, autodiscoveryTagsMetaPrefix), value)
+			continue
+		}
+		if config.NozzleConfig.EnableMetadataCollection && isMetadataKeyAllowed(key) {
 			tags = appendTagIfNotEmpty(tags, fmt.Sprintf("%s%s", keyPrefix, key), value)
 		}
 	}
