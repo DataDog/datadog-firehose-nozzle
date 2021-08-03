@@ -6,10 +6,10 @@ SCRIPT_DIR=`dirname $0`
 cd ${SCRIPT_DIR}/..
 
 echo "Go formatting..."
-go fmt $(go list ./... | grep -v /vendor)
+go fmt $(go list ./...)
 
 echo "Go vetting..."
-go vet $(go list ./... | grep -v /vendor)
+go vet $(go list ./...)
 
 echo "Recursive ginkgo... ${*:+(with parameter(s) }$*${*:+)}"
 ginkgo -r --race --randomizeAllSpecs --failOnPending -cover $*
