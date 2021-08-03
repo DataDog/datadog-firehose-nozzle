@@ -185,11 +185,13 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/space-org-annotation:space-org-annotation-space-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/space-annotation:space-annotation-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/org-annotation:org-annotation-value"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("auto-annotation-tag:auto-annotation-tag-value"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("auto-label-tag:auto-label-tag-value"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/blacklisted_key:foo"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/blacklisted_key:bar"))
 			}
 		})
-		It("parses an event properly and doesn't add metadata if not configured", func() {
+		It("parses an event properly and doesn't add metadata if not configured, except for autodiscovery tags", func() {
 			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
@@ -254,6 +256,8 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("guid:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("env:env_name"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("source_id:6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("auto-annotation-tag:auto-annotation-tag-value"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("auto-label-tag:auto-label-tag-value"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-space-org-label:app-space-org-label-app-value"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-space-label:app-space-label-app-value"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/app-org-label:app-org-label-app-value"))

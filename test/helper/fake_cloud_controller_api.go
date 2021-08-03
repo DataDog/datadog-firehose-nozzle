@@ -1366,14 +1366,16 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 										"app-space-annotation": "app-space-annotation-app-value",
 										"app-org-annotation": "app-org-annotation-app-value",
 										"app-space-org-annotation": "app-space-org-annotation-app-value",
-										"blacklisted_key": "bar"
+										"blacklisted_key": "bar",
+										"tags.datadoghq.com/auto-annotation-tag": "auto-annotation-tag-value"
 									},
 									"labels": {
 										"app-label": "app-label-value",
 										"app-space-label": "app-space-label-app-value",
 										"app-org-label": "app-org-label-app-value",
 										"app-space-org-label": "app-space-org-label-app-value",
-										"blacklisted_key": "bar"
+										"blacklisted_key": "bar",
+										"tags.datadoghq.com/auto-label-tag": "auto-label-tag-value"
 									}
 								},
 								"links": {
