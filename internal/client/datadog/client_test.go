@@ -139,7 +139,7 @@ var _ = Describe("DatadogClient", func() {
 			err := c.PostMetrics(metricsMap)
 
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempts"))
+			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempt(s)"))
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
