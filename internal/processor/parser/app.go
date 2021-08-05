@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
@@ -361,10 +360,8 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	}
 
 	// Append labels and annotations
-	if config.NozzleConfig.EnableMetadataCollection {
-		tags = appendMetadataTags(tags, cfapp.Annotations, "annotation/")
-		tags = appendMetadataTags(tags, cfapp.Labels, "label/")
-	}
+	tags = appendMetadataTags(tags, cfapp.Annotations, "annotation/")
+	tags = appendMetadataTags(tags, cfapp.Labels, "label/")
 
 	a.Tags = tags
 

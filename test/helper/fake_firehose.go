@@ -34,7 +34,7 @@ func NewFakeFirehose(validToken string) *FakeFirehose {
 	return &FakeFirehose{
 		validToken:      validToken,
 		closeServerLoop: make(chan bool, 1),
-		serveBatch:      make(chan *loggregator_v2.EnvelopeBatch, 1),
+		serveBatch:      make(chan *loggregator_v2.EnvelopeBatch, 20),
 	}
 }
 
