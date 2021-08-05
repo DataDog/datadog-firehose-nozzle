@@ -22,4 +22,4 @@ jobs:
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/ginkgo
       - name: Test
-        run: bin/test
+        run: bin/test -v
