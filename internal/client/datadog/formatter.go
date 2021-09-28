@@ -30,6 +30,10 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 
 	if uint32(len(compressedSeriesBytes)) > maxPostBytes {
 		if len(data) == 1 {
+			for k, _ := range data {
+				f.log.Warn(fmt.Sprintf("Warning dropping metric payload: %v", k.Name))
+			}
+
 			return nil
 		}
 
@@ -95,7 +99,7 @@ func splitMetrics(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric
 	b = make(map[metric.MetricKey]metric.MetricValue)
 
 	for k, v := range data {
-		if len(a) <= len(data)/2 {
+		if len(a) < len(data)/2 {
 			a[k] = v
 		} else {
 			b[k] = v

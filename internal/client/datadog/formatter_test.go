@@ -1,6 +1,7 @@
 package datadog
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -80,16 +81,14 @@ var _ = Describe("Formatter", func() {
 	})
 
 	It("properly splits metrics into two maps", func() {
-		// now test a scenario where we're actually splitting metrics
 		for i := 0; i < 1000; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), defaultTags)
+			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), 1000, 1, defaultTags)
 			metricsMap.Add(k, v)
 		}
 
 		a, b := splitMetrics(metricsMap)
 
-		Expect(len(a) + len(b)).To(Equal(len(metricsMap)))
-		Expect(len(a)).To(Equal(len(metricsMap) - len(metricsMap)/2))
-		Expect(len(b)).To(Equal(len(metricsMap) / 2))
+		Expect(len(a)).To(Equal(500))
+		Expect(len(b)).To(Equal(500))
 	})
 })
