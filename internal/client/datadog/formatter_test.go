@@ -80,7 +80,7 @@ var _ = Describe("Formatter", func() {
 		Expect(string(helper.Decompress(result[0]))).To(ContainSubstring(`"points":[[0,9.000000],[0,1.000000]]`))
 	})
 
-	It("properly split metrics into two maps", func() {
+	It("properly splits metrics into two maps", func() {
 		// first test a scenario where we're not splitting as there's just one point
 		m := make(map[metric.MetricKey]metric.MetricValue)
 		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
