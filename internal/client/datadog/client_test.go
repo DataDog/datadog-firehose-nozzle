@@ -357,7 +357,6 @@ var _ = Describe("DatadogClient", func() {
 		}
 		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
-
 		f := func() int {
 			return len(bodies)
 		}
