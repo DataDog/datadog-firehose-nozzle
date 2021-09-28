@@ -27,8 +27,14 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 		f.log.Errorf("Error formatting metrics payload: %v", err)
 		return result
 	}
-	if uint32(len(compressedSeriesBytes)) > maxPostBytes && len(data) > 1 {
+
+	if uint32(len(compressedSeriesBytes)) > maxPostBytes {
+		if len(data) == 1 {
+			return nil
+		}
+
 		metricsA, metricsB := splitMetrics(data)
+
 		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
 		result = append(result, f.Format(prefix, maxPostBytes, metricsB)...)
 
