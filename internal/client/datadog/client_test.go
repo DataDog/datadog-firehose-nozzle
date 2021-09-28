@@ -362,7 +362,7 @@ var _ = Describe("DatadogClient", func() {
 			return len(bodies)
 		}
 
-		Eventually(f).Should(BeNumerically("==", 0))
+		Eventually(f).Should(BeNumerically(">", 1))
 	})
 
 	It("discards metrics that exceed that max size", func() {

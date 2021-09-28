@@ -1,7 +1,6 @@
 package datadog
 
 import (
-	"encoding/json"
 	"math"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -81,29 +80,6 @@ var _ = Describe("Formatter", func() {
 	})
 
 	It("properly splits metrics into two maps", func() {
-		// first test a scenario where we're not splitting as there's just one point
-		m := make(map[metric.MetricKey]metric.MetricValue)
-		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
-			Points: []metric.Point{{Value: 9}},
-			Tags:   []string{"some:tag", "other:tag"},
-			Host:   "some.host",
-		}
-		result := formatter.Format("some-prefix.", 1, m)
-
-		Expect(result).To(HaveLen(1))
-
-		decompressed := helper.Decompress(result[0])
-		payload := Payload{}
-		err := json.Unmarshal(decompressed, &payload)
-		Expect(err).To(BeNil())
-		Expect(payload.Series).To(HaveLen(1))
-		s := payload.Series[0]
-		Expect(s.Metric).To(Equal("some-prefix.a"))
-		Expect(s.Points).To(Equal([]metric.Point{{Value: 9}}))
-		Expect(s.Type).To(Equal("gauge"))
-		Expect(s.Host).To(Equal("some.host"))
-		Expect(s.Tags).To(Equal([]string{"some:tag", "other:tag"}))
-
 		// now test a scenario where we're actually splitting metrics
 		for i := 0; i < 1000; i++ {
 			k, v := makeFakeMetric("metricName", 1000, uint64(i), defaultTags)
@@ -112,7 +88,8 @@ var _ = Describe("Formatter", func() {
 
 		a, b := splitMetrics(metricsMap)
 
-		Expect(len(a)).To(BeNumerically("<=", len(metricsMap)))
-		Expect(len(b)).To(BeNumerically("<=", len(metricsMap)))
+		Expect(len(a) + len(b)).To(Equal(len(metricsMap)))
+		Expect(len(a)).To(Equal(len(metricsMap) - len(metricsMap)/2))
+		Expect(len(b)).To(Equal(len(metricsMap) / 2))
 	})
 })
