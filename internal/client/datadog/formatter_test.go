@@ -37,7 +37,7 @@ var _ = Describe("Formatter", func() {
 		Expect(string(helper.Decompress(result[0]))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
 	})
 
-	It("does not 'delete' points when trying to split", func() {
+	It("drops metrics that are larger than maxPostBytes", func() {
 		m := make(map[metric.MetricKey]metric.MetricValue)
 		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
 			Points: []metric.Point{{
@@ -46,7 +46,7 @@ var _ = Describe("Formatter", func() {
 		}
 		result := formatter.Format("some-prefix", 1, m)
 
-		Expect(result).To(HaveLen(1))
+		Expect(result).To(HaveLen(0))
 	})
 
 	It("does not prepend prefix to `bosh.healthmonitor`", func() {

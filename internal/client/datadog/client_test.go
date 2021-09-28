@@ -3,6 +3,7 @@ package datadog
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -351,17 +352,15 @@ var _ = Describe("DatadogClient", func() {
 
 	It("breaks up a message that exceeds the FlushMaxBytes", func() {
 		for i := 0; i < 1000; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), defaultTags)
+			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), 1000, 1, defaultTags)
 			metricsMap.Add(k, v)
 		}
-
 		err := c.PostMetrics(metricsMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
 			return len(bodies)
 		}
-
 		Eventually(f).Should(BeNumerically(">", 1))
 	})
 
