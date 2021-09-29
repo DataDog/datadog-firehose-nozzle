@@ -1,7 +1,7 @@
 package datadog
 
 import (
-	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -13,11 +13,13 @@ import (
 
 var _ = Describe("Formatter", func() {
 	var (
-		formatter Formatter
+		formatter  Formatter
+		metricsMap metric.MetricsMap
 	)
 
 	BeforeEach(func() {
 		formatter = Formatter{gosteno.NewLogger("test")}
+		metricsMap = make(metric.MetricsMap)
 	})
 
 	It("does not return empty data", func() {
@@ -36,7 +38,7 @@ var _ = Describe("Formatter", func() {
 		Expect(string(helper.Decompress(result[0]))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
 	})
 
-	It("does not 'delete' points when trying to split", func() {
+	It("drops metrics that are larger than maxPostBytes", func() {
 		m := make(map[metric.MetricKey]metric.MetricValue)
 		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
 			Points: []metric.Point{{
@@ -45,7 +47,7 @@ var _ = Describe("Formatter", func() {
 		}
 		result := formatter.Format("some-prefix", 1, m)
 
-		Expect(result).To(HaveLen(1))
+		Expect(result).To(HaveLen(0))
 	})
 
 	It("does not prepend prefix to `bosh.healthmonitor`", func() {
@@ -78,63 +80,15 @@ var _ = Describe("Formatter", func() {
 		Expect(string(helper.Decompress(result[0]))).To(ContainSubstring(`"points":[[0,9.000000],[0,1.000000]]`))
 	})
 
-	It("properly assigns all values to split results when splitting", func() {
-		// first test a scenario where we're not splitting as there's just one point
-		m := make(map[metric.MetricKey]metric.MetricValue)
-		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
-			Points: []metric.Point{{Value: 9}},
-			Tags:   []string{"some:tag", "other:tag"},
-			Host:   "some.host",
+	It("properly splits metrics into two maps", func() {
+		for i := 0; i < 1000; i++ {
+			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), 1000, 1, defaultTags)
+			metricsMap.Add(k, v)
 		}
-		result := formatter.Format("some-prefix.", 1, m)
 
-		Expect(result).To(HaveLen(1))
+		a, b := splitMetrics(metricsMap)
 
-		decompressed := helper.Decompress(result[0])
-		payload := Payload{}
-		err := json.Unmarshal(decompressed, &payload)
-		Expect(err).To(BeNil())
-		Expect(payload.Series).To(HaveLen(1))
-		s := payload.Series[0]
-		Expect(s.Metric).To(Equal("some-prefix.a"))
-		Expect(s.Points).To(Equal([]metric.Point{{Value: 9}}))
-		Expect(s.Type).To(Equal("gauge"))
-		Expect(s.Host).To(Equal("some.host"))
-		Expect(s.Tags).To(Equal([]string{"some:tag", "other:tag"}))
-
-		// now test a scenario where we're actually splitting points
-		m = make(map[metric.MetricKey]metric.MetricValue)
-		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
-			Points: []metric.Point{{Value: 9}, {Value: 10}},
-			Tags:   []string{"some:tag", "other:tag"},
-			Host:   "some.host",
-		}
-		result = formatter.Format("some-prefix.", 1, m)
-
-		Expect(result).To(HaveLen(2))
-
-		decompressed1 := helper.Decompress(result[0])
-		payload1 := Payload{}
-		err1 := json.Unmarshal(decompressed1, &payload1)
-		Expect(err1).To(BeNil())
-		Expect(payload1.Series).To(HaveLen(1))
-		s1 := payload1.Series[0]
-		Expect(s1.Metric).To(Equal("some-prefix.a"))
-		Expect(s1.Points).To(Equal([]metric.Point{{Value: 9}}))
-		Expect(s1.Type).To(Equal("gauge"))
-		Expect(s1.Host).To(Equal("some.host"))
-		Expect(s1.Tags).To(Equal([]string{"some:tag", "other:tag"}))
-
-		decompressed2 := helper.Decompress(result[1])
-		payload2 := Payload{}
-		err2 := json.Unmarshal(decompressed2, &payload2)
-		Expect(err2).To(BeNil())
-		Expect(payload2.Series).To(HaveLen(1))
-		s2 := payload2.Series[0]
-		Expect(s2.Metric).To(Equal("some-prefix.a"))
-		Expect(s2.Points).To(Equal([]metric.Point{{Value: 10}}))
-		Expect(s2.Type).To(Equal("gauge"))
-		Expect(s2.Host).To(Equal("some.host"))
-		Expect(s2.Tags).To(Equal([]string{"some:tag", "other:tag"}))
+		Expect(len(a)).To(Equal(500))
+		Expect(len(b)).To(Equal(500))
 	})
 })

@@ -27,8 +27,18 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 		f.log.Errorf("Error formatting metrics payload: %v", err)
 		return result
 	}
-	if uint32(len(compressedSeriesBytes)) > maxPostBytes && canSplit(data) {
-		metricsA, metricsB := splitPoints(data)
+
+	if uint32(len(compressedSeriesBytes)) > maxPostBytes {
+		if len(data) == 1 {
+			for k, _ := range data {
+				f.log.Warn(fmt.Sprintf("Warning dropping metric payload: %v", k.Name))
+			}
+
+			return nil
+		}
+
+		metricsA, metricsB := splitMetrics(data)
+
 		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
 		result = append(result, f.Format(prefix, maxPostBytes, metricsB)...)
 
@@ -84,39 +94,15 @@ func (f Formatter) removeNANs(points []metric.Point, metricName string, tags []s
 
 }
 
-func canSplit(data map[metric.MetricKey]metric.MetricValue) bool {
-	for _, v := range data {
-		if len(v.Points) > 1 {
-			return true
-		}
-	}
-
-	return false
-}
-
-func splitPoints(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.MetricKey]metric.MetricValue) {
+func splitMetrics(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.MetricKey]metric.MetricValue) {
 	a = make(map[metric.MetricKey]metric.MetricValue)
 	b = make(map[metric.MetricKey]metric.MetricValue)
-	for k, v := range data {
-		split := len(v.Points) / 2
-		if split == 0 {
-			a[k] = metric.MetricValue{
-				Tags:   v.Tags,
-				Points: v.Points,
-				Host:   v.Host,
-			}
-			continue
-		}
 
-		a[k] = metric.MetricValue{
-			Tags:   v.Tags,
-			Points: v.Points[:split],
-			Host:   v.Host,
-		}
-		b[k] = metric.MetricValue{
-			Tags:   v.Tags,
-			Points: v.Points[split:],
-			Host:   v.Host,
+	for k, v := range data {
+		if len(a) < len(data)/2 {
+			a[k] = v
+		} else {
+			b[k] = v
 		}
 	}
 	return a, b
