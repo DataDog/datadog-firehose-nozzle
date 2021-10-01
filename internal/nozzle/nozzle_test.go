@@ -496,9 +496,10 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 	return result
 }
 
-func validateMetrics(payload datadog.Payload, totalMessagesReceived int, totalMetricsSent int) {
+func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent, totalMetricsReceived int) {
 	totalMessagesReceivedFound := false
 	totalMetricsSentFound := false
+	totalMetricsReceivedFound := false
 	slowConsumerAlertFound := false
 	for _, metric := range payload.Series {
 		Expect(metric.Type).To(Equal("gauge"))
@@ -514,6 +515,11 @@ func validateMetrics(payload datadog.Payload, totalMessagesReceived int, totalMe
 			totalMetricsSentFound = true
 			internalMetric = true
 			metricValue = totalMetricsSent
+		}
+		if metric.Metric == "datadog.nozzle.totalMetricsReceived" {
+			totalMetricsReceivedFound = true
+			internalMetric = true
+			metricValue = totalMetricsReceived
 		}
 		if metric.Metric == "datadog.nozzle.slowConsumerAlert" {
 			slowConsumerAlertFound = true
@@ -531,5 +537,6 @@ func validateMetrics(payload datadog.Payload, totalMessagesReceived int, totalMe
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())
 	Expect(totalMetricsSentFound).To(BeTrue())
+	Expect(totalMetricsReceivedFound).To(BeTrue())
 	Expect(slowConsumerAlertFound).To(BeTrue())
 }
