@@ -63,7 +63,7 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		m := metric.Series{
 			Metric: name,
 			Points: points,
-			Type:   "gauge",
+			Type:   mVal.Type,
 			Tags:   mVal.Tags,
 			Host:   mVal.Host,
 		}

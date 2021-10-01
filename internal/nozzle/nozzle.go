@@ -36,8 +36,8 @@ type Nozzle struct {
 	metricsMap            metric.MetricsMap // modified by workers & main thread
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
-	totalMetricsSent      uint64
-	totalMetricsReceived  uint64
+	MetricsSent           uint64
+	MetricsDropped        uint64
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -200,29 +200,28 @@ func (n *Nozzle) postMetrics() {
 
 	timestamp := time.Now().Unix()
 
-	n.totalMetricsReceived += uint64(len(metricsMap))
-
 	for _, client := range n.ddClients {
 		// Add internal metrics
-		k, v := client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
+		k, v := client.MakeInternalMetric("totalMessagesReceived", metric.GAUGE, totalMessagesReceived, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("totalMetricsReceived", n.totalMetricsReceived, timestamp)
+		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("totalMetricsSent", n.totalMetricsSent, timestamp)
+		k, v = client.MakeInternalMetric("MetricsSent", metric.COUNT, n.MetricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
+		k, v = client.MakeInternalMetric("MetricsDropped", metric.COUNT, n.MetricsDropped, timestamp)
 		metricsMap[k] = v
 
-		unsentMetrics, err := client.PostMetrics(metricsMap)
+		unsentMetrics, _ := client.PostMetrics(metricsMap)
+
+		n.MetricsSent += uint64(len(metricsMap))
+		n.MetricsDropped += unsentMetrics
+
 		// NOTE: We don't need to have a retry logic since we don't return error on failure.
 		// However, current metrics may be lost.
-		if err != nil {
-			n.log.Errorf("Error posting metrics: %s\n\n", err)
-		}
-
-		n.totalMetricsSent += uint64(len(metricsMap)) - unsentMetrics
 	}
 
+	n.MetricsSent = 0
+	n.MetricsDropped = 0
 	n.ResetSlowConsumerError()
 }
 

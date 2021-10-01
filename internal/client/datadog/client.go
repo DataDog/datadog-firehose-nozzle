@@ -167,7 +167,8 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) (uint64, error) {
 		}
 
 		if err := c.postMetrics(data); err != nil {
-			return unsentMetrics, err
+			unsentMetrics++
+			c.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
 	}
 
@@ -223,7 +224,7 @@ func (c *Client) seriesURL() (string, error) {
 }
 
 // MakeInternalMetric creates a metric with the provided name, value and timestamp
-func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) (metric.MetricKey, metric.MetricValue) {
+func (c *Client) MakeInternalMetric(name, _type string, value uint64, timestamp int64) (metric.MetricKey, metric.MetricValue) {
 	point := metric.Point{
 		Timestamp: timestamp,
 		Value:     float64(value),
@@ -243,6 +244,7 @@ func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) 
 	mValue := metric.MetricValue{
 		Tags:   tags,
 		Points: []metric.Point{point},
+		Type:   _type,
 	}
 
 	return key, mValue
