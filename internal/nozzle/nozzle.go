@@ -36,6 +36,7 @@ type Nozzle struct {
 	metricsMap            metric.MetricsMap // modified by workers & main thread
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
+	totalMetricsSent      uint64
 	metricsSent           uint64
 	metricsDropped        uint64
 }
@@ -204,22 +205,22 @@ func (n *Nozzle) postMetrics() {
 		// Add internal metrics
 		k, v := client.MakeInternalMetric("totalMessagesReceived", metric.GAUGE, totalMessagesReceived, timestamp)
 		metricsMap[k] = v
+		k, v = client.MakeInternalMetric("totalMetricsSent", metric.GAUGE, n.totalMetricsSent, timestamp)
+		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("MetricsSent", metric.COUNT, n.MetricsSent, timestamp)
+		k, v = client.MakeInternalMetric("metrics.sent", metric.COUNT, n.metricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("metricsDropped", metric.COUNT, n.metricsDropped, timestamp)
+		k, v = client.MakeInternalMetric("metrics.dropped", metric.COUNT, n.metricsDropped, timestamp)
 		metricsMap[k] = v
 
-		unsentMetrics, _ := client.PostMetrics(metricsMap)
+		unsentMetrics := client.PostMetrics(metricsMap)
 
-		n.metricsSent += uint64(len(metricsMap))
+		n.metricsSent += uint64(len(metricsMap)) - unsentMetrics
 		n.metricsDropped += unsentMetrics
-
-		// NOTE: We don't need to have a retry logic since we don't return error on failure.
-		// However, current metrics may be lost.
 	}
 
+	n.totalMetricsSent += n.metricsSent
 	n.metricsSent = 0
 	n.metricsDropped = 0
 	n.ResetSlowConsumerError()

@@ -156,7 +156,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 }
 
 // PostMetrics forwards the metrics to datadog
-func (c *Client) PostMetrics(metrics metric.MetricsMap) (uint64, error) {
+func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
 	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	unsentMetrics := uint64(0)
@@ -172,7 +172,7 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) (uint64, error) {
 		}
 	}
 
-	return unsentMetrics, nil
+	return unsentMetrics
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {

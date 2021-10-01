@@ -6,10 +6,9 @@ import (
 )
 
 const (
-	GAUGE   = "gauge"
-	COUNT   = "count"
-	RATE    = "rate"
-	COUNTER = "counter" // deprecated
+	GAUGE = "gauge"
+	COUNT = "count"
+	RATE  = "rate"
 )
 
 type Point struct {
