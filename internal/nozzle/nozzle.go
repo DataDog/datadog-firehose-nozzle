@@ -36,8 +36,8 @@ type Nozzle struct {
 	metricsMap            metric.MetricsMap // modified by workers & main thread
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
-	MetricsSent           uint64
-	MetricsDropped        uint64
+	metricsSent           uint64
+	metricsDropped        uint64
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -208,20 +208,20 @@ func (n *Nozzle) postMetrics() {
 		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("MetricsSent", metric.COUNT, n.MetricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("MetricsDropped", metric.COUNT, n.MetricsDropped, timestamp)
+		k, v = client.MakeInternalMetric("metricsDropped", metric.COUNT, n.metricsDropped, timestamp)
 		metricsMap[k] = v
 
 		unsentMetrics, _ := client.PostMetrics(metricsMap)
 
-		n.MetricsSent += uint64(len(metricsMap))
-		n.MetricsDropped += unsentMetrics
+		n.metricsSent += uint64(len(metricsMap))
+		n.metricsDropped += unsentMetrics
 
 		// NOTE: We don't need to have a retry logic since we don't return error on failure.
 		// However, current metrics may be lost.
 	}
 
-	n.MetricsSent = 0
-	n.MetricsDropped = 0
+	n.metricsSent = 0
+	n.metricsDropped = 0
 	n.ResetSlowConsumerError()
 }
 
