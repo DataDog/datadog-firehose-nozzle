@@ -140,7 +140,6 @@ var _ = Describe("DatadogClient", func() {
 			unsentMetrics := c.PostMetrics(metricsMap)
 
 			Expect(unsentMetrics).ToNot(Equal(uint64(0)))
-			// Expect(unsentMetrics.Error()).To(ContainSubstring("giving up after 4 attempt(s)"))
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
@@ -388,13 +387,10 @@ var _ = Describe("DatadogClient", func() {
 		responseBody = []byte("something went horribly wrong")
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
-		// Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
-		// Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
 
 		responseCode = http.StatusSwitchingProtocols // 101
 		unsentMetrics = c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
-		// Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
 
 		responseCode = http.StatusAccepted // 201
 		unsentMetrics = c.PostMetrics(metricsMap)
