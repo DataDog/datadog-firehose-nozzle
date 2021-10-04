@@ -210,23 +210,21 @@ func (n *Nozzle) postMetrics() {
 		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
-		unsentMetrics := client.PostMetrics(metricsMap)
+		if n.totalMetricsSent > 0 {
+			k, v = client.MakeInternalMetric("metrics.sent", metric.COUNT, n.metricsSent, timestamp)
+			metricsMap[k] = v
+			k, v = client.MakeInternalMetric("metrics.dropped", metric.COUNT, n.metricsDropped, timestamp)
+			metricsMap[k] = v
+			n.metricsSent = 0
+			n.metricsDropped = 0
+		}
 
+		unsentMetrics := client.PostMetrics(metricsMap)
 		n.metricsSent += uint64(len(metricsMap)) - unsentMetrics
 		n.metricsDropped += unsentMetrics
-
-		customMetricsMap := make(metric.MetricsMap)
-		k, v = client.MakeInternalMetric("metrics.sent", metric.COUNT, n.metricsSent, timestamp)
-		customMetricsMap[k] = v
-		k, v = client.MakeInternalMetric("metrics.dropped", metric.COUNT, n.metricsDropped, timestamp)
-		customMetricsMap[k] = v
-
-		client.PostMetrics(customMetricsMap)
 	}
 
 	n.totalMetricsSent += n.metricsSent
-	n.metricsSent = 0
-	n.metricsDropped = 0
 	n.ResetSlowConsumerError()
 }
 

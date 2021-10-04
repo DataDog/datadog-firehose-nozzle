@@ -187,7 +187,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(25))
 
-			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
+			validateMetrics(payload, 11, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
@@ -195,7 +195,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(5)) // only internal metrics
 
-			validateMetrics(payload, 11, 25, 25, 0)
+			validateMetrics(payload, 11, 25)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {
@@ -496,7 +496,7 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 	return result
 }
 
-func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent, metricsSent, metricsDropped int) {
+func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent int) {
 	totalMessagesReceivedFound := false
 	totalMetricsSentFound := false
 	slowConsumerAlertFound := false

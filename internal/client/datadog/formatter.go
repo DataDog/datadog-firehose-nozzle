@@ -64,10 +64,16 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		name := prefix + key.Name
 		points := f.removeNANs(mVal.Points, name, mVal.Tags)
 
+		_type := mVal.Type
+
+		if _type == "" {
+			_type = "gauge"
+		}
+
 		m := metric.Series{
 			Metric: name,
 			Points: points,
-			Type:   mVal.Type,
+			Type:   _type,
 			Tags:   mVal.Tags,
 			Host:   mVal.Host,
 		}
