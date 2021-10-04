@@ -161,12 +161,12 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 	seriesData := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
 	unsentMetrics := uint64(0)
 	for _, entry := range seriesData {
-		if entry.bytes == nil {
+		if entry.data == nil {
 			unsentMetrics++
 			continue
 		}
 
-		if err := c.postMetrics(entry.bytes); err != nil {
+		if err := c.postMetrics(entry.data); err != nil {
 			unsentMetrics += entry.nbrMetrics
 			c.log.Errorf("Error posting metrics: %s\n\n", err)
 		}

@@ -33,9 +33,10 @@ var _ = Describe("Formatter", func() {
 			Points: []metric.Point{{
 				Value: 9,
 			}},
+			Type: metric.GAUGE,
 		}
 		result := formatter.Format("foo", 1024, m)
-		Expect(string(helper.Decompress(result[0]))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
+		Expect(string(helper.Decompress(result[0].data))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
 	})
 
 	It("drops metrics that are larger than maxPostBytes", func() {
@@ -59,7 +60,7 @@ var _ = Describe("Formatter", func() {
 		}
 		result := formatter.Format("some-prefix", 1024, m)
 
-		Expect(string(helper.Decompress(result[0]))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
+		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
 	})
 
 	It("drops metrics that have a NAN value", func() {
@@ -76,13 +77,13 @@ var _ = Describe("Formatter", func() {
 			}},
 		}
 		result := formatter.Format("some-prefix", 1024, m)
-		Expect(string(helper.Decompress(result[0]))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
-		Expect(string(helper.Decompress(result[0]))).To(ContainSubstring(`"points":[[0,9.000000],[0,1.000000]]`))
+		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
+		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"points":[[0,9.000000],[0,1.000000]]`))
 	})
 
 	It("properly splits metrics into two maps", func() {
 		for i := 0; i < 1000; i++ {
-			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), 1000, 1, defaultTags)
+			k, v := makeFakeMetric(fmt.Sprintf("metricName_%d", i), "gauge", 1000, 1, defaultTags)
 			metricsMap.Add(k, v)
 		}
 

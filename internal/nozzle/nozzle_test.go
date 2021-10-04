@@ -187,15 +187,15 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(25))
 
-			validateMetrics(payload, 11, 0) // +1 for total messages because of Org Quota
+			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 			err = json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(3)) // only internal metrics
+			Expect(payload.Series).To(HaveLen(5)) // only internal metrics
 
-			validateMetrics(payload, 11, 25)
+			validateMetrics(payload, 11, 25, 25, 0)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {
@@ -496,32 +496,28 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 	return result
 }
 
-func validateMetrics(payload datadog.Payload, totalMessagesReceived, metricsSent, totalMetricsReceived int) {
+func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent, metricsSent, metricsDropped int) {
 	totalMessagesReceivedFound := false
-	metricsSentFound := false
-	totalMetricsReceivedFound := false
+	totalMetricsSentFound := false
 	slowConsumerAlertFound := false
-	for _, metric := range payload.Series {
-		Expect(metric.Type).To(Equal("gauge"))
 
+	for _, metric := range payload.Series {
 		internalMetric := false
 		var metricValue int
 		if metric.Metric == "datadog.nozzle.totalMessagesReceived" {
+			Expect(metric.Type).To(Equal("gauge"))
 			totalMessagesReceivedFound = true
 			internalMetric = true
 			metricValue = totalMessagesReceived
 		}
-		if metric.Metric == "datadog.nozzle.metricsSent" {
-			metricsSentFound = true
+		if metric.Metric == "datadog.nozzle.totalMetricsSent" {
+			Expect(metric.Type).To(Equal("gauge"))
+			totalMetricsSentFound = true
 			internalMetric = true
-			metricValue = metricsSent
-		}
-		if metric.Metric == "datadog.nozzle.totalMetricsReceived" {
-			totalMetricsReceivedFound = true
-			internalMetric = true
-			metricValue = totalMetricsReceived
+			metricValue = totalMetricsSent
 		}
 		if metric.Metric == "datadog.nozzle.slowConsumerAlert" {
+			Expect(metric.Type).To(Equal("gauge"))
 			slowConsumerAlertFound = true
 			internalMetric = true
 			metricValue = 0
@@ -536,7 +532,6 @@ func validateMetrics(payload datadog.Payload, totalMessagesReceived, metricsSent
 		}
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())
-	Expect(metricsSentFound).To(BeTrue())
-	Expect(totalMetricsReceivedFound).To(BeTrue())
+	Expect(totalMetricsSentFound).To(BeTrue())
 	Expect(slowConsumerAlertFound).To(BeTrue())
 }

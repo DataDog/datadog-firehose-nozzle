@@ -17,7 +17,7 @@ type Formatter struct {
 }
 
 type FormatData struct {
-	bytes      []byte
+	data       []byte
 	nbrMetrics uint64
 }
 
@@ -38,7 +38,6 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 			for k, _ := range data {
 				f.log.Warn(fmt.Sprintf("Warning dropping metric payload: %v", k.Name))
 			}
-
 			return nil
 		}
 
@@ -50,7 +49,7 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 		return result
 	}
 
-	result = append(result, FormatData{bytes: compressedSeriesBytes, nbrMetrics: uint64(len(data))})
+	result = append(result, FormatData{data: compressedSeriesBytes, nbrMetrics: uint64(len(data))})
 	return result
 }
 

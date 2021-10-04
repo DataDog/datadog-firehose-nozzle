@@ -126,21 +126,21 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("respects the timeout", func() {
-			k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
+			k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
-			err := c.PostMetrics(metricsMap)
-			Expect(err).ToNot(BeNil())
+			unsentMetrics := c.PostMetrics(metricsMap)
+			Expect(unsentMetrics).ToNot(Equal(uint64(0)))
 		})
 
 		It("attempts to retry the connection", func() {
-			k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
+			k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
-			err := c.PostMetrics(metricsMap)
+			unsentMetrics := c.PostMetrics(metricsMap)
 
-			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("giving up after 4 attempt(s)"))
+			Expect(unsentMetrics).ToNot(Equal(uint64(0)))
+			// Expect(unsentMetrics.Error()).To(ContainSubstring("giving up after 4 attempt(s)"))
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
@@ -150,11 +150,11 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sets Content-Type header when making POST requests", func() {
-		k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
+		k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 		var req *http.Request
 		Eventually(reqs).Should(Receive(&req))
 		Expect(req.Method).To(Equal("POST"))
@@ -162,15 +162,15 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("sends tags", func() {
-		k, v := makeFakeMetric("metricName", 1000, 5, defaultTags)
+		k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		Eventually(bodies).Should(HaveLen(1))
 		var payload Payload
-		err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -184,15 +184,15 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("creates internal metrics", func() {
-		k, v := c.MakeInternalMetric("totalMessagesReceived", 15, time.Now().Unix())
+		k, v := c.MakeInternalMetric("totalMessagesReceived", metric.GAUGE, 15, time.Now().Unix())
 		metricsMap[k] = v
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		Eventually(bodies).Should(HaveLen(1))
 		var payload Payload
-		err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -223,15 +223,15 @@ var _ = Describe("DatadogClient", func() {
 		})
 
 		It("adds custom tags to internal metrics", func() {
-			k, v := c.MakeInternalMetric("slowConsumerAlert", 0, time.Now().Unix())
+			k, v := c.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, 0, time.Now().Unix())
 			metricsMap[k] = v
 
-			err := c.PostMetrics(metricsMap)
-			Expect(err).ToNot(HaveOccurred())
+			unsentMetrics := c.PostMetrics(metricsMap)
+			Expect(unsentMetrics).To(Equal(uint64(0)))
 
 			Eventually(bodies).Should(HaveLen(1))
 			var payload Payload
-			err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+			err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(1))
 
@@ -249,20 +249,20 @@ var _ = Describe("DatadogClient", func() {
 
 	It("uses tags as an identifier for batching purposes (registers metrics with same name and different tags as separate)", func() {
 		for i := 0; i < 5; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), []string{"test_tag:1"})
+			k, v := makeFakeMetric("metricName", "gauge", 1000, uint64(i), []string{"test_tag:1"})
 			metricsMap.Add(k, v)
 		}
 		for i := 0; i < 5; i++ {
-			k, v := makeFakeMetric("metricName", 1000, uint64(i), []string{"test_tag:2"})
+			k, v := makeFakeMetric("metricName", "gauge", 1000, uint64(i), []string{"test_tag:2"})
 			metricsMap.Add(k, v)
 		}
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		Eventually(bodies).Should(HaveLen(1))
 		var payload Payload
-		err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(payload.Series).To(HaveLen(2))
@@ -299,18 +299,18 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("posts ValueMetrics in JSON format & adds the metric prefix", func() {
-		k, v := makeFakeMetric("valueName", 1, 5, defaultTags)
+		k, v := makeFakeMetric("valueName", "gauge", 1, 5, defaultTags)
 		metricsMap.Add(k, v)
-		k, v = makeFakeMetric("valueName", 2, 76, defaultTags)
+		k, v = makeFakeMetric("valueName", "gauge", 2, 76, defaultTags)
 		metricsMap.Add(k, v)
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		Eventually(bodies).Should(HaveLen(1))
 
 		var payload Payload
-		err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -325,18 +325,18 @@ var _ = Describe("DatadogClient", func() {
 	})
 
 	It("posts CounterEvents in JSON format & adds the metric prefix", func() {
-		k, v := makeFakeMetric("counterName", 1, 5, defaultTags)
+		k, v := makeFakeMetric("counterName", "gauge", 1, 5, defaultTags)
 		metricsMap.Add(k, v)
-		k, v = makeFakeMetric("counterName", 2, 11, defaultTags)
+		k, v = makeFakeMetric("counterName", "gauge", 2, 11, defaultTags)
 		metricsMap.Add(k, v)
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		Eventually(bodies).Should(HaveLen(1))
 
 		var payload Payload
-		err = json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -352,11 +352,11 @@ var _ = Describe("DatadogClient", func() {
 
 	It("breaks up a message that exceeds the FlushMaxBytes", func() {
 		for i := 0; i < 1000; i++ {
-			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), 1000, 1, defaultTags)
+			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), "gauge", 1000, 1, defaultTags)
 			metricsMap.Add(k, v)
 		}
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 		f := func() int {
 			return len(bodies)
 		}
@@ -366,11 +366,11 @@ var _ = Describe("DatadogClient", func() {
 	It("discards metrics that exceed that max size", func() {
 		name := proto.String(strings.Repeat("some-big-name", 1000))
 		c.maxPostBytes = 10
-		k, v := makeFakeMetric(*name, 1000, 5, defaultTags)
+		k, v := makeFakeMetric(*name, "gauge", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
-		err := c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		f := func() int {
 			return len(bodies)
@@ -381,24 +381,24 @@ var _ = Describe("DatadogClient", func() {
 
 	It("returns an error when datadog responds with a non 200 response code", func() {
 		// Need to add at least 1 value to metrics map for it to send a message
-		k, v := c.MakeInternalMetric("test", 5, time.Now().Unix())
+		k, v := c.MakeInternalMetric("test", metric.GAUGE, 5, time.Now().Unix())
 		metricsMap[k] = v
 
 		responseCode = http.StatusBadRequest // 400
 		responseBody = []byte("something went horribly wrong")
-		err := c.PostMetrics(metricsMap)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
-		Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
+		// Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 400 Bad Request"))
+		// Expect(err.Error()).To(ContainSubstring("something went horribly wrong"))
 
 		responseCode = http.StatusSwitchingProtocols // 101
-		err = c.PostMetrics(metricsMap)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
+		unsentMetrics = c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
+		// Expect(err.Error()).To(ContainSubstring("datadog request returned HTTP response: 101"))
 
 		responseCode = http.StatusAccepted // 201
-		err = c.PostMetrics(metricsMap)
-		Expect(err).ToNot(HaveOccurred())
+		unsentMetrics = c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
 	})
 
 	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
@@ -480,7 +480,7 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
-func makeFakeMetric(name string, timeStamp, value uint64, tags []string) (metric.MetricKey, metric.MetricValue) {
+func makeFakeMetric(name, _type string, timeStamp, value uint64, tags []string) (metric.MetricKey, metric.MetricValue) {
 	key := metric.MetricKey{
 		Name:     name,
 		TagsHash: util.HashTags(tags),
@@ -495,6 +495,7 @@ func makeFakeMetric(name string, timeStamp, value uint64, tags []string) (metric
 		Host:   "test-origin",
 		Tags:   tags,
 		Points: []metric.Point{point},
+		Type:   _type,
 	}
 
 	return key, mValue
