@@ -16,12 +16,17 @@ type Formatter struct {
 	log *gosteno.Logger
 }
 
-func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) [][]byte {
+type FormatData struct {
+	data       []byte
+	nbrMetrics uint64
+}
+
+func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
 	if len(data) == 0 {
 		return nil
 	}
 
-	var result [][]byte
+	var result []FormatData
 	compressedSeriesBytes, err := f.formatMetrics(prefix, data)
 	if err != nil {
 		f.log.Errorf("Error formatting metrics payload: %v", err)
@@ -33,7 +38,6 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 			for k, _ := range data {
 				f.log.Warn(fmt.Sprintf("Warning dropping metric payload: %v", k.Name))
 			}
-
 			return nil
 		}
 
@@ -45,7 +49,7 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 		return result
 	}
 
-	result = append(result, compressedSeriesBytes)
+	result = append(result, FormatData{data: compressedSeriesBytes, nbrMetrics: uint64(len(data))})
 	return result
 }
 
@@ -60,10 +64,16 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		name := prefix + key.Name
 		points := f.removeNANs(mVal.Points, name, mVal.Tags)
 
+		_type := mVal.Type
+
+		if _type == "" {
+			_type = "gauge"
+		}
+
 		m := metric.Series{
 			Metric: name,
 			Points: points,
-			Type:   "gauge",
+			Type:   _type,
 			Tags:   mVal.Tags,
 			Host:   mVal.Host,
 		}

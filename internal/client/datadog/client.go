@@ -156,21 +156,23 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 }
 
 // PostMetrics forwards the metrics to datadog
-func (c *Client) PostMetrics(metrics metric.MetricsMap) error {
+func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
-	seriesBytes := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
-	for _, data := range seriesBytes {
-		if uint32(len(data)) > c.maxPostBytes {
-			c.log.Debugf("Throwing out metric that exceeds %d bytes", c.maxPostBytes)
+	seriesData := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
+	unsentMetrics := uint64(0)
+	for _, entry := range seriesData {
+		if entry.data == nil {
+			unsentMetrics++
 			continue
 		}
 
-		if err := c.postMetrics(data); err != nil {
-			return err
+		if err := c.postMetrics(entry.data); err != nil {
+			unsentMetrics += entry.nbrMetrics
+			c.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
 	}
 
-	return nil
+	return unsentMetrics
 }
 
 func (c *Client) postMetrics(seriesBytes []byte) error {
@@ -222,7 +224,7 @@ func (c *Client) seriesURL() (string, error) {
 }
 
 // MakeInternalMetric creates a metric with the provided name, value and timestamp
-func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) (metric.MetricKey, metric.MetricValue) {
+func (c *Client) MakeInternalMetric(name, _type string, value uint64, timestamp int64) (metric.MetricKey, metric.MetricValue) {
 	point := metric.Point{
 		Timestamp: timestamp,
 		Value:     float64(value),
@@ -242,6 +244,7 @@ func (c *Client) MakeInternalMetric(name string, value uint64, timestamp int64) 
 	mValue := metric.MetricValue{
 		Tags:   tags,
 		Points: []metric.Point{point},
+		Type:   _type,
 	}
 
 	return key, mValue

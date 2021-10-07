@@ -37,6 +37,8 @@ type Nozzle struct {
 	totalMessagesReceived uint64            // modified by workers, read by main thread
 	slowConsumerAlert     uint64            // modified by workers, read by main thread
 	totalMetricsSent      uint64
+	metricsSent           uint64
+	metricsDropped        uint64
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -198,24 +200,31 @@ func (n *Nozzle) postMetrics() {
 	n.mapLock.Unlock()
 
 	timestamp := time.Now().Unix()
+
 	for _, client := range n.ddClients {
 		// Add internal metrics
-		k, v := client.MakeInternalMetric("totalMessagesReceived", totalMessagesReceived, timestamp)
+		k, v := client.MakeInternalMetric("totalMessagesReceived", metric.GAUGE, totalMessagesReceived, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("totalMetricsSent", n.totalMetricsSent, timestamp)
+		k, v = client.MakeInternalMetric("totalMetricsSent", metric.GAUGE, n.totalMetricsSent, timestamp)
 		metricsMap[k] = v
-		k, v = client.MakeInternalMetric("slowConsumerAlert", atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
+		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
-		err := client.PostMetrics(metricsMap)
-		// NOTE: We don't need to have a retry logic since we don't return error on failure.
-		// However, current metrics may be lost.
-		if err != nil {
-			n.log.Errorf("Error posting metrics: %s\n\n", err)
+		if n.totalMetricsSent > 0 {
+			k, v = client.MakeInternalMetric("metrics.sent", metric.COUNT, n.metricsSent, timestamp)
+			metricsMap[k] = v
+			k, v = client.MakeInternalMetric("metrics.dropped", metric.COUNT, n.metricsDropped, timestamp)
+			metricsMap[k] = v
+			n.metricsSent = 0
+			n.metricsDropped = 0
 		}
+
+		unsentMetrics := client.PostMetrics(metricsMap)
+		n.metricsSent += uint64(len(metricsMap)) - unsentMetrics
+		n.metricsDropped += unsentMetrics
 	}
 
-	n.totalMetricsSent += uint64(len(metricsMap))
+	n.totalMetricsSent += n.metricsSent
 	n.ResetSlowConsumerError()
 }
 

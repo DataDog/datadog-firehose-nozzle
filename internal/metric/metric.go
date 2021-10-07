@@ -5,6 +5,12 @@ import (
 	"fmt"
 )
 
+const (
+	GAUGE = "gauge"
+	COUNT = "count"
+	RATE  = "rate"
+)
+
 type Point struct {
 	Timestamp int64
 	Value     float64
@@ -41,6 +47,7 @@ type MetricValue struct {
 	Tags   []string
 	Points []Point
 	Host   string
+	Type   string
 }
 
 type MetricPackage struct {
