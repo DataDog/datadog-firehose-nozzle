@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/clusteragent"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -25,6 +26,7 @@ type Nozzle struct {
 	ddClients             []*datadog.Client
 	processor             *processor.Processor
 	cfClient              *cloudfoundry.CFClient
+	dcaClient             clusteragent.DCAClientInterface
 	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
 	orgCollector          *orgcollector.OrgCollector
@@ -81,6 +83,13 @@ func (n *Nozzle) Start() error {
 
 	// Initialize Cloud Foundry client instance
 	n.cfClient, err = cloudfoundry.NewClient(n.config, n.log)
+	if err != nil {
+		n.log.Warnf("Failed to initialize Cloud Foundry client: %s", err.Error())
+	}
+	n.dcaClient, err = clusteragent.GetClusterAgentClient()
+	if err != nil {
+		n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
+	}
 
 	// Initialize Firehose processor
 	n.processor, n.parseAppMetricsEnable = processor.NewProcessor(
@@ -89,6 +98,7 @@ func (n *Nozzle) Start() error {
 		n.config.EnvironmentName,
 		n.parseAppMetricsEnable,
 		n.cfClient,
+		n.dcaClient,
 		n.config.NumCacheWorkers,
 		n.config.GrabInterval,
 		n.log)
