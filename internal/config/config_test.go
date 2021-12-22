@@ -136,6 +136,7 @@ var _ = Describe("NozzleConfig", func() {
 		// For logs, we want this to be serialized as one long line without newlines
 		expected := `{"AppMetrics":true,"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
 		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
+		expected += `"DCAToken":"","DCAUrl":"",`
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`

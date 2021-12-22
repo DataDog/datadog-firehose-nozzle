@@ -60,6 +60,8 @@ type Config struct {
 	MetadataKeysBlacklistPatterns []string
 	MetadataKeysWhitelist         []*regexp.Regexp `json:"-"`
 	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
+	DCAUrl                        string
+	DCAToken                      string
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
