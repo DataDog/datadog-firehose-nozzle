@@ -53,7 +53,7 @@ var _ = Describe("AppMetrics", func() {
 		})
 
 		It("generates it properly when it can connect", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
@@ -61,7 +61,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("cache warmup", func() {
 		It("requests all the apps directly at startup", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 999, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
@@ -70,7 +70,7 @@ var _ = Describe("AppMetrics", func() {
 
 		It("does not block while warming cache", func() {
 			fakeCloudControllerAPI.RequestTime = 100
-			a, err := NewAppParser(fakeCfClient, 5, 999, log, []string{}, "")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 999, log, []string{}, "")
 			// Assertions are done while cache is warming up in the background
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
@@ -82,7 +82,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("app metrics test", func() {
 		It("tries to get it from the cloud controller when not in the cache", func() {
-			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
+			a, _ := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "")
 			var req *http.Request
 			// Wait for cache warmup to finish
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).ShouldNot(Receive())
@@ -93,7 +93,7 @@ var _ = Describe("AppMetrics", func() {
 		})
 
 		It("grabs from the cache when it present", func() {
-			a, _ := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "")
+			a, _ := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "")
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 			// 6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a corresponds to hello-datadog-cf-ruby-dev
 			Expect(a.AppCache.apps).To(HaveKey("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
@@ -107,7 +107,7 @@ var _ = Describe("AppMetrics", func() {
 		It("parses an event properly and adds metadata if configured", func() {
 			config.NozzleConfig.EnableMetadataCollection = true
 			config.NozzleConfig.MetadataKeysBlacklist = []*regexp.Regexp{regexp.MustCompile("blacklisted.*")}
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
@@ -192,7 +192,7 @@ var _ = Describe("AppMetrics", func() {
 			}
 		})
 		It("parses an event properly and doesn't add metadata if not configured, except for autodiscovery tags", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
@@ -282,7 +282,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("expected tags", func() {
 		It("adds proper instance tag", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{}, "env_name")
+			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
@@ -355,7 +355,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("custom tags", func() {
 		It("attaches custom tags if present", func() {
-			a, err := NewAppParser(fakeCfClient, 5, 10, log, []string{"custom:tag", "foo:bar"},
+			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{"custom:tag", "foo:bar"},
 				"env_name")
 			Expect(err).To(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())

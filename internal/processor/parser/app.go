@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/clusteragent"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
@@ -77,7 +76,7 @@ func (c *appCache) SetWarmedUp() {
 // AppParser is used to parse app metrics
 type AppParser struct {
 	cfClient     *cloudfoundry.CFClient
-	dcaClient    clusteragent.DCAClientInterface
+	dcaClient    cloudfoundry.DCAClientInterface
 	log          *gosteno.Logger
 	AppCache     appCache
 	cacheWorkers int
@@ -89,7 +88,7 @@ type AppParser struct {
 // NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cloudfoundry.CFClient,
-	dcaClient clusteragent.DCAClientInterface,
+	dcaClient cloudfoundry.DCAClientInterface,
 	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,

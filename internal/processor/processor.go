@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/client/clusteragent"
+
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
@@ -36,7 +36,7 @@ func NewProcessor(
 	environment string,
 	parseAppMetricsEnable bool,
 	cfClient *cloudfoundry.CFClient,
-	dcaClient clusteragent.DCAClientInterface,
+	dcaClient cloudfoundry.DCAClientInterface,
 	numCacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
