@@ -111,19 +111,6 @@ func (c *DCAClient) init() error {
 	}
 	fmt.Printf("Successfully connected to the Datadog Cluster Agent %s", c.ClusterAgentVersion.String())
 
-	apps, err := c.GetCFApplications()
-	if err != nil {
-		// TODO: fix error message
-		fmt.Printf("ERROR GETTING CF Apps from DCA Client AFTER INIT METHOD: %v/n", err)
-	}
-
-	for i, app := range apps {
-		out, err := json.MarshalIndent(app, "", "    ")
-		if err != nil {
-			fmt.Printf("error marshalling DCA app: %v", err)
-		}
-		fmt.Printf("App #%d:\n%v", i, string(out))
-	}
 	return nil
 }
 
@@ -406,15 +393,6 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 		defer wg.Done()
 		var err error
 		spaces, err = c.GetCFSpaces()
-		fmt.Printf("\n\nSPACES FROM c.GetCFSpaces():\n")
-		for i, space := range spaces {
-			out, err := json.MarshalIndent(space, "", "    ")
-			if err != nil {
-				fmt.Printf("error marshalling DCA space: %v", err)
-			}
-			fmt.Printf("Space #%d:\n%v", i, string(out))
-		}
-		fmt.Printf("\n\n\n")
 		if err != nil {
 			errors <- err
 		}
