@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/clusteragent"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
@@ -75,6 +76,7 @@ func (c *appCache) SetWarmedUp() {
 // AppParser is used to parse app metrics
 type AppParser struct {
 	cfClient     *cloudfoundry.CFClient
+	dcaClient    clusteragent.DCAClientInterface
 	log          *gosteno.Logger
 	AppCache     appCache
 	cacheWorkers int
@@ -86,6 +88,7 @@ type AppParser struct {
 // NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cloudfoundry.CFClient,
+	dcaClient clusteragent.DCAClientInterface,
 	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
@@ -93,14 +96,16 @@ func NewAppParser(
 	environment string,
 ) (*AppParser, error) {
 
-	if cfClient == nil {
-		return nil, fmt.Errorf("the CF Client needs to be properly set up to use appmetrics")
+	if cfClient == nil && dcaClient == nil {
+		return nil, fmt.Errorf("At least one CF Client or DCA Client needs to be properly set up to use appmetrics")
 	}
+
 	if environment != "" {
 		customTags = append(customTags, fmt.Sprintf("%s:%s", "env", environment))
 	}
 	appMetrics := &AppParser{
 		cfClient:     cfClient,
+		dcaClient:    dcaClient,
 		log:          log,
 		AppCache:     newAppCache(),
 		cacheWorkers: cacheWorkers,
@@ -139,21 +144,21 @@ func (am *AppParser) updateCacheLoop() {
 func (am *AppParser) warmupCache() {
 	am.log.Infof("Warming up cache...")
 
-	cfapps, err := am.cfClient.GetApplications()
-	if err != nil {
-		am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
-		return
-	}
-	for _, cfapp := range cfapps {
-		_, err := am.AppCache.Add(cfapp)
-		if err != nil {
-			am.log.Errorf("an error occurred when adding app to the cache: %v", err)
-			// We intentionally continue adding apps if a single app fails
-		}
-	}
-	if !am.AppCache.IsWarmedUp() {
-		am.AppCache.SetWarmedUp()
-	}
+	// cfapps, err := am.cfClient.GetApplications()
+	// if err != nil {
+	// 	am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
+	// 	return
+	// }
+	// for _, cfapp := range cfapps {
+	// 	_, err := am.AppCache.Add(cfapp)
+	// 	if err != nil {
+	// 		am.log.Errorf("an error occurred when adding app to the cache: %v", err)
+	// 		// We intentionally continue adding apps if a single app fails
+	// 	}
+	// }
+	// if !am.AppCache.IsWarmedUp() {
+	// 	am.AppCache.SetWarmedUp()
+	// }
 	am.log.Infof("done warming up cache")
 }
 

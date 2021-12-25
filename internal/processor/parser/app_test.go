@@ -48,7 +48,7 @@ var _ = Describe("AppMetrics", func() {
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
-			_, err := NewAppParser(nil, 5, 10, log, []string{}, "")
+			_, err := NewAppParser(nil, nil, 5, 10, log, []string{}, "")
 			Expect(err).NotTo(BeNil())
 		})
 

@@ -40,7 +40,7 @@ type DCAClientInterface interface {
 
 	GetVersion() (Version, error)
 	GetCFAppsMetadataForNode(nodename string) (map[string][]string, error)
-	GetCFApps() ([]cfclient.V3App, error)
+	GetCFApps() ([]CFApplication, error)
 }
 
 // DCAClient is required to query the API of Datadog cluster agent
@@ -88,7 +88,7 @@ func (c *DCAClient) init() error {
 	}
 
 	authToken := config.NozzleConfig.DCAToken
-	if authToken != "" {
+	if authToken == "" {
 		return fmt.Errorf("missing authentication token for the Cluster Agent Client")
 	}
 
@@ -97,7 +97,7 @@ func (c *DCAClient) init() error {
 
 	// TODO remove insecure
 	c.clusterAgentAPIClient = util.GetClient(false)
-	c.clusterAgentAPIClient.Timeout = 2 * time.Second
+	c.clusterAgentAPIClient.Timeout = 5 * time.Second
 
 	// Validate the cluster-agent client by checking the version
 	c.ClusterAgentVersion, err = c.GetVersion()
@@ -105,6 +105,19 @@ func (c *DCAClient) init() error {
 		return err
 	}
 	fmt.Printf("Successfully connected to the Datadog Cluster Agent %s", c.ClusterAgentVersion.String())
+
+	apps, err := c.GetCFApps()
+	if err != nil {
+		fmt.Printf("ERROR GETTING CF Apps from DCA Client AFTER INIT METHOD: %v/n", err)
+	}
+
+	for i, app := range apps {
+		out, err := json.MarshalIndent(app, "", "    ")
+		if err != nil {
+			fmt.Printf("error marshalling DCA app: %v", err)
+		}
+		fmt.Printf("App %d: %v", i, string(out))
+	}
 	return nil
 }
 
@@ -214,12 +227,12 @@ func (c *DCAClient) GetCFAppsMetadataForNode(nodename string) (map[string][]stri
 }
 
 // TODO
-func (c *DCAClient) GetCFApps() ([]cfclient.V3App, error) {
+func (c *DCAClient) GetCFApps() ([]CFApplication, error) {
 	const dcaCFApps = "api/v1/cf/apps"
 	var err error
-	var apps []*cfclient.V3App
+	var apps []CFApplication
 
-	// https://host:port/api/v1/cf/apps
+	// https://host:port/api/v1/cf/apps/
 	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaCFApps)
 
 	req, err := http.NewRequest("GET", rawURL, nil)
@@ -242,6 +255,237 @@ func (c *DCAClient) GetCFApps() ([]cfclient.V3App, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(body, &apps)
+	var v3Apps []cfclient.V3App
+	err = json.Unmarshal(body, &v3Apps)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshalling V3App response: %d", err)
+	}
+
+	for _, v3App := range v3Apps {
+		cfapp := CFApplication{}
+		cfapp.setV3AppData(v3App)
+		apps = append(apps, cfapp)
+
+	}
 	return apps, err
 }
+
+// // TODO
+// func (c *DCAClient) GetCFSpaces() ([]cfclient.V3Space, error) {
+// 	const dcaCFSpaces = "api/v1/cf/spaces/"
+// 	var err error
+// 	var spaces []cfclient.V3Space
+
+// 	// https://host:port/api/v1/cf/spaces
+// 	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaCFSpaces)
+
+// 	req, err := http.NewRequest("GET", rawURL, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.Header = c.clusterAgentAPIRequestHeaders
+
+// 	resp, err := c.clusterAgentAPIClient.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	if resp.StatusCode != http.StatusOK {
+// 		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
+// 	}
+
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	err = json.Unmarshal(body, &spaces)
+// 	return spaces, err
+// }
+
+// // TODO
+// func (c *DCAClient) GetCFOrgs() ([]cfclient.V3Organization, error) {
+// 	const dcaCFOrgs = "api/v1/cf/orgs/"
+// 	var err error
+// 	var orgs []cfclient.V3Organization
+
+// 	// https://host:port/api/v1/cf/orgs
+// 	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaCFOrgs)
+
+// 	req, err := http.NewRequest("GET", rawURL, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.Header = c.clusterAgentAPIRequestHeaders
+
+// 	resp, err := c.clusterAgentAPIClient.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	if resp.StatusCode != http.StatusOK {
+// 		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
+// 	}
+
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	err = json.Unmarshal(body, &orgs)
+// 	return orgs, err
+// }
+
+// // TODO
+// func (c *DCAClient) GetCFProcesses() ([]cfclient.Process, error) {
+// 	const dcaCFProcesses = "api/v1/cf/processes/"
+// 	var err error
+// 	var processes []cfclient.Process
+
+// 	// https://host:port/api/v1/cf/processes
+// 	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaCFProcesses)
+
+// 	req, err := http.NewRequest("GET", rawURL, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.Header = c.clusterAgentAPIRequestHeaders
+
+// 	resp, err := c.clusterAgentAPIClient.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	if resp.StatusCode != http.StatusOK {
+// 		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
+// 	}
+
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	err = json.Unmarshal(body, &processes)
+// 	return processes, err
+// }
+
+// func (c *DCAClient) getV3Applications() ([]CFApplication, error) {
+// 	var wg sync.WaitGroup
+// 	errors := make(chan error, 10)
+// 	// Fetch apps
+// 	wg.Add(1)
+// 	var cfapps []cfclient.V3App
+// 	go func() {
+// 		defer wg.Done()
+// 		var err error
+// 		cfapps, err = c.GetCFApps()
+// 		if err != nil {
+// 			errors <- err
+// 		}
+// 	}()
+
+// 	// Fetch processes
+// 	wg.Add(1)
+// 	var processes []cfclient.Process
+// 	go func() {
+// 		defer wg.Done()
+// 		var err error
+// 		processes, err = c.GetCFProcesses()
+// 		if err != nil {
+// 			errors <- err
+// 		}
+// 	}()
+
+// 	// Fetch spaces
+// 	wg.Add(1)
+// 	var spaces []cfclient.V3Space
+// 	go func() {
+// 		defer wg.Done()
+// 		var err error
+// 		spaces, err = c.GetCFSpaces()
+// 		if err != nil {
+// 			errors <- err
+// 		}
+// 	}()
+
+// 	// Fetch orgs
+// 	wg.Add(1)
+// 	var orgs []cfclient.V3Organization
+// 	go func() {
+// 		defer wg.Done()
+// 		var err error
+// 		orgs, err = c.GetCFOrgs()
+// 		if err != nil {
+// 			errors <- err
+// 		}
+// 	}()
+
+// 	wg.Wait()
+// 	close(errors)
+
+// 	// Go through the channel, print all errors and return one of them if there are any
+// 	var err error
+// 	for err = range errors {
+// 		c.logger.Error(err.Error())
+// 	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Group all processes per app
+// 	processesPerApp := map[string][]cfclient.Process{}
+// 	for _, process := range processes {
+// 		parts := strings.Split(process.Links.App.Href, "/")
+// 		appGUID := parts[len(parts)-1]
+// 		appProcesses, exists := processesPerApp[appGUID]
+// 		if exists {
+// 			appProcesses = append(appProcesses, process)
+// 		} else {
+// 			appProcesses = []cfclient.Process{process}
+// 		}
+// 		processesPerApp[appGUID] = appProcesses
+// 	}
+
+// 	// Create a space Map
+// 	spacesPerGUID := map[string]cfclient.V3Space{}
+// 	for _, space := range spaces {
+// 		spacesPerGUID[space.GUID] = space
+// 	}
+
+// 	// Create an org Map
+// 	orgsPerGUID := map[string]cfclient.V3Organization{}
+// 	for _, org := range orgs {
+// 		orgsPerGUID[org.GUID] = org
+// 	}
+
+// 	// Populate CFApplication
+// 	results := []CFApplication{}
+// 	for _, cfapp := range cfapps {
+// 		updatedApp := cfapp
+// 		appGUID := cfapp.GUID
+// 		spaceGUID := cfapp.SpaceGUID
+// 		processes, exists := processesPerApp[appGUID]
+// 		if exists {
+// 			updatedApp.setV3ProcessData(processes)
+// 		} else {
+// 			cfc.logger.Errorf("could not fetch processes info for app guid %s", appGUID)
+// 		}
+// 		// Fill space then org data. Order matters for labels and annotations.
+// 		space, exists := spacesPerGUID[spaceGUID]
+// 		if exists {
+// 			updatedApp.setV3SpaceData(space)
+// 		} else {
+// 			cfc.logger.Errorf("could not fetch space info for space guid %s", spaceGUID)
+// 		}
+// 		orgGUID := updatedApp.OrgGUID
+// 		org, exists := orgsPerGUID[orgGUID]
+// 		if exists {
+// 			updatedApp.setV3OrgData(org)
+// 		} else {
+// 			cfc.logger.Errorf("could not fetch org info for org guid %s", orgGUID)
+// 		}
+// 		results = append(results, updatedApp)
+// 	}
+
+// 	return results, nil
+// }
