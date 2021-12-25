@@ -50,6 +50,10 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
 		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEquivalentTo([]string{"whitelisted1", "whitelisted2"}))
+		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
+		Expect(conf.DCAToken).To(Equal("123456789"))
+		Expect(conf.DCAEnabled).To(Equal(true))
+
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -136,7 +140,7 @@ var _ = Describe("NozzleConfig", func() {
 		// For logs, we want this to be serialized as one long line without newlines
 		expected := `{"AppMetrics":true,"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
 		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
-		expected += `"DCAToken":"","DCAUrl":"",`
+		expected += `"DCAEnabled":true,"DCAToken":"123456789","DCAUrl":"datadog-cluster-agent.bosh-deployment-name:5005",`
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
