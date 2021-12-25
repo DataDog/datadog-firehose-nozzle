@@ -1,4 +1,4 @@
-package clusteragent
+package cloudfoundry
 
 import "fmt"
 

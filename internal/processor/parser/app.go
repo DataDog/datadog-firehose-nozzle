@@ -7,6 +7,7 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/clusteragent"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
@@ -144,21 +145,33 @@ func (am *AppParser) updateCacheLoop() {
 func (am *AppParser) warmupCache() {
 	am.log.Infof("Warming up cache...")
 
-	// cfapps, err := am.cfClient.GetApplications()
-	// if err != nil {
-	// 	am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
-	// 	return
-	// }
-	// for _, cfapp := range cfapps {
-	// 	_, err := am.AppCache.Add(cfapp)
-	// 	if err != nil {
-	// 		am.log.Errorf("an error occurred when adding app to the cache: %v", err)
-	// 		// We intentionally continue adding apps if a single app fails
-	// 	}
-	// }
-	// if !am.AppCache.IsWarmedUp() {
-	// 	am.AppCache.SetWarmedUp()
-	// }
+	var cfapps []cloudfoundry.CFApplication
+	var err error
+
+	if config.NozzleConfig.DCAEnabled {
+		cfapps, err = am.dcaClient.GetCFApplications()
+		if err != nil {
+			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
+			return
+		}
+	} else {
+		cfapps, err = am.cfClient.GetApplications()
+		if err != nil {
+			am.log.Errorf("error warming up cache using CF client, couldn't get list of apps: %v", err)
+			return
+		}
+	}
+
+	for _, cfapp := range cfapps {
+		_, err := am.AppCache.Add(cfapp)
+		if err != nil {
+			am.log.Errorf("an error occurred when adding app to the cache: %v", err)
+			// We intentionally continue adding apps if a single app fails
+		}
+	}
+	if !am.AppCache.IsWarmedUp() {
+		am.AppCache.SetWarmedUp()
+	}
 	am.log.Infof("done warming up cache")
 }
 
