@@ -76,7 +76,7 @@ func (c *appCache) SetWarmedUp() {
 // AppParser is used to parse app metrics
 type AppParser struct {
 	cfClient     *cloudfoundry.CFClient
-	dcaClient    cloudfoundry.DCAClientInterface
+	dcaClient    *cloudfoundry.DCAClient
 	log          *gosteno.Logger
 	AppCache     appCache
 	cacheWorkers int
@@ -88,7 +88,7 @@ type AppParser struct {
 // NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cloudfoundry.CFClient,
-	dcaClient cloudfoundry.DCAClientInterface,
+	dcaClient *cloudfoundry.DCAClient,
 	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
@@ -148,12 +148,14 @@ func (am *AppParser) warmupCache() {
 	var err error
 
 	if config.NozzleConfig.DCAEnabled {
+		fmt.Printf("using cluster agent client to warm up cache")
 		cfapps, err = am.dcaClient.GetCFApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
 			return
 		}
 	} else {
+		fmt.Printf("using cloud foundry client to warm up cache")
 		cfapps, err = am.cfClient.GetApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using CF client, couldn't get list of apps: %v", err)

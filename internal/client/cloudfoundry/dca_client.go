@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/retry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/gosteno"
 )
 
 /*
@@ -32,96 +32,51 @@ const (
 	RealIPHeader = "X-Real-Ip"
 )
 
-var globalClusterAgentClient *DCAClient
-
-// DCAClientInterface  is required to query the API of Datadog cluster agent
-type DCAClientInterface interface {
-	Version() Version
-	ClusterAgentAPIEndpoint() string
-
-	GetVersion() (Version, error)
-	GetCFAppsMetadataForNode(nodename string) (map[string][]string, error)
-	GetCFApps() ([]cfclient.V3App, error)
-	GetCFSpaces() ([]cfclient.V3Space, error)
-	GetCFOrgs() ([]cfclient.V3Organization, error)
-	GetCFProcesses() ([]cfclient.Process, error)
-	GetCFApplications() ([]CFApplication, error)
-}
-
 // DCAClient is required to query the API of Datadog cluster agent
 type DCAClient struct {
-	// used to setup the DCAClient
-	initRetry retry.Retrier
-
 	clusterAgentAPIEndpoint       string  // ${SCHEME}://${clusterAgentHost}:${PORT}
 	ClusterAgentVersion           Version // Version of the cluster-agent we're connected to
 	clusterAgentAPIClient         *http.Client
 	clusterAgentAPIRequestHeaders http.Header
+	logger                        *gosteno.Logger
 }
 
-// resetGlobalClusterAgentClient is a helper to remove the current DCAClient global
-// It is ONLY to be used for tests
-func resetGlobalClusterAgentClient() {
-	globalClusterAgentClient = nil
-}
-
-// GetClusterAgentClient returns or init the DCAClient
-func GetClusterAgentClient() (DCAClientInterface, error) {
-	if globalClusterAgentClient == nil {
-		globalClusterAgentClient = &DCAClient{}
-		globalClusterAgentClient.initRetry.SetupRetrier(&retry.Config{ //nolint:errcheck
-			Name:              "clusterAgentClient",
-			AttemptMethod:     globalClusterAgentClient.init,
-			Strategy:          retry.Backoff,
-			InitialRetryDelay: 1 * time.Second,
-			MaxRetryDelay:     5 * time.Minute,
-		})
-	}
-	if err := globalClusterAgentClient.initRetry.TriggerRetry(); err != nil {
-		fmt.Printf("Cluster Agent init error: %v", err)
-		return nil, err
-	}
-	return globalClusterAgentClient, nil
-}
-
-func (c *DCAClient) init() error {
+func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, error) {
 	var err error
 
-	c.clusterAgentAPIEndpoint, err = getClusterAgentEndpoint()
+	dcaClient := DCAClient{}
+	dcaClient.logger = logger
+	dcaClient.clusterAgentAPIEndpoint, err = getClusterAgentEndpoint()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	authToken := config.NozzleConfig.DCAToken
+	authToken := config.DCAToken
 	if authToken == "" {
-		return fmt.Errorf("missing authentication token for the Cluster Agent Client")
+		return nil, fmt.Errorf("missing authentication token for the Cluster Agent Client")
 	}
 
-	c.clusterAgentAPIRequestHeaders = http.Header{}
-	c.clusterAgentAPIRequestHeaders.Set(authorizationHeaderKey, fmt.Sprintf("Bearer %s", authToken))
+	dcaClient.clusterAgentAPIRequestHeaders = http.Header{}
+	dcaClient.clusterAgentAPIRequestHeaders.Set(authorizationHeaderKey, fmt.Sprintf("Bearer %s", authToken))
 
 	// TODO remove insecure
-	c.clusterAgentAPIClient = util.GetClient(false)
-	c.clusterAgentAPIClient.Timeout = 5 * time.Second
+	dcaClient.clusterAgentAPIClient = util.GetClient(false)
+	dcaClient.clusterAgentAPIClient.Timeout = 2 * time.Second
 
 	// Validate the cluster-agent client by checking the version
-	c.ClusterAgentVersion, err = c.GetVersion()
+	dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	fmt.Printf("Successfully connected to the Datadog Cluster Agent %s", c.ClusterAgentVersion.String())
 
-	return nil
+	logger.Infof("Successfully connected to the Datadog Cluster Agent %s", dcaClient.ClusterAgentVersion.String())
+
+	return &dcaClient, nil
 }
 
 // Version returns ClusterAgentVersion already stored in the DCAClient
 func (c *DCAClient) Version() Version {
 	return c.ClusterAgentVersion
-}
-
-// ClusterAgentAPIEndpoint returns the Agent API Endpoint URL as a string
-func (c *DCAClient) ClusterAgentAPIEndpoint() string {
-	return c.clusterAgentAPIEndpoint
 }
 
 // getClusterAgentEndpoint provides a validated https endpoint from configuration keys in datadog.yaml:
@@ -133,7 +88,7 @@ func getClusterAgentEndpoint() (string, error) {
 		if strings.HasPrefix(dcaURL, "http://") {
 			return "", fmt.Errorf("cannot get cluster agent endpoint, not a https scheme: %s", dcaURL)
 		}
-		if strings.Contains(dcaURL, "://") == false {
+		if !strings.Contains(dcaURL, "://") {
 			fmt.Printf("Adding https scheme to %s: https://%s", dcaURL, dcaURL)
 			dcaURL = fmt.Sprintf("https://%s", dcaURL)
 		}
@@ -148,7 +103,7 @@ func getClusterAgentEndpoint() (string, error) {
 		return u.String(), nil
 	}
 
-	return "", fmt.Errorf("Cluster Agent URL is not specified in the configuration")
+	return "", fmt.Errorf("cluster agent url is not specified in the configuration")
 }
 
 // GetVersion fetches the version of the Cluster Agent. Used in the agent status command.
@@ -184,39 +139,6 @@ func (c *DCAClient) GetVersion() (Version, error) {
 	err = json.Unmarshal(body, &version)
 
 	return version, err
-}
-
-// GetCFAppsMetadataForNode returns the CF application tags from the Cluster Agent.
-func (c *DCAClient) GetCFAppsMetadataForNode(nodename string) (map[string][]string, error) {
-	const dcaCFAppsMeta = "api/v1/tags/cf/apps"
-	var err error
-	var tags map[string][]string
-
-	// https://host:port/api/v1/tags/cf/apps/{nodename}
-	rawURL := fmt.Sprintf("%s/%s/%s", c.clusterAgentAPIEndpoint, dcaCFAppsMeta, nodename)
-
-	req, err := http.NewRequest("GET", rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header = c.clusterAgentAPIRequestHeaders
-
-	resp, err := c.clusterAgentAPIClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(body, &tags)
-	return tags, err
 }
 
 // TODO
@@ -416,7 +338,7 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 	// Go through the channel, print all errors and return one of them if there are any
 	var err error
 	for err = range errors {
-		fmt.Printf(err.Error())
+		c.logger.Errorf(err.Error())
 	}
 	if err != nil {
 		return nil, err
@@ -459,23 +381,103 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 		if exists {
 			updatedApp.extractDataFromV3Process(processes)
 		} else {
-			fmt.Printf("could not fetch processes info for app guid %s", appGUID)
+			c.logger.Infof("could not fetch processes info for app guid %s", appGUID)
 		}
 		// Fill space then org data. Order matters for labels and annotations.
 		space, exists := spacesPerGUID[spaceGUID]
 		if exists {
 			updatedApp.extractDataFromV3Space(space)
 		} else {
-			fmt.Printf("could not fetch space info for space guid %s", spaceGUID)
+			c.logger.Infof("could not fetch space info for space guid %s", spaceGUID)
 		}
 		orgGUID := updatedApp.OrgGUID
 		org, exists := orgsPerGUID[orgGUID]
 		if exists {
 			updatedApp.extractDataFromV3Org(org)
 		} else {
-			fmt.Printf("could not fetch org info for org guid %s", orgGUID)
+			c.logger.Infof("could not fetch org info for org guid %s", orgGUID)
 		}
 		results = append(results, updatedApp)
 	}
 	return results, nil
+}
+
+func (a *CFApplication) extractDataFromV3App(data cfclient.V3App) {
+	a.GUID = data.GUID
+	a.Name = data.Name
+	a.SpaceGUID = data.Relationships["space"].Data.GUID
+	a.Buildpacks = data.Lifecycle.BuildpackData.Buildpacks
+	a.Annotations = data.Metadata.Annotations
+	a.Labels = data.Metadata.Labels
+	if a.Annotations == nil {
+		a.Annotations = map[string]string{}
+	}
+	if a.Labels == nil {
+		a.Labels = map[string]string{}
+	}
+}
+
+func (a *CFApplication) extractDataFromV3Process(data []cfclient.Process) {
+	if len(data) <= 0 {
+		return
+	}
+	totalInstances := 0
+	totalDiskInMbConfigured := 0
+	totalDiskInMbProvisioned := 0
+	totalMemoryInMbConfigured := 0
+	totalMemoryInMbProvisioned := 0
+
+	for _, p := range data {
+		instances := p.Instances
+		diskInMbConfigured := p.DiskInMB
+		diskInMbProvisioned := instances * diskInMbConfigured
+		memoryInMbConfigured := p.MemoryInMB
+		memoryInMbProvisioned := instances * memoryInMbConfigured
+
+		totalInstances += instances
+		totalDiskInMbConfigured += diskInMbConfigured
+		totalDiskInMbProvisioned += diskInMbProvisioned
+		totalMemoryInMbConfigured += memoryInMbConfigured
+		totalMemoryInMbProvisioned += memoryInMbProvisioned
+	}
+
+	a.Instances = totalInstances
+
+	a.DiskQuota = totalDiskInMbConfigured
+	a.Memory = totalMemoryInMbConfigured
+	a.TotalDiskQuota = totalDiskInMbProvisioned
+	a.TotalMemory = totalMemoryInMbProvisioned
+}
+
+func (a *CFApplication) extractDataFromV3Space(data cfclient.V3Space) {
+	a.SpaceName = data.Name
+	a.OrgGUID = data.Relationships["organization"].Data.GUID
+
+	// Set space labels and annotations only if they're not overriden per application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
+}
+
+func (a *CFApplication) extractDataFromV3Org(data cfclient.V3Organization) {
+	a.OrgName = data.Name
+
+	// Set org labels and annotations only if they're not overriden per space or application
+	for key, value := range data.Metadata.Annotations {
+		if _, ok := a.Annotations[key]; !ok {
+			a.Annotations[key] = value
+		}
+	}
+	for key, value := range data.Metadata.Labels {
+		if _, ok := a.Labels[key]; !ok {
+			a.Labels[key] = value
+		}
+	}
 }

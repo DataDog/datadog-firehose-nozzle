@@ -36,7 +36,7 @@ func NewProcessor(
 	environment string,
 	parseAppMetricsEnable bool,
 	cfClient *cloudfoundry.CFClient,
-	dcaClient cloudfoundry.DCAClientInterface,
+	dcaClient *cloudfoundry.DCAClient,
 	numCacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,

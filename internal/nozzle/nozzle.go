@@ -26,7 +26,7 @@ type Nozzle struct {
 	ddClients             []*datadog.Client
 	processor             *processor.Processor
 	cfClient              *cloudfoundry.CFClient
-	dcaClient             cloudfoundry.DCAClientInterface
+	dcaClient             *cloudfoundry.DCAClient
 	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
 	orgCollector          *orgcollector.OrgCollector
@@ -86,7 +86,7 @@ func (n *Nozzle) Start() error {
 	if err != nil {
 		n.log.Warnf("Failed to initialize Cloud Foundry client: %s", err.Error())
 	}
-	n.dcaClient, err = cloudfoundry.GetClusterAgentClient()
+	n.dcaClient, err = cloudfoundry.NewDCAClient(n.config, n.log)
 	if err != nil {
 		n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
 	}
