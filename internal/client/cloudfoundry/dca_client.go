@@ -108,7 +108,7 @@ func (c *DCAClient) GetVersion() (Version, error) {
 }
 
 // TODO
-func (c *DCAClient) GetCFApps() ([]cfclient.V3App, error) {
+func (c *DCAClient) GetV3Apps() ([]cfclient.V3App, error) {
 	const dcaCFApps = "api/v1/cf/apps"
 	var err error
 	var apps []cfclient.V3App
@@ -143,7 +143,7 @@ func (c *DCAClient) GetCFApps() ([]cfclient.V3App, error) {
 }
 
 // TODO
-func (c *DCAClient) GetCFSpaces() ([]cfclient.V3Space, error) {
+func (c *DCAClient) GetV3Spaces() ([]cfclient.V3Space, error) {
 	const dcaCFSpaces = "api/v1/cf/spaces"
 	var err error
 	var spaces []cfclient.V3Space
@@ -178,7 +178,7 @@ func (c *DCAClient) GetCFSpaces() ([]cfclient.V3Space, error) {
 }
 
 // TODO
-func (c *DCAClient) GetCFOrgs() ([]cfclient.V3Organization, error) {
+func (c *DCAClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 	const dcaCFOrgs = "api/v1/cf/orgs"
 	var err error
 	var orgs []cfclient.V3Organization
@@ -213,7 +213,7 @@ func (c *DCAClient) GetCFOrgs() ([]cfclient.V3Organization, error) {
 }
 
 // TODO
-func (c *DCAClient) GetCFProcesses() ([]cfclient.Process, error) {
+func (c *DCAClient) GetProcesses() ([]cfclient.Process, error) {
 	const dcaCFProcesses = "api/v1/cf/processes"
 	var err error
 	var processes []cfclient.Process
@@ -247,7 +247,7 @@ func (c *DCAClient) GetCFProcesses() ([]cfclient.Process, error) {
 	return processes, err
 }
 
-func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
+func (c *DCAClient) GetApplications() ([]CFApplication, error) {
 	var wg sync.WaitGroup
 	errors := make(chan error, 10)
 	// Fetch apps
@@ -256,7 +256,7 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		cfapps, err = c.GetCFApps()
+		cfapps, err = c.GetV3Apps()
 		if err != nil {
 			errors <- err
 		}
@@ -268,7 +268,7 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		processes, err = c.GetCFProcesses()
+		processes, err = c.GetProcesses()
 		if err != nil {
 			errors <- err
 		}
@@ -280,7 +280,7 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		spaces, err = c.GetCFSpaces()
+		spaces, err = c.GetV3Spaces()
 		if err != nil {
 			errors <- err
 		}
@@ -292,7 +292,7 @@ func (c *DCAClient) GetCFApplications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		orgs, err = c.GetCFOrgs()
+		orgs, err = c.GetV3Orgs()
 		if err != nil {
 			errors <- err
 		}

@@ -149,7 +149,7 @@ func (am *AppParser) warmupCache() {
 
 	if config.NozzleConfig.DCAEnabled && am.dcaClient != nil {
 		fmt.Printf("using cluster agent client to warm up cache")
-		cfapps, err = am.dcaClient.GetCFApplications()
+		cfapps, err = am.dcaClient.GetApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
 			return
