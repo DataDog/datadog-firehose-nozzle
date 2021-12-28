@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"strings"
@@ -46,11 +45,7 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 
 	dcaClient := DCAClient{}
 	dcaClient.logger = logger
-	dcaClient.clusterAgentAPIEndpoint, err = getClusterAgentEndpoint()
-	if err != nil {
-		return nil, err
-	}
-
+	dcaClient.clusterAgentAPIEndpoint = config.DCAUrl
 	authToken := config.DCAToken
 	if authToken == "" {
 		return nil, fmt.Errorf("missing authentication token for the Cluster Agent Client")
@@ -58,8 +53,6 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 
 	dcaClient.clusterAgentAPIRequestHeaders = http.Header{}
 	dcaClient.clusterAgentAPIRequestHeaders.Set(authorizationHeaderKey, fmt.Sprintf("Bearer %s", authToken))
-
-	// TODO remove insecure
 	dcaClient.clusterAgentAPIClient = util.GetClient(false)
 	dcaClient.clusterAgentAPIClient.Timeout = 2 * time.Second
 
@@ -77,33 +70,6 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 // Version returns ClusterAgentVersion already stored in the DCAClient
 func (c *DCAClient) Version() Version {
 	return c.ClusterAgentVersion
-}
-
-// getClusterAgentEndpoint provides a validated https endpoint from configuration keys in datadog.yaml:
-// configuration key "cluster_agent.url" (or the DD_CLUSTER_AGENT_URL environment variable),
-//      add the https prefix if the scheme isn't specified
-func getClusterAgentEndpoint() (string, error) {
-	dcaURL := config.NozzleConfig.DCAUrl
-	if dcaURL != "" {
-		if strings.HasPrefix(dcaURL, "http://") {
-			return "", fmt.Errorf("cannot get cluster agent endpoint, not a https scheme: %s", dcaURL)
-		}
-		if !strings.Contains(dcaURL, "://") {
-			fmt.Printf("Adding https scheme to %s: https://%s", dcaURL, dcaURL)
-			dcaURL = fmt.Sprintf("https://%s", dcaURL)
-		}
-		u, err := url.Parse(dcaURL)
-		if err != nil {
-			return "", err
-		}
-		if u.Scheme != "https" {
-			return "", fmt.Errorf("cannot get cluster agent endpoint, not a https scheme: %s", u.Scheme)
-		}
-		fmt.Printf("Connecting to the configured URL for the Datadog Cluster Agent: %s", dcaURL)
-		return u.String(), nil
-	}
-
-	return "", fmt.Errorf("cluster agent url is not specified in the configuration")
 }
 
 // GetVersion fetches the version of the Cluster Agent. Used in the agent status command.
