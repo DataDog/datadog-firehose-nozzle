@@ -147,20 +147,22 @@ func (am *AppParser) warmupCache() {
 	var cfapps []cloudfoundry.CFApplication
 	var err error
 
-	if config.NozzleConfig.DCAEnabled {
+	if config.NozzleConfig.DCAEnabled && am.dcaClient != nil {
 		fmt.Printf("using cluster agent client to warm up cache")
 		cfapps, err = am.dcaClient.GetCFApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
 			return
 		}
-	} else {
+	} else if am.cfClient != nil {
 		fmt.Printf("using cloud foundry client to warm up cache")
 		cfapps, err = am.cfClient.GetApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using CF client, couldn't get list of apps: %v", err)
 			return
 		}
+	} else {
+		am.log.Errorf("error warming up cache, both CFClient and DCA Client are not initialized")
 	}
 
 	for _, cfapp := range cfapps {
