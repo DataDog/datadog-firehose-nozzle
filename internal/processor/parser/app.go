@@ -184,8 +184,21 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		// If it exists in the cache, use the cache
 		return app, nil
 	}
+
 	// Otherwise it's a new app so fetch it via the API
-	cfapp, err := am.cfClient.GetApplication(guid)
+	var cfapp *cloudfoundry.CFApplication
+	var err error
+
+	if config.NozzleConfig.DCAEnabled && am.dcaClient != nil {
+		fmt.Printf("using cluster agent client to get missing AppData")
+		cfapp, err = am.dcaClient.GetApplication(guid)
+	} else if am.cfClient != nil {
+		fmt.Printf("using cloud foundry client to get missing AppData")
+		cfapp, err = am.cfClient.GetApplication(guid)
+	} else {
+		am.log.Errorf("error warming up cache, both CFClient and DCA Client are not initialized")
+	}
+
 	if err != nil {
 		am.log.Warnf("error grabbing instance data for app %s (is this a short-lived app?): %v", guid, err)
 		return nil, err
