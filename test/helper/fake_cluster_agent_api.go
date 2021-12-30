@@ -18,14 +18,10 @@ type FakeClusterAgentAPI struct {
 	server *httptest.Server
 	lock   sync.Mutex
 
-	validToken string
-
 	tokenType string
 	authToken string
 
 	requested bool
-
-	closeMessage []byte
 
 	// Used to make the controller slow to answer
 	RequestTime time.Duration
