@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
@@ -147,7 +146,7 @@ func (am *AppParser) warmupCache() {
 	var cfapps []cloudfoundry.CFApplication
 	var err error
 
-	if config.NozzleConfig.DCAEnabled && am.dcaClient != nil {
+	if am.dcaClient != nil {
 		fmt.Printf("using cluster agent client to warm up cache")
 		cfapps, err = am.dcaClient.GetApplications()
 		if err != nil {
@@ -189,7 +188,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 	var cfapp *cloudfoundry.CFApplication
 	var err error
 
-	if config.NozzleConfig.DCAEnabled && am.dcaClient != nil {
+	if am.dcaClient != nil {
 		fmt.Printf("using cluster agent client to get missing AppData")
 		cfapp, err = am.dcaClient.GetApplication(guid)
 	} else if am.cfClient != nil {
