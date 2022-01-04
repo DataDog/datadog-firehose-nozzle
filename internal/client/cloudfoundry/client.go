@@ -42,6 +42,11 @@ type CFApplication struct {
 	Annotations    map[string]string
 }
 
+type CFOrgQuota struct {
+	GUID        string
+	MemoryLimit int
+}
+
 type Data struct {
 	Data struct {
 		GUID string `json:"guid"`
@@ -557,13 +562,22 @@ func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 	return allOrgs, nil
 }
 
-func (cfc *CFClient) GetV2OrgQuotas() ([]cfclient.OrgQuota, error) {
+func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	query := url.Values{}
 	query.Set("results-per-page", "100")
 
-	allQuotas, err := cfc.client.ListOrgQuotasByQuery(query)
+	var allQuotas []CFOrgQuota
+
+	quotas, err := cfc.client.ListOrgQuotasByQuery(query)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, quota := range quotas {
+		allQuotas = append(allQuotas, CFOrgQuota{
+			GUID:        quota.Guid,
+			MemoryLimit: quota.MemoryLimit,
+		})
 	}
 
 	return allQuotas, nil

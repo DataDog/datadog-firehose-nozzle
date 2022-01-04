@@ -17,6 +17,8 @@ var _ = Describe("OrgCollector", func() {
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
+		fakeClusterAgentAPI    *FakeClusterAgentAPI
+		dcaAPIURL              string
 		fakeOrgCollector       *OrgCollector
 		pm                     chan []metric.MetricPackage
 		customTags             []string
@@ -27,13 +29,21 @@ var _ = Describe("OrgCollector", func() {
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
 		fakeCloudControllerAPI.Start()
 
+		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
+		fakeClusterAgentAPI.Start()
+
 		ccAPIURL = fakeCloudControllerAPI.URL()
+		dcaAPIURL = fakeClusterAgentAPI.URL()
+
 		cfg := config.Config{
 			CloudControllerEndpoint: ccAPIURL,
 			Client:                  "bearer",
 			ClientSecret:            "123456789",
 			InsecureSSLSkipVerify:   true,
 			NumWorkers:              0,
+			DCAUrl:                  dcaAPIURL,
+			DCAToken:                "123456789",
+			DCAEnabled:              true,
 		}
 		pm = make(chan []metric.MetricPackage, 1)
 		customTags = []string{"foo:bar"}

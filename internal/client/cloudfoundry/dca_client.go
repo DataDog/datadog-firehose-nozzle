@@ -15,6 +15,7 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
+	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -69,7 +70,7 @@ func (c *DCAClient) Version() Version {
 	return c.ClusterAgentVersion
 }
 
-// GetVersion fetches the version of the Cluster Agent. Used in the agent status command.
+// GetVersion fetches the version of the Cluster Agent.
 func (c *DCAClient) GetVersion() (Version, error) {
 	const dcaVersionPath = "version"
 	var version Version
@@ -104,7 +105,7 @@ func (c *DCAClient) GetVersion() (Version, error) {
 	return version, err
 }
 
-// TODO
+// GetApplications fetches the list of CF Applications from the Cluster Agent.
 func (c *DCAClient) GetApplications() ([]CFApplication, error) {
 	const dcaAppsPath = "api/v1/cf/apps"
 	var cfapps []CFApplication
@@ -139,7 +140,7 @@ func (c *DCAClient) GetApplications() ([]CFApplication, error) {
 	return cfapps, err
 }
 
-// TODO
+// GetApplication fetches a CF Application with the given appGUID from the Cluster Agent.
 func (c *DCAClient) GetApplication(appGUID string) (*CFApplication, error) {
 	const dcaAppsPath = "api/v1/cf/apps"
 	var cfapp CFApplication
@@ -172,4 +173,74 @@ func (c *DCAClient) GetApplication(appGUID string) (*CFApplication, error) {
 	err = json.Unmarshal(body, &cfapp)
 
 	return &cfapp, err
+}
+
+// // GetV2Orgs fetches a V2 CF Organizations from the Cluster Agent.
+func (c *DCAClient) GetV2Orgs() ([]cfclient.Org, error) {
+	const dcaOrgsPath = "api/v1/cf/orgs"
+	var allOrgs []cfclient.Org
+	var err error
+
+	// https://host:port/api/v1/cf/orgs
+	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaOrgsPath)
+
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = c.clusterAgentAPIRequestHeaders
+
+	resp, err := c.clusterAgentAPIClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &allOrgs)
+
+	return allOrgs, err
+}
+
+// GetV2OrgQuotas fetches CF Organization Quotas from the Cluster Agent.
+func (c *DCAClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
+	const dcaOrgQuotasPath = "api/v1/cf/org_quotas"
+	var allQuotas []CFOrgQuota
+	var err error
+
+	// https://host:port/api/v1/cf/org_quotas
+	rawURL := fmt.Sprintf("%s/%s", c.clusterAgentAPIEndpoint, dcaOrgQuotasPath)
+
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = c.clusterAgentAPIRequestHeaders
+
+	resp, err := c.clusterAgentAPIClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code from cluster agent: %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, &allQuotas)
+
+	return allQuotas, err
 }
