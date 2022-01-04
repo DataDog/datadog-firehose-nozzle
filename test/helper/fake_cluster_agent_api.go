@@ -513,25 +513,25 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"TotalMemory": 512,
 			"Labels": {
 				"app-space-org-label": "app-space-org-label-app-value",
-			"app-space-label":     "app-space-label-app-value",
-			"app-org-label":       "app-org-label-app-value",
-			"app-label":           "app-label-value",
-			"space-org-label":     "space-org-label-space-value",
-			"space-label":         "space-label-value",
-			"org-label":           "org-label-value"
+				"app-space-label": "app-space-label-app-value",
+				"app-org-label": "app-org-label-app-value",
+				"app-label": "app-label-value",
+				"space-org-label": "space-org-label-space-value",
+				"space-label": "space-label-value",
+				"org-label": "org-label-value"
 			},
 			"Annotations": {
 				"app-space-org-annotation": "app-space-org-annotation-app-value",
-				"app-space-annotation":     "app-space-annotation-app-value",
-				"app-org-annotation":       "app-org-annotation-app-value",
-				"app-annotation":           "app-annotation-value",
-				"space-org-annotation":     "space-org-annotation-space-value",
-				"space-annotation":         "space-annotation-value",
-				"org-annotation":           "org-annotation-value"
+				"app-space-annotation": "app-space-annotation-app-value",
+				"app-org-annotation": "app-org-annotation-app-value",
+				"app-annotation": "app-annotation-value",
+				"space-org-annotation": "space-org-annotation-space-value",
+				"space-annotation": "space-annotation-value",
+				"org-annotation": "org-annotation-value"
 			}
 		}
 		`))
-	case "api/v1/cf/org_quotas":
+	case "/api/v1/cf/org_quotas":
 		rw.Write([]byte(`
 		[{
 			"GUID": "9f3f17e5-dabe-49b9-82c6-aa9e79724bdd",
@@ -541,7 +541,7 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"MemoryLimit": 102400
 		}]
 		`))
-	case "api/v1/cf/orgs":
+	case "/api/v1/cf/orgs":
 		rw.Write([]byte(`
 		[{
 			"name": "system",
