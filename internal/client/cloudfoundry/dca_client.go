@@ -6,6 +6,7 @@
 package cloudfoundry
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/cloudfoundry/gosteno"
 )
@@ -51,10 +51,16 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 
 	dcaClient.clusterAgentAPIRequestHeaders = http.Header{}
 	dcaClient.clusterAgentAPIRequestHeaders.Set(authorizationHeaderKey, fmt.Sprintf("Bearer %s", authToken))
-	dcaClient.clusterAgentAPIClient = util.GetClient(false)
+	dcaClient.clusterAgentAPIClient = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: config.InsecureSSLSkipVerify,
+			},
+		},
+	}
 	dcaClient.clusterAgentAPIClient.Timeout = 2 * time.Second
 
-	// Validate the cluster-agent client by checking the version
+	// Validate the cluster agent client by checking the version
 	dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
 	if err != nil {
 		return nil, err
