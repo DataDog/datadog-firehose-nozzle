@@ -18,10 +18,15 @@ type FakeClusterAgentAPI struct {
 	server *httptest.Server
 	lock   sync.Mutex
 
+	validToken string
+
 	tokenType string
 	authToken string
 
-	requested bool
+	requested         bool
+	lastAuthorization string
+
+	closeMessage []byte
 
 	// Used to make the controller slow to answer
 	RequestTime time.Duration
@@ -137,6 +142,35 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"space-org-annotation": "space-org-annotation-space-value",
 				"space-annotation": "space-annotation-value",
 				"org-annotation": "org-annotation-value"
+			}
+		}, {
+			"GUID": "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
+			"Name": "hello-datadog-cf-ruby-dev",
+			"SpaceGUID": "827da8e5-1676-42ec-9028-46fbfe04fb86",
+			"SpaceName": "system",
+			"OrgName": "system",
+			"OrgGUID": "24d7098c-832b-4dfa-a4f1-950780ae92e9",
+			"Instances": 1,
+			"Buildpacks": ["binary_buildpack", "datadog-cloudfoundry-buildpack-dev", "ruby_buildpack"],
+			"DiskQuota": 2000,
+			"TotalDiskQuota": 2048,
+			"Memory": 1000,
+			"TotalMemory": 512,
+			"Labels": {
+				"app-label": "app-label-value",
+				"app-space-label": "app-space-label-app-value",
+				"app-org-label": "app-org-label-app-value",
+				"app-space-org-label": "app-space-org-label-app-value",
+				"blacklisted_key": "bar",
+				"tags.datadoghq.com/auto-label-tag": "auto-label-tag-value"
+			},
+			"Annotations": {
+				"app-annotation": "app-annotation-value",
+				"app-space-annotation": "app-space-annotation-app-value",
+				"app-org-annotation": "app-org-annotation-app-value",
+				"app-space-org-annotation": "app-space-org-annotation-app-value",
+				"blacklisted_key": "bar",
+				"tags.datadoghq.com/auto-annotation-tag": "auto-annotation-tag-value"
 			}
 		}, {
 			"GUID": "9d519c2b-261e-4553-9db3-c79c8a9857f5",
@@ -496,6 +530,76 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"org-annotation":           "org-annotation-value"
 			}
 		}
+		`))
+	case "api/v1/cf/org_quotas":
+		rw.Write([]byte(`
+		[{
+			"GUID": "9f3f17e5-dabe-49b9-82c6-aa9e79724bdd",
+			"MemoryLimit": 10240
+		}, {
+			"GUID": "c43e81cd-c305-4fa1-9cad-0f7bd72ab6c4",
+			"MemoryLimit": 102400
+		}]
+		`))
+	case "api/v1/cf/orgs":
+		rw.Write([]byte(`
+		[{
+			"name": "system",
+			"guid": "24d7098c-832b-4dfa-a4f1-950780ae92e9",
+			"suspended": false,
+			"created_at": "2021-03-17T10:39:43Z",
+			"updated_at": "2021-03-17T10:39:43Z",
+			"relationships": {
+				"quota": {
+					"data": {
+						"guid": "9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"
+					}
+				}
+			},
+			"links": {
+				"default_domain": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/24d7098c-832b-4dfa-a4f1-950780ae92e9/domains/default"
+				},
+				"domains": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/24d7098c-832b-4dfa-a4f1-950780ae92e9/domains"
+				},
+				"quota": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organization_quotas/9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"
+				},
+				"self": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/24d7098c-832b-4dfa-a4f1-950780ae92e9"
+				}
+			},
+			"metadata": {}
+		}, {
+			"name": "datadog-application-monitoring-org",
+			"guid": "955856da-6c1e-4a1a-9933-359bc0685855",
+			"suspended": false,
+			"created_at": "2021-03-31T16:26:52Z",
+			"updated_at": "2021-03-31T16:26:53Z",
+			"relationships": {
+				"quota": {
+					"data": {
+						"guid": "c43e81cd-c305-4fa1-9cad-0f7bd72ab6c4"
+					}
+				}
+			},
+			"links": {
+				"default_domain": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/955856da-6c1e-4a1a-9933-359bc0685855/domains/default"
+				},
+				"domains": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/955856da-6c1e-4a1a-9933-359bc0685855/domains"
+				},
+				"quota": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organization_quotas/c43e81cd-c305-4fa1-9cad-0f7bd72ab6c4"
+				},
+				"self": {
+					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/955856da-6c1e-4a1a-9933-359bc0685855"
+				}
+			},
+			"metadata": {}
+		}]
 		`))
 	}
 }
