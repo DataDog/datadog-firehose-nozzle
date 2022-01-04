@@ -23,12 +23,6 @@ import (
 Client to query the Datadog Cluster Agent (DCA) API.
 */
 
-const (
-	authorizationHeaderKey = "Authorization"
-	// RealIPHeader refers to the cluster level check runner ip passed in the request headers
-	RealIPHeader = "X-Real-Ip"
-)
-
 // DCAClient is required to query the API of Datadog cluster agent
 type DCAClient struct {
 	clusterAgentAPIEndpoint       string  // ${SCHEME}://${clusterAgentHost}:${PORT}
@@ -50,7 +44,7 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 	}
 
 	dcaClient.clusterAgentAPIRequestHeaders = http.Header{}
-	dcaClient.clusterAgentAPIRequestHeaders.Set(authorizationHeaderKey, fmt.Sprintf("Bearer %s", authToken))
+	dcaClient.clusterAgentAPIRequestHeaders.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	dcaClient.clusterAgentAPIClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
