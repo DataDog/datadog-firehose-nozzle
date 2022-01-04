@@ -86,9 +86,12 @@ func (n *Nozzle) Start() error {
 	if err != nil {
 		n.log.Warnf("Failed to initialize Cloud Foundry client: %s", err.Error())
 	}
-	n.dcaClient, err = cloudfoundry.NewDCAClient(n.config, n.log)
-	if err != nil {
-		n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
+
+	if n.config.DCAEnabled {
+		n.dcaClient, err = cloudfoundry.NewDCAClient(n.config, n.log)
+		if err != nil {
+			n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
+		}
 	}
 
 	// Initialize Firehose processor
