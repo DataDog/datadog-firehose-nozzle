@@ -147,14 +147,14 @@ func (am *AppParser) warmupCache() {
 	var err error
 
 	if am.dcaClient != nil {
-		fmt.Printf("using cluster agent client to warm up cache")
+		am.log.Infof("Using cluster agent client to warm up cache")
 		cfapps, err = am.dcaClient.GetApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
 			return
 		}
 	} else if am.cfClient != nil {
-		fmt.Printf("using cloud foundry client to warm up cache")
+		am.log.Infof("Using cloud foundry client to warm up cache")
 		cfapps, err = am.cfClient.GetApplications()
 		if err != nil {
 			am.log.Errorf("error warming up cache using CF client, couldn't get list of apps: %v", err)
@@ -189,10 +189,10 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 	var err error
 
 	if am.dcaClient != nil {
-		fmt.Printf("using cluster agent client to get missing AppData")
+		am.log.Infof("Using cluster agent client to get missing AppData")
 		cfapp, err = am.dcaClient.GetApplication(guid)
 	} else if am.cfClient != nil {
-		fmt.Printf("using cloud foundry client to get missing AppData")
+		am.log.Infof("Using cloud foundry client to get missing AppData")
 		cfapp, err = am.cfClient.GetApplication(guid)
 	} else {
 		am.log.Errorf("error warming up cache, both CFClient and DCA Client are not initialized")
