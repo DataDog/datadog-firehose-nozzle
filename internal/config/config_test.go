@@ -53,7 +53,6 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
 		Expect(conf.DCAToken).To(Equal("123456789"))
 		Expect(conf.DCAEnabled).To(Equal(true))
-
 	})
 
 	It("successfully sets default configuration values", func() {
