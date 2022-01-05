@@ -58,7 +58,8 @@ var _ = Describe("OrgCollector", func() {
 		Expect(err).To(BeNil())
 	}, 0)
 
-	It("pushes correct metrics", func() {
+	It("pushes correct metrics using cloud foundry client", func() {
+		fakeOrgCollector.dcaClient = nil
 		fakeOrgCollector.pushMetrics()
 		pushed := <-pm
 
@@ -85,6 +86,39 @@ var _ = Describe("OrgCollector", func() {
 			"org_id:8c19a50e-7974-4c67-adea-9640fae21526",
 			"org_name:datadog-application-monitoring-org",
 			"status:active",
+		}))
+		Expect(v2.Points).To(HaveLen(1))
+		Expect(v2.Points[0].Timestamp).To(BeNumerically(">", 0))
+		Expect(v2.Points[0].Value).To(Equal(float64(102400)))
+	})
+
+	It("pushes correct metrics using cluster agent client", func() {
+		fakeOrgCollector.pushMetrics()
+		pushed := <-pm
+
+		k1 := pushed[0].MetricKey
+		v1 := pushed[0].MetricValue
+		Expect(k1.Name).To(Equal("org.memory.quota"))
+		Expect(v1.Tags).To(Equal([]string{
+			"foo:bar",
+			"guid:24d7098c-832b-4dfa-a4f1-950780ae92e9",
+			"org_id:24d7098c-832b-4dfa-a4f1-950780ae92e9",
+			"org_name:system",
+			"status:",
+		}))
+		Expect(v1.Points).To(HaveLen(1))
+		Expect(v1.Points[0].Timestamp).To(BeNumerically(">", 0))
+		Expect(v1.Points[0].Value).To(Equal(float64(10240)))
+
+		k2 := pushed[1].MetricKey
+		v2 := pushed[1].MetricValue
+		Expect(k2.Name).To(Equal("org.memory.quota"))
+		Expect(v2.Tags).To(Equal([]string{
+			"foo:bar",
+			"guid:955856da-6c1e-4a1a-9933-359bc0685855",
+			"org_id:955856da-6c1e-4a1a-9933-359bc0685855",
+			"org_name:datadog-application-monitoring-org",
+			"status:",
 		}))
 		Expect(v2.Points).To(HaveLen(1))
 		Expect(v2.Points[0].Timestamp).To(BeNumerically(">", 0))
