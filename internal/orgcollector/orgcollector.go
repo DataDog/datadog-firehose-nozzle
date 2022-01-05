@@ -35,10 +35,15 @@ func NewOrgCollector(
 	if err != nil {
 		return nil, err
 	}
-	dcaClient, err := cloudfoundry.NewDCAClient(config, log)
-	if err != nil {
-		return nil, err
+	var dcaClient *cloudfoundry.DCAClient
+
+	if config.DCAEnabled {
+		dcaClient, err = cloudfoundry.NewDCAClient(config, log)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &OrgCollector{
 		cfClient:         cfClient,
 		dcaClient:        dcaClient,
@@ -87,10 +92,11 @@ func (o *OrgCollector) pushMetrics() {
 		defer wg.Done()
 		var err error
 		if o.dcaClient != nil {
-			allOrgs, err = o.dcaClient.GetV2Orgs()
+			allOrgs, err = o.dcaClient.V2OrgsFromV3Orgs()
 		} else {
 			allOrgs, err = o.cfClient.GetV2Orgs()
 		}
+
 		if err != nil {
 			errors <- err
 		}
