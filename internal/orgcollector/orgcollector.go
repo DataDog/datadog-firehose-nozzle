@@ -31,17 +31,18 @@ func NewOrgCollector(
 	processedMetrics chan<- []metric.MetricPackage,
 	log *gosteno.Logger,
 	customTags []string) (*OrgCollector, error) {
-	cfClient, err := cloudfoundry.NewClient(config, log)
-	if err != nil {
-		return nil, err
-	}
+	var cfClient *cloudfoundry.CFClient
 	var dcaClient *cloudfoundry.DCAClient
+	var err error
 
 	if config.DCAEnabled {
 		dcaClient, err = cloudfoundry.NewDCAClient(config, log)
-		if err != nil {
-			return nil, err
-		}
+	} else {
+		cfClient, err = cloudfoundry.NewClient(config, log)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &OrgCollector{
