@@ -30,6 +30,7 @@ func (uaa *UAATokenFetcher) FetchAuthToken() string {
 	}
 
 	var authToken string
+
 	authToken, err = uaaClient.GetAuthToken(uaa.username, uaa.password, uaa.insecureSSLSkipVerify)
 	if err != nil {
 		uaa.log.Fatalf("Error getting oauth token: %s. Please check your username and password.", err.Error())

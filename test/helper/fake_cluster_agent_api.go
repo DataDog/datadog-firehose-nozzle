@@ -21,7 +21,7 @@ type FakeClusterAgentAPI struct {
 	validToken string
 
 	tokenType string
-	authToken string
+	accessToken string
 
 	requested         bool
 	lastAuthorization string
@@ -33,13 +33,13 @@ type FakeClusterAgentAPI struct {
 }
 
 // NewFakeClusterAgentAPI create a new cloud controller
-func NewFakeClusterAgentAPI(tokenType string, authToken string) *FakeClusterAgentAPI {
+func NewFakeClusterAgentAPI(tokenType string, accessToken string) *FakeClusterAgentAPI {
 	return &FakeClusterAgentAPI{
 		ReceivedContents: make(chan []byte, 100),
 		ReceivedRequests: make(chan *http.Request, 100),
 		usedEndpoints:    []string{},
 		tokenType:        tokenType,
-		authToken:        authToken,
+		accessToken:        accessToken,
 		RequestTime:      0,
 	}
 }
@@ -88,10 +88,10 @@ func (f *FakeClusterAgentAPI) GetUsedEndpoints() []string {
 
 // AuthToken returns auth token
 func (f *FakeClusterAgentAPI) AuthToken() string {
-	if f.tokenType == "" && f.authToken == "" {
+	if f.tokenType == "" && f.accessToken == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s %s", f.tokenType, f.authToken)
+	return fmt.Sprintf("%s %s", f.tokenType, f.accessToken)
 }
 
 func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Request) {

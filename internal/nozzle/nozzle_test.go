@@ -26,6 +26,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeFirehose   *helper.FakeFirehose
 		fakeDatadogAPI *helper.FakeDatadogAPI
 		fakeCCAPI      *helper.FakeCloudControllerAPI
+		fakeDCAAPI     *helper.FakeClusterAgentAPI
 		configuration  *config.Config
 		nozzle         *Nozzle
 		log            *gosteno.Logger
@@ -472,6 +473,265 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("regular usage with dca client", func() {
+		BeforeEach(func() {
+			fakeUAA = helper.NewFakeUAA("bearer", "123456789")
+			fakeToken := fakeUAA.AuthToken()
+			fakeFirehose = helper.NewFakeFirehose(fakeToken)
+			fakeDatadogAPI = helper.NewFakeDatadogAPI()
+			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
+			fakeDCAAPI = helper.NewFakeClusterAgentAPI("bearer", "123456789")
+			fakeCCAPI.Start()
+			fakeDCAAPI.Start()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+
+			configuration = &config.Config{
+				UAAURL:                    fakeUAA.URL(),
+				FlushDurationSeconds:      2,
+				FlushMaxBytes:             10240,
+				DataDogURL:                fakeDatadogAPI.URL(),
+				CloudControllerEndpoint:   fakeCCAPI.URL(),
+				RLPGatewayURL:             fakeFirehose.URL(),
+				Client:                    "bearer",
+				ClientSecret:              "123456789",
+				InsecureSSLSkipVerify:     true,
+				DataDogAPIKey:             "1234567890",
+				DisableAccessControl:      false,
+				WorkerTimeoutSeconds:      10,
+				MetricPrefix:              "datadog.nozzle.",
+				Deployment:                "nozzle-deployment",
+				AppMetrics:                false,
+				NumWorkers:                1,
+				OrgDataCollectionInterval: 5,
+				DCAEnabled:                true,
+				DCAUrl:                    fakeDCAAPI.URL(),
+				DCAToken:                  "123456789",
+			}
+
+			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
+			nozzle = NewNozzle(configuration, tokenFetcher, log)
+			go nozzle.Start()
+			time.Sleep(time.Second)
+		})
+
+		AfterEach(func() {
+			nozzle.Stop()
+			fakeUAA.Close()
+			fakeFirehose.Close()
+			fakeDatadogAPI.Close()
+			fakeDCAAPI.Close()
+			fakeCCAPI.Close()
+		})
+
+		It("receives data from the firehose", func() {
+			for i := 0; i < 10; i++ {
+				envelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":     "origin",
+						"deployment": "deployment-name",
+						"job":        "doppler",
+					},
+					Message: &loggregator_v2.Envelope_Gauge{
+						Gauge: &loggregator_v2.Gauge{
+							Metrics: map[string]*loggregator_v2.GaugeValue{
+								fmt.Sprintf("metricName-%d", i): &loggregator_v2.GaugeValue{
+									Unit:  "counter",
+									Value: float64(i),
+								},
+							},
+						},
+					},
+				}
+				fakeFirehose.AddEvent(envelope)
+				// stream a batch in the middle to test multiple envelope batches
+				if i == 4 {
+					fakeFirehose.ServeBatch()
+				}
+			}
+			fakeFirehose.ServeBatch()
+
+			var contents []byte
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+
+			var payload datadog.Payload
+			err := json.Unmarshal(helper.Decompress(contents), &payload)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(25)) // +3 is because of the internal metrics, +2 because of org metrics
+		}, 2)
+
+		It("gets a valid authentication token", func() {
+			Eventually(fakeFirehose.Requested).Should(BeTrue())
+			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
+		})
+
+		It("runs orgCollector to obtain org metrics", func() {
+			// need to use function to always return the current UsedEndpoints, since it's appended to
+			// and thus the address of the slice changes
+			Eventually(fakeDCAAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/api/v1/cf/org_quotas"))
+		})
+
+		It("adds internal metrics and generates aggregate messages when idle", func() {
+			for i := 0; i < 10; i++ {
+				envelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":     "origin",
+						"deployment": "deployment-name",
+						"job":        "doppler",
+					},
+					Message: &loggregator_v2.Envelope_Gauge{
+						Gauge: &loggregator_v2.Gauge{
+							Metrics: map[string]*loggregator_v2.GaugeValue{
+								fmt.Sprintf("metricName-%d", i): &loggregator_v2.GaugeValue{
+									Unit:  "counter",
+									Value: float64(i),
+								},
+							},
+						},
+					},
+				}
+				fakeFirehose.AddEvent(envelope)
+			}
+			fakeFirehose.ServeBatch()
+
+			var contents []byte
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+
+			var payload datadog.Payload
+			err := json.Unmarshal(helper.Decompress(contents), &payload)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(25))
+
+			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
+
+			// Wait a bit more for the new tick. We should receive only internal metrics
+			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+			err = json.Unmarshal(helper.Decompress(contents), &payload)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(payload.Series).To(HaveLen(5)) // only internal metrics
+
+			validateMetrics(payload, 11, 25, 25, 0)
+		}, 3)
+
+		Context("receives a rlp.dropped value metric", func() {
+			It("reports a slow-consumer error", func() {
+				envelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":    "loggregator.rlp",
+						"direction": "egress",
+					},
+					Message: &loggregator_v2.Envelope_Counter{
+						Counter: &loggregator_v2.Counter{
+							Name:  "dropped",
+							Delta: uint64(1),
+							Total: uint64(2),
+						},
+					},
+				}
+				fakeFirehose.AddEvent(envelope)
+				fakeFirehose.ServeBatch()
+
+				var contents []byte
+				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+
+				var payload datadog.Payload
+				err := json.Unmarshal(helper.Decompress(contents), &payload)
+				Expect(err).ToNot(HaveOccurred())
+
+				slowConsumerMetric := findSlowConsumerMetric(payload)
+				Expect(slowConsumerMetric).NotTo(BeNil())
+				Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+				Expect(slowConsumerMetric.Points).To(HaveLen(1))
+				Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
+				Expect(fakeBuffer.GetContent()).To(ContainSubstring("nozzle is not keeping up"))
+			})
+		})
+
+		Context("reports a slow-consumer error", func() {
+			It("unsets the error after sending it", func() {
+				envelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":    "loggregator.rlp",
+						"direction": "egress",
+					},
+					Message: &loggregator_v2.Envelope_Counter{
+						Counter: &loggregator_v2.Counter{
+							Name:  "dropped",
+							Delta: uint64(1),
+							Total: uint64(2),
+						},
+					},
+				}
+				fakeFirehose.AddEvent(envelope)
+				fakeFirehose.ServeBatch()
+
+				var contents []byte
+				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+
+				var payload datadog.Payload
+				err := json.Unmarshal(helper.Decompress(contents), &payload)
+				Expect(err).ToNot(HaveOccurred())
+
+				slowConsumerMetric := findSlowConsumerMetric(payload)
+				Expect(slowConsumerMetric).NotTo(BeNil())
+				Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+				Expect(slowConsumerMetric.Points).To(HaveLen(1))
+				Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(1))
+				Expect(fakeBuffer.GetContent()).To(ContainSubstring("nozzle is not keeping up"))
+
+				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
+				err = json.Unmarshal(helper.Decompress(contents), &payload)
+				Expect(err).ToNot(HaveOccurred())
+
+				slowConsumerMetric = findSlowConsumerMetric(payload)
+				Expect(slowConsumerMetric).NotTo(BeNil())
+				Expect(slowConsumerMetric.Type).To(Equal("gauge"))
+				Expect(slowConsumerMetric.Points).To(HaveLen(1))
+				Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(0))
+			}, 2)
+		})
+
+		Context("with DeploymentFilter provided", func() {
+			BeforeEach(func() {
+				configuration.DeploymentFilter = "good-deployment-name"
+			})
+
+			It("includes messages that match deployment filter", func() {
+				goodEnvelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":     "origin",
+						"deployment": "good-deployment-name",
+					},
+				}
+				fakeFirehose.AddEvent(goodEnvelope)
+				fakeFirehose.ServeBatch()
+				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive())
+			})
+
+			It("filters out messages from other deployments", func() {
+				badEnvelope := loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					Tags: map[string]string{
+						"origin":     "origin",
+						"deployment": "bad-deployment-name",
+					},
+				}
+				fakeFirehose.AddEvent(badEnvelope)
+				fakeFirehose.ServeBatch()
+
+				rxContents := filterOutNozzleMetrics(configuration.Deployment, fakeDatadogAPI.ReceivedContents)
+				Consistently(rxContents, 5*time.Second, time.Second).ShouldNot(Receive())
+			})
+		})
+	})
+
 })
 
 func findSlowConsumerMetric(payload datadog.Payload) *metric.Series {
