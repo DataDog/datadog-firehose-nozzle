@@ -20,7 +20,7 @@ type FakeClusterAgentAPI struct {
 
 	validToken string
 
-	tokenType string
+	tokenType   string
 	accessToken string
 
 	requested         bool
@@ -39,7 +39,7 @@ func NewFakeClusterAgentAPI(tokenType string, accessToken string) *FakeClusterAg
 		ReceivedRequests: make(chan *http.Request, 100),
 		usedEndpoints:    []string{},
 		tokenType:        tokenType,
-		accessToken:        accessToken,
+		accessToken:      accessToken,
 		RequestTime:      0,
 	}
 }
