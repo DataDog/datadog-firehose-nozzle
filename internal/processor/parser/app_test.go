@@ -79,7 +79,7 @@ var _ = Describe("AppMetrics", func() {
 	})
 
 	Context("cache warmup", func() {
-		It("requests all the apps directly at startup using dca client if it is enabled", func() {
+		It("requests all the apps directly at startup using cluster agent client when when cluster agent is enabled", func() {
 			a, err := NewAppParser(nil, fakeDCAClient, 5, 999, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
@@ -87,7 +87,7 @@ var _ = Describe("AppMetrics", func() {
 			Expect(len(a.AppCache.apps)).To(Equal(21))
 		})
 
-		It("requests all the apps directly at startup using cloudfoundry client only when DCA is disabled", func() {
+		It("requests all the apps directly at startup using cloudfoundry client only when cluster agent is disabled", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 999, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
@@ -151,7 +151,7 @@ var _ = Describe("AppMetrics", func() {
 			Expect(app).NotTo(BeNil())
 		})
 
-		It("grabs from the cache when it present using dca client", func() {
+		It("grabs from the cache when it present using cluster agent client", func() {
 			a, _ := NewAppParser(nil, fakeDCAClient, 5, 10, log, []string{}, "")
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 			// 6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a corresponds to hello-datadog-cf-ruby-dev
