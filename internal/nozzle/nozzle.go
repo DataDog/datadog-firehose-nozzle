@@ -81,16 +81,16 @@ func (n *Nozzle) Start() error {
 		return err
 	}
 
-	// Initialize Cloud Foundry client instance
-	n.cfClient, err = cloudfoundry.NewClient(n.config, n.log)
-	if err != nil {
-		n.log.Warnf("Failed to initialize Cloud Foundry client: %s", err.Error())
-	}
-
 	if n.config.DCAEnabled {
 		n.dcaClient, err = cloudfoundry.NewDCAClient(n.config, n.log)
 		if err != nil {
 			n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
+		}
+	} else {
+		// Initialize Cloud Foundry client instance
+		n.cfClient, err = cloudfoundry.NewClient(n.config, n.log)
+		if err != nil {
+			n.log.Warnf("Failed to initialize Cloud Foundry client: %s", err.Error())
 		}
 	}
 
