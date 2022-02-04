@@ -70,12 +70,6 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 		})
-
-		It("generates it properly when it can connect using cluster agent client", func() {
-			a, err := NewAppParser(nil, fakeDCAClient, 5, 10, log, []string{}, "")
-			Expect(err).To(BeNil())
-			Expect(a).NotTo(BeNil())
-		})
 	})
 
 	Context("cache warmup", func() {
