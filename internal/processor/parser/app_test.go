@@ -69,6 +69,14 @@ var _ = Describe("AppMetrics", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "")
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
+			a.Stop()
+		})
+
+		It("generates it properly when it can connect using cluster agent client", func() {
+			a, err := NewAppParser(nil, fakeDCAClient, 5, 10, log, []string{}, "")
+			Expect(err).To(BeNil())
+			Expect(a).NotTo(BeNil())
+			a.Stop()
 		})
 	})
 
