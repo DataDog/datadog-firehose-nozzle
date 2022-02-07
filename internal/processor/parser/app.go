@@ -82,6 +82,7 @@ type AppParser struct {
 	grabInterval int
 	customTags   []string
 	stopper      chan bool
+	done         chan bool
 }
 
 // NewAppParser create a new AppParser
@@ -111,6 +112,7 @@ func NewAppParser(
 		grabInterval: grabInterval,
 		customTags:   customTags,
 		stopper:      make(chan bool, 1),
+		done:         make(chan bool),
 	}
 
 	// start the background loop to keep the cache up to date
@@ -135,6 +137,7 @@ func (am *AppParser) updateCacheLoop() {
 			jitterWait()
 			am.warmupCache()
 		case <-am.stopper:
+			close(am.done)
 			return
 		}
 	}
@@ -254,6 +257,10 @@ func (am *AppParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPa
 // Stop sends a message on the stopper channel to quit the goroutine refreshing the cache
 func (am *AppParser) Stop() {
 	am.stopper <- true
+}
+
+func (am *AppParser) Done() chan bool {
+	return am.done
 }
 
 // App holds all the needed attribute from an app

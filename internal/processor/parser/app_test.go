@@ -70,6 +70,7 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 			a.Stop()
+			Eventually(a.Done()).Should(BeClosed())
 		})
 
 		It("generates it properly when it can connect using cluster agent client", func() {
@@ -77,6 +78,7 @@ var _ = Describe("AppMetrics", func() {
 			Expect(err).To(BeNil())
 			Expect(a).NotTo(BeNil())
 			a.Stop()
+			Eventually(a.Done()).Should(BeClosed())
 		})
 	})
 
