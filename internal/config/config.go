@@ -145,9 +145,9 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_WHITELIST", &config.MetadataKeysWhitelistPatterns)
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_BLACKLIST", &config.MetadataKeysBlacklistPatterns)
 
-	overrideWithEnvBool("NOZZLE_DCAENABLED", &config.DCAEnabled)
-	overrideWithEnvVar("NOZZLE_DCAURL", &config.DCAUrl)
-	overrideWithEnvVar("NOZZLE_DCATOKEN", &config.DCAToken)
+	overrideWithEnvBool("NOZZLE_DCA_ENABLED", &config.DCAEnabled)
+	overrideWithEnvVar("NOZZLE_DCA_URL", &config.DCAUrl)
+	overrideWithEnvVar("NOZZLE_DCA_TOKEN", &config.DCAToken)
 
 	for _, pattern := range config.MetadataKeysWhitelistPatterns {
 		re, err := regexp.Compile(pattern)
