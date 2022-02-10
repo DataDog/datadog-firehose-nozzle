@@ -4,6 +4,8 @@ import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"strconv"
+	"strings"
 
 	"github.com/cloudfoundry/gosteno"
 
@@ -18,6 +20,7 @@ var _ = Describe("OrgCollector", func() {
 		ccAPIURL               string
 		fakeClusterAgentAPI    *FakeClusterAgentAPI
 		dcaAPIURL              string
+		dcaAPIPort             int
 		fakeOrgCollector       *OrgCollector
 		pm                     chan []metric.MetricPackage
 		customTags             []string
@@ -92,10 +95,14 @@ var _ = Describe("OrgCollector", func() {
 			fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
 			fakeClusterAgentAPI.Start()
 
-			dcaAPIURL = fakeClusterAgentAPI.URL()
+			fullURL := fakeClusterAgentAPI.URL()
+			sep := strings.LastIndex(fullURL, ":")
+			dcaAPIURL = fullURL[:sep]
+			dcaAPIPort, _ = strconv.Atoi(fullURL[sep+1:])
 
 			cfg := config.Config{
 				DCAUrl:     dcaAPIURL,
+				DCAPort:    dcaAPIPort,
 				DCAToken:   "123456789",
 				DCAEnabled: true,
 			}

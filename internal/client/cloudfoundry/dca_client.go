@@ -35,16 +35,22 @@ type DCAClient struct {
 func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, error) {
 	var err error
 
-	dcaClient := DCAClient{}
-	dcaClient.logger = logger
-	dcaClient.clusterAgentAPIEndpoint = config.DCAUrl
-	authToken := config.DCAToken
-	if authToken == "" {
-		return nil, fmt.Errorf("missing authentication token for the Cluster Agent Client")
+	dcaClient := DCAClient{
+		logger: logger,
 	}
 
+	if config.DCAToken == "" {
+		return nil, fmt.Errorf("missing authentication token for the cluster agent client")
+	}
+	if config.DCAPort == 0 {
+		return nil, fmt.Errorf("missing port number for the cluster agent client")
+	}
+
+	dcaClient.clusterAgentAPIEndpoint = fmt.Sprintf("%s:%d", config.DCAUrl, config.DCAPort)
+
 	dcaClient.clusterAgentAPIRequestHeaders = http.Header{}
-	dcaClient.clusterAgentAPIRequestHeaders.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	dcaClient.clusterAgentAPIRequestHeaders.Set("Authorization", fmt.Sprintf("Bearer %s", config.DCAToken))
+
 	dcaClient.clusterAgentAPIClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{

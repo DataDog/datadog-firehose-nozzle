@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		fakeDatadogAPI *helper.FakeDatadogAPI
 		fakeCCAPI      *helper.FakeCloudControllerAPI
 		fakeDCAAPI     *helper.FakeClusterAgentAPI
+		dcaAPIURL      string
+		dcaAPIPort     int
 		configuration  *config.Config
 		nozzle         *Nozzle
 		log            *gosteno.Logger
@@ -488,6 +491,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 
+			fullURL := fakeDCAAPI.URL()
+			sep := strings.LastIndex(fullURL, ":")
+			dcaAPIURL = fullURL[:sep]
+			dcaAPIPort, _ = strconv.Atoi(fullURL[sep+1:])
+
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
 				FlushDurationSeconds:      2,
@@ -507,7 +515,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				NumWorkers:                1,
 				OrgDataCollectionInterval: 5,
 				DCAEnabled:                true,
-				DCAUrl:                    fakeDCAAPI.URL(),
+				DCAUrl:                    dcaAPIURL,
+				DCAPort:                   dcaAPIPort,
 				DCAToken:                  "123456789",
 			}
 
