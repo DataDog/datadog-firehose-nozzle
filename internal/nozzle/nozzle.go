@@ -82,6 +82,7 @@ func (n *Nozzle) Start() error {
 	}
 
 	if n.config.DCAEnabled {
+		// Initialize Datadog Cluster Agent client instance
 		n.dcaClient, err = cloudfoundry.NewDCAClient(n.config, n.log)
 		if err != nil {
 			n.log.Warnf("Failed to initialize Datadog Cluster Agent client: %s", err.Error())
