@@ -5,8 +5,6 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strconv"
-	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/cloudfoundry/gosteno"
@@ -70,7 +68,6 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		log                 *gosteno.Logger
 		fakeClusterAgentAPI *FakeClusterAgentAPI
 		dcaAPIURL           string
-		dcaAPIPort          int
 		fakeDCAClient       *DCAClient
 	)
 
@@ -79,14 +76,9 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
 		fakeClusterAgentAPI.Start()
 
-		fullURL := fakeClusterAgentAPI.URL()
-		sep := strings.LastIndex(fullURL, ":")
-		dcaAPIURL = fullURL[:sep]
-		dcaAPIPort, _ = strconv.Atoi(fullURL[sep+1:])
-
+		dcaAPIURL = fakeClusterAgentAPI.URL()
 		cfg := config.Config{
 			DCAUrl:     dcaAPIURL,
-			DCAPort:    dcaAPIPort,
 			DCAToken:   "123456789",
 			DCAEnabled: true,
 		}

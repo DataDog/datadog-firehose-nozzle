@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -29,7 +27,6 @@ var _ = Describe("AppMetrics", func() {
 		fakeCfClient           *cloudfoundry.CFClient
 		fakeClusterAgentAPI    *FakeClusterAgentAPI
 		dcaAPIURL              string
-		dcaAPIPort             int
 		fakeDCAClient          *cloudfoundry.DCAClient
 	)
 
@@ -42,10 +39,7 @@ var _ = Describe("AppMetrics", func() {
 
 		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
 		fakeClusterAgentAPI.Start()
-		fullURL := fakeClusterAgentAPI.URL()
-		sep := strings.LastIndex(fullURL, ":")
-		dcaAPIURL = fullURL[:sep]
-		dcaAPIPort, _ = strconv.Atoi(fullURL[sep+1:])
+		dcaAPIURL = fakeClusterAgentAPI.URL()
 
 		config.NozzleConfig = config.Config{}
 		cfg := config.Config{
@@ -55,7 +49,6 @@ var _ = Describe("AppMetrics", func() {
 			InsecureSSLSkipVerify:   true,
 			NumWorkers:              5,
 			DCAUrl:                  dcaAPIURL,
-			DCAPort:                 dcaAPIPort,
 			DCAToken:                "123456789",
 			DCAEnabled:              true,
 		}

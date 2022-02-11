@@ -62,7 +62,7 @@ type Config struct {
 	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
 	DCAEnabled                    bool
 	DCAUrl                        string
-	DCAPort                       int
+	DCAPort						  int
 	DCAToken                      string
 }
 
