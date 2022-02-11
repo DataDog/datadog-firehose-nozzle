@@ -59,13 +59,13 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 	ticker := time.NewTicker(5 * time.Second)
 	nbrAttempts := 10
 
-	RetryLoop:
+RetryLoop:
 	for {
 		select {
 		case <-ticker.C:
 			dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
 			if err == nil {
-				break
+				break RetryLoop
 			} else {
 				logger.Warnf("Unsuccessful attempt to connect to the Datadog Cluster Agent: %s", err)
 				nbrAttempts -= 1

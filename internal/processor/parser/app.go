@@ -97,7 +97,7 @@ func NewAppParser(
 ) (*AppParser, error) {
 
 	if cfClient == nil && dcaClient == nil {
-		return nil, fmt.Errorf("At least one CF Client or DCA Client needs to be properly set up to use appmetrics")
+		return nil, fmt.Errorf("At least one Cloud Foundry client or Cluster Agent client must be set up to use appmetrics")
 	}
 
 	if environment != "" {
@@ -164,7 +164,7 @@ func (am *AppParser) warmupCache() {
 			return
 		}
 	} else {
-		am.log.Errorf("error warming up cache, both CFClient and DCA Client are not initialized")
+		am.log.Errorf("error warming up cache, both CF Client and DCA Client are not initialized")
 	}
 
 	for _, cfapp := range cfapps {
@@ -198,7 +198,7 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		am.log.Infof("Using cloud foundry client to get missing AppData")
 		cfapp, err = am.cfClient.GetApplication(guid)
 	} else {
-		am.log.Errorf("error warming up cache, both CFClient and DCA Client are not initialized")
+		am.log.Errorf("error warming up cache, both CF Client and DCA Client are not initialized")
 	}
 
 	if err != nil {
