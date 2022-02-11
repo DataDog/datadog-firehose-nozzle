@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"time"
 
@@ -55,9 +56,25 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 	dcaClient.clusterAgentAPIClient.Timeout = 2 * time.Second
 
 	// Validate the cluster agent client by checking the version
-	dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
-	if err != nil {
-		return nil, err
+	ticker := time.NewTicker(5 * time.Second)
+	nbrAttempts := 10
+
+	RetryLoop:
+	for {
+		select {
+		case <-ticker.C:
+			dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
+			if err == nil {
+				break
+			} else {
+				logger.Warnf("Unsuccessful attempt to connect to the Datadog Cluster Agent: %s", err)
+				nbrAttempts -= 1
+				if nbrAttempts == 0 {
+					logger.Errorf("Could not to connect to the Datadog Cluster Agent: %s", err)
+					os.Exit(1)
+				}
+			}
+		}
 	}
 
 	logger.Infof("Successfully connected to the Datadog Cluster Agent %s", dcaClient.ClusterAgentVersion.String())
