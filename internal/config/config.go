@@ -62,7 +62,6 @@ type Config struct {
 	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
 	DCAEnabled                    bool
 	DCAUrl                        string
-	DCAPort						  int
 	DCAToken                      string
 }
 
@@ -148,7 +147,6 @@ func Parse(configPath string) (Config, error) {
 
 	overrideWithEnvBool("NOZZLE_DCA_ENABLED", &config.DCAEnabled)
 	overrideWithEnvVar("NOZZLE_DCA_URL", &config.DCAUrl)
-	overrideWithEnvInt("NOZZLE_DCA_PORT", &config.DCAPort)
 	overrideWithEnvVar("NOZZLE_DCA_TOKEN", &config.DCAToken)
 
 	for _, pattern := range config.MetadataKeysWhitelistPatterns {

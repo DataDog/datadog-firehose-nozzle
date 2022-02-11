@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
