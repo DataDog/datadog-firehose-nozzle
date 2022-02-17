@@ -75,17 +75,20 @@ func (c *appCache) SetWarmedUp() {
 // AppParser is used to parse app metrics
 type AppParser struct {
 	cfClient     *cloudfoundry.CFClient
+	dcaClient    *cloudfoundry.DCAClient
 	log          *gosteno.Logger
 	AppCache     appCache
 	cacheWorkers int
 	grabInterval int
 	customTags   []string
 	stopper      chan bool
+	done         chan bool
 }
 
 // NewAppParser create a new AppParser
 func NewAppParser(
 	cfClient *cloudfoundry.CFClient,
+	dcaClient *cloudfoundry.DCAClient,
 	cacheWorkers int,
 	grabInterval int,
 	log *gosteno.Logger,
@@ -93,20 +96,23 @@ func NewAppParser(
 	environment string,
 ) (*AppParser, error) {
 
-	if cfClient == nil {
-		return nil, fmt.Errorf("the CF Client needs to be properly set up to use appmetrics")
+	if cfClient == nil && dcaClient == nil {
+		return nil, fmt.Errorf("At least one Cloud Foundry client or Cluster Agent client must be set up to use appmetrics")
 	}
+
 	if environment != "" {
 		customTags = append(customTags, fmt.Sprintf("%s:%s", "env", environment))
 	}
 	appMetrics := &AppParser{
 		cfClient:     cfClient,
+		dcaClient:    dcaClient,
 		log:          log,
 		AppCache:     newAppCache(),
 		cacheWorkers: cacheWorkers,
 		grabInterval: grabInterval,
 		customTags:   customTags,
 		stopper:      make(chan bool, 1),
+		done:         make(chan bool),
 	}
 
 	// start the background loop to keep the cache up to date
@@ -131,6 +137,7 @@ func (am *AppParser) updateCacheLoop() {
 			jitterWait()
 			am.warmupCache()
 		case <-am.stopper:
+			close(am.done)
 			return
 		}
 	}
@@ -139,11 +146,27 @@ func (am *AppParser) updateCacheLoop() {
 func (am *AppParser) warmupCache() {
 	am.log.Infof("Warming up cache...")
 
-	cfapps, err := am.cfClient.GetApplications()
-	if err != nil {
-		am.log.Errorf("error warming up cache, couldn't get list of apps: %v", err)
-		return
+	var cfapps []cloudfoundry.CFApplication
+	var err error
+
+	if am.dcaClient != nil {
+		am.log.Infof("Using cluster agent client to warm up cache")
+		cfapps, err = am.dcaClient.GetApplications()
+		if err != nil {
+			am.log.Errorf("error warming up cache using DCA client, couldn't get list of apps: %v", err)
+			return
+		}
+	} else if am.cfClient != nil {
+		am.log.Infof("Using cloud foundry client to warm up cache")
+		cfapps, err = am.cfClient.GetApplications()
+		if err != nil {
+			am.log.Errorf("error warming up cache using CF client, couldn't get list of apps: %v", err)
+			return
+		}
+	} else {
+		am.log.Errorf("error warming up cache, both CF Client and DCA Client are not initialized")
 	}
+
 	for _, cfapp := range cfapps {
 		_, err := am.AppCache.Add(cfapp)
 		if err != nil {
@@ -163,8 +186,21 @@ func (am *AppParser) getAppData(guid string) (*App, error) {
 		// If it exists in the cache, use the cache
 		return app, nil
 	}
+
 	// Otherwise it's a new app so fetch it via the API
-	cfapp, err := am.cfClient.GetApplication(guid)
+	var cfapp *cloudfoundry.CFApplication
+	var err error
+
+	if am.dcaClient != nil {
+		am.log.Infof("Using cluster agent client to get missing AppData")
+		cfapp, err = am.dcaClient.GetApplication(guid)
+	} else if am.cfClient != nil {
+		am.log.Infof("Using cloud foundry client to get missing AppData")
+		cfapp, err = am.cfClient.GetApplication(guid)
+	} else {
+		am.log.Errorf("error warming up cache, both CF Client and DCA Client are not initialized")
+	}
+
 	if err != nil {
 		am.log.Warnf("error grabbing instance data for app %s (is this a short-lived app?): %v", guid, err)
 		return nil, err
@@ -221,6 +257,10 @@ func (am *AppParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPa
 // Stop sends a message on the stopper channel to quit the goroutine refreshing the cache
 func (am *AppParser) Stop() {
 	am.stopper <- true
+}
+
+func (am *AppParser) Done() chan bool {
+	return am.done
 }
 
 // App holds all the needed attribute from an app

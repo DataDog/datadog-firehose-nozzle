@@ -60,6 +60,9 @@ type Config struct {
 	MetadataKeysBlacklistPatterns []string
 	MetadataKeysWhitelist         []*regexp.Regexp `json:"-"`
 	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
+	DCAEnabled                    bool
+	DCAUrl                        string
+	DCAToken                      string
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
@@ -141,6 +144,11 @@ func Parse(configPath string) (Config, error) {
 
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_WHITELIST", &config.MetadataKeysWhitelistPatterns)
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_BLACKLIST", &config.MetadataKeysBlacklistPatterns)
+
+	overrideWithEnvBool("NOZZLE_DCA_ENABLED", &config.DCAEnabled)
+	overrideWithEnvVar("NOZZLE_DCA_URL", &config.DCAUrl)
+	overrideWithEnvVar("NOZZLE_DCA_TOKEN", &config.DCAToken)
+
 	for _, pattern := range config.MetadataKeysWhitelistPatterns {
 		re, err := regexp.Compile(pattern)
 		if err != nil {

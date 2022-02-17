@@ -50,6 +50,9 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
 		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEquivalentTo([]string{"whitelisted1", "whitelisted2"}))
+		Expect(conf.DCAEnabled).To(Equal(true))
+		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
+		Expect(conf.DCAToken).To(Equal("123456789"))
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -68,6 +71,9 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.MetadataKeysWhitelist).To(BeEmpty())
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEmpty())
 		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEmpty())
+		Expect(conf.DCAEnabled).To(BeFalse())
+		Expect(conf.DCAUrl).To(BeEmpty())
+		Expect(conf.DCAToken).To(BeEmpty())
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -99,6 +105,9 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_METADATA_KEYS_WHITELIST", "whitelisted1,whitelisted2")
 		os.Setenv("NOZZLE_METADATA_KEYS_BLACKLIST", "blacklisted1,blacklisted2")
 		os.Setenv("NOZZLE_ENABLE_METADATA_COLLECTION", "true")
+		os.Setenv("NOZZLE_DCA_ENABLED", "true")
+		os.Setenv("NOZZLE_DCA_URL", "datadog-cluster-agent.bosh-deployment-name:5005")
+		os.Setenv("NOZZLE_DCA_TOKEN", "123456789")
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
@@ -129,13 +138,16 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.MetadataKeysBlacklist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("blacklisted1"), regexp.MustCompile("blacklisted2")}))
 		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
-		Expect(conf.MetadataKeysWhitelistPatterns).To(BeEquivalentTo([]string{"whitelisted1", "whitelisted2"}))
+		Expect(conf.DCAEnabled).To(BeEquivalentTo(true))
+		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
+		Expect(conf.DCAToken).To(Equal("123456789"))
 	})
 
 	It("correctly serializes to log string", func() {
 		// For logs, we want this to be serialized as one long line without newlines
 		expected := `{"AppMetrics":true,"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
 		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
+		expected += `"DCAEnabled":true,"DCAToken":"123456789","DCAUrl":"datadog-cluster-agent.bosh-deployment-name:5005",`
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`

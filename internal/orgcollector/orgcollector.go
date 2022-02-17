@@ -18,6 +18,7 @@ import (
 
 type OrgCollector struct {
 	cfClient         *cloudfoundry.CFClient
+	dcaClient        *cloudfoundry.DCAClient
 	log              *gosteno.Logger
 	processedMetrics chan<- []metric.MetricPackage
 	customTags       []string
@@ -30,12 +31,23 @@ func NewOrgCollector(
 	processedMetrics chan<- []metric.MetricPackage,
 	log *gosteno.Logger,
 	customTags []string) (*OrgCollector, error) {
-	cfClient, err := cloudfoundry.NewClient(config, log)
+	var cfClient *cloudfoundry.CFClient
+	var dcaClient *cloudfoundry.DCAClient
+	var err error
+
+	if config.DCAEnabled {
+		dcaClient, err = cloudfoundry.NewDCAClient(config, log)
+	} else {
+		cfClient, err = cloudfoundry.NewClient(config, log)
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &OrgCollector{
 		cfClient:         cfClient,
+		dcaClient:        dcaClient,
 		log:              log,
 		processedMetrics: processedMetrics,
 		customTags:       customTags,
@@ -80,7 +92,12 @@ func (o *OrgCollector) pushMetrics() {
 	go func() {
 		defer wg.Done()
 		var err error
-		allOrgs, err = o.cfClient.GetV2Orgs()
+		if o.dcaClient != nil {
+			allOrgs, err = o.dcaClient.V2OrgsFromV3Orgs()
+		} else {
+			allOrgs, err = o.cfClient.GetV2Orgs()
+		}
+
 		if err != nil {
 			errors <- err
 		}
@@ -88,11 +105,15 @@ func (o *OrgCollector) pushMetrics() {
 
 	// Fetch quotas
 	wg.Add(1)
-	var allQuotas []cfclient.OrgQuota
+	var allQuotas []cloudfoundry.CFOrgQuota
 	go func() {
 		defer wg.Done()
 		var err error
-		allQuotas, err = o.cfClient.GetV2OrgQuotas()
+		if o.dcaClient != nil {
+			allQuotas, err = o.dcaClient.GetV2OrgQuotas()
+		} else {
+			allQuotas, err = o.cfClient.GetV2OrgQuotas()
+		}
 		if err != nil {
 			errors <- err
 		}
@@ -107,9 +128,9 @@ func (o *OrgCollector) pushMetrics() {
 	}
 
 	// Create a map of {OrgQuota.Guid: OrgQuota} to make access fast
-	quotaGuidsToObjects := map[string]cfclient.OrgQuota{}
+	quotaGuidsToObjects := map[string]cloudfoundry.CFOrgQuota{}
 	for _, q := range allQuotas {
-		quotaGuidsToObjects[q.Guid] = q
+		quotaGuidsToObjects[q.GUID] = q
 	}
 
 	metricsPackages := []metric.MetricPackage{}
