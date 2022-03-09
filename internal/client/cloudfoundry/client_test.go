@@ -66,6 +66,24 @@ func checkOrgAttributes(org *v3OrgResource) {
 	Expect(org.Name).To(Equal("system"))
 }
 
+func checkV3OrgAttributes2(org *cfclient.V3Organization) {
+	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
+	Expect(org.Name).To(Equal("system"))
+	Expect(org.Metadata.Annotations).To(Equal(map[string]string{
+		"org-annotation":           "org-annotation-value",
+		"app-org-annotation":       "app-org-annotation-org-value",
+		"space-org-annotation":     "space-org-annotation-org-value",
+		"app-space-org-annotation": "app-space-org-annotation-org-value",
+	}))
+	Expect(org.Metadata.Labels).To(Equal(map[string]string{
+		"org-label":           "org-label-value",
+		"app-org-label":       "app-org-label-org-value",
+		"space-org-label":     "space-org-label-org-value",
+		"app-space-org-label": "app-space-org-label-org-value",
+	}))
+	Expect(org.Relationships["quota"]).To(Equal("XXX"))
+}
+
 var _ = Describe("CloudFoundryClient", func() {
 	var (
 		log                    *gosteno.Logger
@@ -253,6 +271,15 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			checkAppAttributes(res, 2)
+		})
+	})
+
+	Context("GetV3Orgs  method", func() {
+		It("retrieves v3 orgs correctly", func() {
+			res, err := fakeCfClient.GetV3Orgs()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			checkV3OrgAttributes2(&res[0])
 		})
 	})
 })
