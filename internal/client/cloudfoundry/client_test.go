@@ -81,7 +81,7 @@ func checkV3OrgAttributes2(org *cfclient.V3Organization) {
 		"space-org-label":     "space-org-label-org-value",
 		"app-space-org-label": "app-space-org-label-org-value",
 	}))
-	Expect(org.Relationships["quota"]).To(Equal("XXX"))
+	Expect(org.Relationships["quota"].Data.GUID).To(Equal("1cf98856-aba8-49a8-8b21-d82a25898c4e"))
 }
 
 var _ = Describe("CloudFoundryClient", func() {
