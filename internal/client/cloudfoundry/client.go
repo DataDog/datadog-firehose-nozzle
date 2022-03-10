@@ -552,7 +552,7 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 
 func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 	query := url.Values{}
-	query.Set("results-per-page", "100")
+	query.Set("per_page", "100")
 
 	allOrgs, err := cfc.client.ListV3OrganizationsByQuery(query)
 	if err != nil {
