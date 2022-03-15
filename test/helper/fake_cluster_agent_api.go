@@ -570,7 +570,20 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/24d7098c-832b-4dfa-a4f1-950780ae92e9"
 				}
 			},
-			"metadata": {}
+			"metadata": {
+				"annotations": {
+					"org-annotation": "org-annotation-value",
+					"app-org-annotation": "app-org-annotation-org-value",
+					"space-org-annotation": "space-org-annotation-org-value",
+					"app-space-org-annotation": "app-space-org-annotation-org-value"
+				},
+				"labels": {
+					"org-label": "org-label-value",
+					"app-org-label": "app-org-label-org-value",
+					"space-org-label": "space-org-label-org-value",
+					"app-space-org-label": "app-space-org-label-org-value"
+				}
+			}
 		}, {
 			"name": "datadog-application-monitoring-org",
 			"guid": "955856da-6c1e-4a1a-9933-359bc0685855",
@@ -598,7 +611,20 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 					"href": "https://api.sys.integrations-lab.devenv.dog/v3/organizations/955856da-6c1e-4a1a-9933-359bc0685855"
 				}
 			},
-			"metadata": {}
+			"metadata": {
+				"annotations": {
+					"org-annotation": "org-annotation-value",
+					"app-org-annotation": "app-org-annotation-org-value",
+					"space-org-annotation": "space-org-annotation-org-value",
+					"app-space-org-annotation": "app-space-org-annotation-org-value"
+				},
+				"labels": {
+					"org-label": "org-label-value",
+					"app-org-label": "app-org-label-org-value",
+					"space-org-label": "space-org-label-org-value",
+					"app-space-org-label": "app-space-org-label-org-value"
+				}
+			}
 		}]
 		`))
 	}
