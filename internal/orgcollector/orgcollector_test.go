@@ -88,11 +88,11 @@ var _ = Describe("OrgCollector", func() {
 				"foo:bar",
 				"guid:8c19a50e-7974-4c67-adea-9640fae21526",
 				"org-annotation:org-annotation-value",
-         		"org-label:org-label-value",
+				"org-label:org-label-value",
 				"org_id:8c19a50e-7974-4c67-adea-9640fae21526",
 				"org_name:datadog-application-monitoring-org",
 				"space-org-annotation:space-org-annotation-org-value",
-            	"space-org-label:space-org-label-org-value",
+				"space-org-label:space-org-label-org-value",
 				"status:active",
 			}))
 			Expect(v2.Points).To(HaveLen(1))
