@@ -43,5 +43,6 @@
   "MetadataKeysBlacklistPatterns": ["blacklisted1", "blacklisted2"],
   "DCAUrl": "datadog-cluster-agent.bosh-deployment-name:5005",
   "DCAToken": "123456789",
-  "DCAEnabled": true
+  "DCAEnabled": true,
+  "DCAAdvancedTagging": true
 }

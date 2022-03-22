@@ -63,6 +63,7 @@ type Config struct {
 	DCAEnabled                    bool
 	DCAUrl                        string
 	DCAToken                      string
+	DCAAdvancedTagging            bool
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
@@ -148,6 +149,7 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvBool("NOZZLE_DCA_ENABLED", &config.DCAEnabled)
 	overrideWithEnvVar("NOZZLE_DCA_URL", &config.DCAUrl)
 	overrideWithEnvVar("NOZZLE_DCA_TOKEN", &config.DCAToken)
+	overrideWithEnvBool("NOZZLE_DCA_ADVANCED_TAGGING", &config.DCAAdvancedTagging)
 
 	for _, pattern := range config.MetadataKeysWhitelistPatterns {
 		re, err := regexp.Compile(pattern)
