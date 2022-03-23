@@ -41,6 +41,9 @@ func checkDCAAppAttributes(app *CFApplication) {
 		"space-label":         "space-label-value",
 		"org-label":           "org-label-value",
 	}))
+	Expect(len(app.Sidecars)).To(Equal(1))
+	Expect(app.Sidecars[0].Name).To(Equal("sidecar-name-1"))
+	Expect(app.Sidecars[0].GUID).To(Equal("sidecar-guid-1"))
 }
 
 func checkVersionAttributes(version *Version) {

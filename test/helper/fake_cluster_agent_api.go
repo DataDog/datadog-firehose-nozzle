@@ -142,7 +142,13 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"space-org-annotation": "space-org-annotation-space-value",
 				"space-annotation": "space-annotation-value",
 				"org-annotation": "org-annotation-value"
-			}
+			},
+			"Sidecars": [
+				{
+					"Name": "sidecar-name-1",
+					"GUID": "sidecar-guid-1"
+				}
+			]
 		}, {
 			"GUID": "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a",
 			"Name": "hello-datadog-cf-ruby-dev",
@@ -171,7 +177,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"app-space-org-annotation": "app-space-org-annotation-app-value",
 				"blacklisted_key": "bar",
 				"tags.datadoghq.com/auto-annotation-tag": "auto-annotation-tag-value"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "9d519c2b-261e-4553-9db3-c79c8a9857f5",
 			"Name": "test_log_redirect",
@@ -186,7 +193,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "8987b9cc-3572-4afd-b17f-216be05a428a",
 			"Name": "spring-sample",
@@ -201,7 +209,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "5957b5b7-4a29-4bd6-b1b2-5215b7c572f4",
 			"Name": "test-rc3",
@@ -221,7 +230,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "3.0.0-rc.3"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "9f43dcdd-9322-4555-ba67-02a9439fd925",
 			"Name": "hello-datadog-cf-ruby-blue",
@@ -236,7 +246,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "0836312f-3063-46a8-a5bb-c50388b27ac9",
 			"Name": "hello-datadog-cf-ruby-pcf-test",
@@ -251,7 +262,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "4bdf4890-1237-4f3f-a564-5bdda65e80c9",
 			"Name": "test-apm-service-3",
@@ -271,7 +283,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "2.0.0"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "06ed9382-26b8-42f3-9790-b0bf9f7c7fd9",
 			"Name": "test-apm-service-4",
@@ -291,7 +304,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "2.0.0"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "41256269-671b-4d79-91d5-3bf848376425",
 			"Name": "test-space-org-cc",
@@ -306,7 +320,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "ead4c7fd-f21c-48b8-9f23-421f15a57cfc",
 			"Name": "hello-datadog-cf-ruby-yellow",
@@ -323,7 +338,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Labels": {
 				"customTags": "noueman"
 			},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "c7186718-9fb1-4a0a-9818-e2b29781ed60",
 			"Name": "test-stdout",
@@ -338,7 +354,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "8035850f-ee2b-4f22-b725-69bbeb7d40f1",
 			"Name": "hello-cf-datadog-scala",
@@ -353,7 +370,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "e6186b8d-1fa5-4907-89e3-bb035298cdc9",
 			"Name": "hello-datadog-cf-ruby-pink",
@@ -368,7 +386,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "1f283863-86b2-47ba-8700-c4d71c6edea9",
 			"Name": "test-apm-service-5",
@@ -388,7 +407,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "2.0.0"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "dc22d0b9-d6a2-4389-84a6-76029121ebe4",
 			"Name": "autodiscovery-http",
@@ -408,7 +428,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "1.0.0"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "df33eca4-deb9-4cc0-b07e-4db8af3c7223",
 			"Name": "hello-datadog-cf-ruby-pcf",
@@ -423,7 +444,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "14aa46da-2357-40d9-988d-2c6f3660680d",
 			"Name": "hello-datadog-cf-ruby-test",
@@ -438,7 +460,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "47465e0b-afe6-4ab4-8262-a56ad88bf6dc",
 			"Name": "hello-datadog-cf-scala",
@@ -453,7 +476,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			"Memory": 256,
 			"TotalMemory": 512,
 			"Labels": {},
-			"Annotations": {}
+			"Annotations": {},
+			"Sidecars": null
 		}, {
 			"GUID": "8957b9a0-4132-4754-acc5-e3b959b5c77a",
 			"Name": "test-apm-service",
@@ -473,7 +497,8 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 			},
 			"Annotations": {
 				"tags.datadoghq.com/version": "2.0.0"
-			}
+			},
+			"Sidecars": null
 		}, {
 			"GUID": "0ba38e35-614c-4576-862a-92a1b60c53db",
 			"Name": "test-apm-service-2",
@@ -528,7 +553,13 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"space-org-annotation": "space-org-annotation-space-value",
 				"space-annotation": "space-annotation-value",
 				"org-annotation": "org-annotation-value"
-			}
+			},
+			"Sidecars": [
+				{
+					"Name": "sidecar-name-1",
+					"GUID": "sidecar-guid-1"
+				}
+			]
 		}
 		`))
 	case "/api/v1/cf/org_quotas":
