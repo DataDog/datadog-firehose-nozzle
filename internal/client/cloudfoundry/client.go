@@ -179,7 +179,7 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 		client:          cfClient,
 		logger:          logger,
 		apiBatchSize:    fmt.Sprint(config.CloudControllerAPIBatchSize),
-		advancedTagging: config.DCAAdvancedTagging,
+		advancedTagging: config.EnableAdvancedTagging,
 	}
 	return &cfc, nil
 }

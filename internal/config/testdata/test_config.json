@@ -39,10 +39,10 @@
   "GrabInterval": 50,
   "OrgDataCollectionInterval": 100,
   "EnableMetadataCollection": true,
+  "EnableAdvancedTagging": true,
   "MetadataKeysWhitelistPatterns": ["whitelisted1", "whitelisted2"],
   "MetadataKeysBlacklistPatterns": ["blacklisted1", "blacklisted2"],
   "DCAUrl": "datadog-cluster-agent.bosh-deployment-name:5005",
   "DCAToken": "123456789",
-  "DCAEnabled": true,
-  "DCAAdvancedTagging": true
+  "DCAEnabled": true
 }
