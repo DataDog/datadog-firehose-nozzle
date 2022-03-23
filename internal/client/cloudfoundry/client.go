@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -17,11 +18,12 @@ import (
 )
 
 type CFClient struct {
-	ApiVersion   int
-	NumWorkers   int
-	client       *cfclient.Client
-	logger       *gosteno.Logger
-	apiBatchSize string
+	ApiVersion      int
+	NumWorkers      int
+	client          *cfclient.Client
+	logger          *gosteno.Logger
+	apiBatchSize    string
+	advancedTagging bool
 }
 
 // CFApplication represents a Cloud Controller Application.
@@ -40,8 +42,18 @@ type CFApplication struct {
 	TotalMemory    int
 	Labels         map[string]string
 	Annotations    map[string]string
+	Sidecars       []CFSidecar
 }
 
+type CFSidecar struct {
+	Name string
+	GUID string
+}
+
+type listSidecarsResponse struct {
+	Pagination cfclient.Pagination `json:"pagination"`
+	Resources  []CFSidecar         `json:"resources"`
+}
 type CFOrgQuota struct {
 	GUID        string
 	MemoryLimit int
@@ -162,11 +174,12 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	}
 
 	cfc := CFClient{
-		ApiVersion:   0,
-		NumWorkers:   config.NumWorkers,
-		client:       cfClient,
-		logger:       logger,
-		apiBatchSize: fmt.Sprint(config.CloudControllerAPIBatchSize),
+		ApiVersion:      0,
+		NumWorkers:      config.NumWorkers,
+		client:          cfClient,
+		logger:          logger,
+		apiBatchSize:    fmt.Sprint(config.CloudControllerAPIBatchSize),
+		advancedTagging: config.DCAAdvancedTagging,
 	}
 	return &cfc, nil
 }
@@ -360,7 +373,15 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 			cfapp := CFApplication{}
 			cfapp.setV3AppData(app)
 			cfapps = append(cfapps, cfapp)
+			if cfc.advancedTagging {
+				sidecars, err := cfc.getCFSidecars(cfapp.GUID)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Error reading sidecars response for app %s: %s", cfapp.GUID, err)
+				}
+				cfapp.Sidecars = sidecars
+			}
 		}
+
 		if appResp.Pagination.TotalPages <= page {
 			break
 		}
@@ -581,6 +602,45 @@ func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	}
 
 	return allQuotas, nil
+}
+
+func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
+	query := url.Values{}
+	query.Set("results-per-page", "100")
+
+	var sidecars []CFSidecar
+
+	for page := 1; ; page++ {
+		query.Set("page", strconv.Itoa(page))
+		r := cfc.client.NewRequest("GET", "/v3/apps/"+appGUID+"/sidecars"+"?"+query.Encode())
+		resp, err := cfc.client.DoRequest(r)
+		if err != nil {
+			return nil, fmt.Errorf("Error requesting sidecars for app: %s", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("Error listing sidecars, response code: %d", resp.StatusCode)
+		}
+
+		defer resp.Body.Close()
+		resBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading sidecars response for app %s for page %d: %s", appGUID, page, err)
+		}
+
+		var data listSidecarsResponse
+		err = json.Unmarshal(resBody, &data)
+		if err != nil {
+			return nil, fmt.Errorf("Error unmarshalling sidecars response for app %s for page %d: %s", appGUID, page, err)
+		}
+
+		sidecars = append(sidecars, data.Resources...)
+
+		if data.Pagination.TotalPages <= page {
+			break
+		}
+	}
+	return sidecars, nil
 }
 
 func (a *CFApplication) setV2AppData(data cfclient.App) {
