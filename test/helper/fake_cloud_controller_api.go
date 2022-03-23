@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"time"
 )
@@ -3105,5 +3106,65 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 		`, f.tokenType, f.accessToken)))
 	case "/v2/read":
 		http.Redirect(rw, r, "http://asdasdasd.com", http.StatusPermanentRedirect)
+	default:
+		if strings.Contains(r.URL.Path, "/sidecars") {
+			if strings.Contains(r.URL.Path, "6d254438-cc3b-44a6-b2e6-343ca92deb5f") {
+				rw.Write([]byte(`
+			{
+				"pagination": {
+				   "total_results": 1,
+				   "total_pages": 1,
+				   "first": {
+					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4/sidecars?page=1&per_page=50"
+				   },
+				   "last": {
+					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4/sidecars?page=1&per_page=50"
+				   },
+				   "next": null,
+				   "previous": null
+				},
+				"resources": [
+				   {
+					  "guid": "68a03f42-5392-47ed-9979-477d48a61927",
+					  "name": "config-server",
+					  "command": "./config-server",
+					  "process_types": [
+						 "web"
+					  ],
+					  "memory_in_mb": null,
+					  "origin": "user",
+					  "relationships": {
+						 "app": {
+							"data": {
+							   "guid": "a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4"
+							}
+						 }
+					  },
+					  "created_at": "2022-03-17T09:57:48Z",
+					  "updated_at": "2022-03-17T09:57:48Z"
+				   }
+				]
+			 }
+			`))
+			} else {
+				rw.Write([]byte(`
+				{
+					"pagination": {
+					   "total_results": 0,
+					   "total_pages": 1,
+					   "first": {
+						  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/ead4c7fd-f21c-48b8-9f23-421f15a57cfc/sidecars?page=1&per_page=50"
+					   },
+					   "last": {
+						  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/ead4c7fd-f21c-48b8-9f23-421f15a57cfc/sidecars?page=1&per_page=50"
+					   },
+					   "next": null,
+					   "previous": null
+					},
+					"resources": []
+				 }
+				`))
+			}
+		}
 	}
 }
