@@ -42,6 +42,10 @@ func checkAppAttributes(app *CFApplication, apiVersion int) {
 			"space-label":         "space-label-value",
 			"org-label":           "org-label-value",
 		}))
+		Expect(app.Sidecars).NotTo(BeNil())
+		Expect(len(app.Sidecars)).To(Equal(1))
+		Expect(app.Sidecars[0].GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
+		Expect(app.Sidecars[0].Name).To(Equal("config-server"))
 	} else {
 		Expect(app.Annotations).To(BeNil())
 		Expect(app.Labels).To(BeNil())
@@ -64,11 +68,6 @@ func checkSpaceAttributes(space *v3SpaceResource) {
 func checkOrgAttributes(org *v3OrgResource) {
 	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 	Expect(org.Name).To(Equal("system"))
-}
-
-func checkSidecarAttributes(sidecar *CFSidecar) {
-	Expect(sidecar.GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
-	Expect(sidecar.Name).To(Equal("config-server"))
 }
 
 var _ = Describe("CloudFoundryClient", func() {
@@ -189,8 +188,6 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(14))
 			checkAppAttributes(&res[0], 3)
-			Expect(res[0].Sidecars).NotTo(BeNil())
-			checkSidecarAttributes(&res[0].Sidecars[0])
 		})
 	})
 
