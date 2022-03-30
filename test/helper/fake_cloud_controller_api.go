@@ -3136,7 +3136,7 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 					  "relationships": {
 						 "app": {
 							"data": {
-							   "guid": "a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4"
+							   "guid": "6d254438-cc3b-44a6-b2e6-343ca92deb5f"
 							}
 						 }
 					  },
