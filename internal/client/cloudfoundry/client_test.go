@@ -66,6 +66,11 @@ func checkOrgAttributes(org *v3OrgResource) {
 	Expect(org.Name).To(Equal("system"))
 }
 
+func checkSidecarAttributes(sidecar *CFSidecar) {
+	Expect(sidecar.GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
+	Expect(sidecar.Name).To(Equal("config-server"))
+}
+
 var _ = Describe("CloudFoundryClient", func() {
 	var (
 		log                    *gosteno.Logger
@@ -86,6 +91,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			ClientSecret:            "123456789",
 			InsecureSSLSkipVerify:   true,
 			NumWorkers:              0,
+			EnableAdvancedTagging:   true,
 		}
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
@@ -183,6 +189,8 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(14))
 			checkAppAttributes(&res[0], 3)
+			Expect(res[0].Sidecars).NotTo(BeNil())
+			checkSidecarAttributes(&res[0].Sidecars[0])
 		})
 	})
 

@@ -372,7 +372,6 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 		for _, app := range appResources {
 			cfapp := CFApplication{}
 			cfapp.setV3AppData(app)
-			cfapps = append(cfapps, cfapp)
 			if cfc.advancedTagging {
 				sidecars, err := cfc.getCFSidecars(cfapp.GUID)
 				if err != nil {
@@ -380,6 +379,7 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 				}
 				cfapp.Sidecars = sidecars
 			}
+			cfapps = append(cfapps, cfapp)
 		}
 
 		if appResp.Pagination.TotalPages <= page {
