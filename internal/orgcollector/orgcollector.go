@@ -88,14 +88,14 @@ func (o *OrgCollector) pushMetrics() {
 	errors := make(chan error, 10)
 	// Fetch orgs
 	wg.Add(1)
-	var allOrgs []cfclient.Org
+	var allOrgs []cfclient.V3Organization
 	go func() {
 		defer wg.Done()
 		var err error
 		if o.dcaClient != nil {
-			allOrgs, err = o.dcaClient.V2OrgsFromV3Orgs()
+			allOrgs, err = o.dcaClient.GetV3Orgs()
 		} else {
-			allOrgs, err = o.cfClient.GetV2Orgs()
+			allOrgs, err = o.cfClient.GetV3Orgs()
 		}
 
 		if err != nil {
@@ -135,9 +135,9 @@ func (o *OrgCollector) pushMetrics() {
 
 	metricsPackages := []metric.MetricPackage{}
 	for _, org := range allOrgs {
-		q, ok := quotaGuidsToObjects[org.QuotaDefinitionGuid]
+		q, ok := quotaGuidsToObjects[org.Relationships["quota"].Data.GUID]
 		if !ok {
-			o.log.Warnf("failed to get quota for org %s", org.Guid)
+			o.log.Warnf("failed to get quota for org %s", org.GUID)
 			continue
 		}
 		tags := []string{}
@@ -165,11 +165,26 @@ func (o *OrgCollector) pushMetrics() {
 	o.processedMetrics <- metricsPackages
 }
 
-func (o *OrgCollector) getTagsFromOrg(org cfclient.Org) []string {
+func (o *OrgCollector) getTagsFromOrg(org cfclient.V3Organization) []string {
 	tags := []string{}
-	tags = append(tags, fmt.Sprintf("guid:%s", org.Guid))
+	tags = append(tags, fmt.Sprintf("guid:%s", org.GUID))
 	tags = append(tags, fmt.Sprintf("org_name:%s", org.Name))
-	tags = append(tags, fmt.Sprintf("org_id:%s", org.Guid))
-	tags = append(tags, fmt.Sprintf("status:%s", org.Status))
+	tags = append(tags, fmt.Sprintf("org_id:%s", org.GUID))
+
+	status := "active"
+	if org.Suspended != nil && *org.Suspended {
+		status = "suspended"
+	}
+
+	tags = append(tags, fmt.Sprintf("status:%s", status))
+
+	for k, v := range org.Metadata.Labels {
+		tags = append(tags, fmt.Sprintf("%s:%s", k, v))
+	}
+
+	for k, v := range org.Metadata.Annotations {
+		tags = append(tags, fmt.Sprintf("%s:%s", k, v))
+	}
+
 	return tags
 }

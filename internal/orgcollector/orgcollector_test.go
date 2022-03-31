@@ -59,12 +59,21 @@ var _ = Describe("OrgCollector", func() {
 			v1 := pushed[0].MetricValue
 			Expect(k1.Name).To(Equal("org.memory.quota"))
 			Expect(v1.Tags).To(Equal([]string{
+				"app-org-annotation:app-org-annotation-org-value",
+				"app-org-label:app-org-label-org-value",
+				"app-space-org-annotation:app-space-org-annotation-org-value",
+				"app-space-org-label:app-space-org-label-org-value",
 				"foo:bar",
 				"guid:671557cf-edcd-49df-9863-ee14513d13c7",
+				"org-annotation:org-annotation-value",
+				"org-label:org-label-value",
 				"org_id:671557cf-edcd-49df-9863-ee14513d13c7",
 				"org_name:system",
+				"space-org-annotation:space-org-annotation-org-value",
+				"space-org-label:space-org-label-org-value",
 				"status:active",
 			}))
+
 			Expect(v1.Points).To(HaveLen(1))
 			Expect(v1.Points[0].Timestamp).To(BeNumerically(">", 0))
 			Expect(v1.Points[0].Value).To(Equal(float64(102400)))
@@ -72,10 +81,18 @@ var _ = Describe("OrgCollector", func() {
 			v2 := pushed[1].MetricValue
 			Expect(k2.Name).To(Equal("org.memory.quota"))
 			Expect(v2.Tags).To(Equal([]string{
+				"app-org-annotation:app-org-annotation-org-value",
+				"app-org-label:app-org-label-org-value",
+				"app-space-org-annotation:app-space-org-annotation-org-value",
+				"app-space-org-label:app-space-org-label-org-value",
 				"foo:bar",
 				"guid:8c19a50e-7974-4c67-adea-9640fae21526",
+				"org-annotation:org-annotation-value",
+				"org-label:org-label-value",
 				"org_id:8c19a50e-7974-4c67-adea-9640fae21526",
 				"org_name:datadog-application-monitoring-org",
+				"space-org-annotation:space-org-annotation-org-value",
+				"space-org-label:space-org-label-org-value",
 				"status:active",
 			}))
 			Expect(v2.Points).To(HaveLen(1))
@@ -120,11 +137,19 @@ var _ = Describe("OrgCollector", func() {
 			v1 := pushed[0].MetricValue
 			Expect(k1.Name).To(Equal("org.memory.quota"))
 			Expect(v1.Tags).To(Equal([]string{
+				"app-org-annotation:app-org-annotation-org-value",
+				"app-org-label:app-org-label-org-value",
+				"app-space-org-annotation:app-space-org-annotation-org-value",
+				"app-space-org-label:app-space-org-label-org-value",
 				"foo:bar",
 				"guid:24d7098c-832b-4dfa-a4f1-950780ae92e9",
+				"org-annotation:org-annotation-value",
+				"org-label:org-label-value",
 				"org_id:24d7098c-832b-4dfa-a4f1-950780ae92e9",
 				"org_name:system",
-				"status:",
+				"space-org-annotation:space-org-annotation-org-value",
+				"space-org-label:space-org-label-org-value",
+				"status:active",
 			}))
 			Expect(v1.Points).To(HaveLen(1))
 			Expect(v1.Points[0].Timestamp).To(BeNumerically(">", 0))
@@ -134,11 +159,19 @@ var _ = Describe("OrgCollector", func() {
 			v2 := pushed[1].MetricValue
 			Expect(k2.Name).To(Equal("org.memory.quota"))
 			Expect(v2.Tags).To(Equal([]string{
+				"app-org-annotation:app-org-annotation-org-value",
+				"app-org-label:app-org-label-org-value",
+				"app-space-org-annotation:app-space-org-annotation-org-value",
+				"app-space-org-label:app-space-org-label-org-value",
 				"foo:bar",
 				"guid:955856da-6c1e-4a1a-9933-359bc0685855",
+				"org-annotation:org-annotation-value",
+				"org-label:org-label-value",
 				"org_id:955856da-6c1e-4a1a-9933-359bc0685855",
 				"org_name:datadog-application-monitoring-org",
-				"status:",
+				"space-org-annotation:space-org-annotation-org-value",
+				"space-org-label:space-org-label-org-value",
+				"status:active",
 			}))
 			Expect(v2.Points).To(HaveLen(1))
 			Expect(v2.Points[0].Timestamp).To(BeNumerically(">", 0))
