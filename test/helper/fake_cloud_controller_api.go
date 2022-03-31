@@ -3029,6 +3029,13 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"name": "system",
 						"created_at": "2019-05-17T13:06:27Z",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"relationships": {
+							"quota": {
+								"data": {
+									"guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e"
+								}
+							}
+						},
 						"metadata": {
 							"annotations": {
 								"org-annotation": "org-annotation-value",
@@ -3073,6 +3080,13 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 						"guid": "8c19a50e-7974-4c67-adea-9640fae21526",
 						"name": "datadog-application-monitoring-org",
 						"updated_at": "2019-10-04T11:10:22Z",
+						"relationships": {
+							"quota": {
+								"data": {
+									"guid": "1cf98856-aba8-49a8-8b21-d82a25898c4e"
+								}
+							}
+						},
 						"metadata": {
 							"annotations": {
 								"org-annotation": "org-annotation-value",

@@ -264,7 +264,7 @@ func (c *DCAClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	return allQuotas, err
 }
 
-// V2OrgsFromV3Orgs .
+// V2OrgsFromV3Orgs
 func (c *DCAClient) V2OrgsFromV3Orgs() ([]cfclient.Org, error) {
 	allOrgs, err := c.GetV3Orgs()
 	if err != nil {
