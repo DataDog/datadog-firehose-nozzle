@@ -58,6 +58,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
+			time.Sleep(time.Second)
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
