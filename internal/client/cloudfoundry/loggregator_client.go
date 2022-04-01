@@ -40,6 +40,7 @@ func (d *rlpGatewayClientDoer) Do(req *http.Request) (*http.Response, error) {
 		d.token = d.tokenFetcher.FetchAuthToken()
 	}
 
+	req.Close = true
 	req.Header.Set("Authorization", d.token)
 	resp, err := d.client.Do(req)
 	if err != nil {
