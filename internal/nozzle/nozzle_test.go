@@ -136,7 +136,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("refreshes authentication token when expired", func() {
-			Eventually(fakeUAA.Requested).Should(BeTrue())
+			Eventually(fakeUAA.Requested, 10).Should(BeTrue())
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 
 			fakeFirehose.SetToken("invalid")
