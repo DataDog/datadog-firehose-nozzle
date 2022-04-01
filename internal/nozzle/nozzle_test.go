@@ -564,7 +564,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}, 2)
 
 		It("gets a valid authentication token", func() {
-			Eventually(fakeFirehose.Requested).Should(BeTrue())
+			Eventually(fakeFirehose.Requested, 10).Should(BeTrue())
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
 		})
 
