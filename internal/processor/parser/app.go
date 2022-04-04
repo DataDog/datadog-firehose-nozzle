@@ -401,10 +401,12 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	}
 
 	// Append sidecars tags
-	sidecarsPresent := strconv.FormatBool(len(cfapp.Sidecars) > 0)
-	sidecarsCount := strconv.Itoa(len(cfapp.Sidecars))
-	tags = appendTagIfNotEmpty(tags, "sidecar_present", sidecarsPresent)
-	tags = appendTagIfNotEmpty(tags, "sidecar_count", sidecarsCount)
+	if cfapp.Sidecars != nil {
+		sidecarsPresent := strconv.FormatBool(len(cfapp.Sidecars) > 0)
+		sidecarsCount := strconv.Itoa(len(cfapp.Sidecars))
+		tags = appendTagIfNotEmpty(tags, "sidecar_present", sidecarsPresent)
+		tags = appendTagIfNotEmpty(tags, "sidecar_count", sidecarsCount)
+	}
 
 	// Append labels and annotations
 	tags = appendMetadataTags(tags, cfapp.Annotations, "annotation/")

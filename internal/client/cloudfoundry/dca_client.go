@@ -31,6 +31,7 @@ type DCAClient struct {
 	clusterAgentAPIClient         *http.Client
 	clusterAgentAPIRequestHeaders http.Header
 	logger                        *gosteno.Logger
+	advancedTagging               bool
 }
 
 func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, error) {
@@ -156,6 +157,16 @@ func (c *DCAClient) GetApplications() ([]CFApplication, error) {
 
 	err = json.Unmarshal(body, &cfapps)
 
+	for _, cfapp := range cfapps {
+		if !c.advancedTagging {
+			cfapp.Sidecars = nil
+		} else {
+			if cfapp.Sidecars == nil {
+				cfapp.Sidecars = make([]CFSidecar, 0)
+			}
+		}
+	}
+
 	return cfapps, err
 }
 
@@ -190,6 +201,14 @@ func (c *DCAClient) GetApplication(appGUID string) (*CFApplication, error) {
 	}
 
 	err = json.Unmarshal(body, &cfapp)
+
+	if !c.advancedTagging {
+		cfapp.Sidecars = nil
+	} else {
+		if cfapp.Sidecars == nil {
+			cfapp.Sidecars = make([]CFSidecar, 0)
+		}
+	}
 
 	return &cfapp, err
 }
