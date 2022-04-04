@@ -157,6 +157,6 @@ func (c *Client) GetRefreshToken(clientID, refreshToken string, insecureSkipVeri
 
 func (c *Client) httpClient(insecureSkipVerify bool) *http.Client {
 	config := &tls.Config{InsecureSkipVerify: insecureSkipVerify}
-	tr := &http.Transport{TLSClientConfig: config, Proxy: http.ProxyFromEnvironment, MaxConnsPerHost: 0}
+	tr := &http.Transport{TLSClientConfig: config, Proxy: http.ProxyFromEnvironment, MaxConnsPerHost: 50}
 	return &http.Client{Timeout: 10 * time.Second, Transport: tr}
 }
