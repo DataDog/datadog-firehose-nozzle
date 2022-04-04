@@ -47,6 +47,7 @@ func (c *Client) GetAuthTokenWithExpiresIn(username, password string, insecureSk
 		return "", -1, err
 	}
 	request.SetBasicAuth(username, password)
+	request.Close = true
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient(insecureSkipVerify).Do(request)
