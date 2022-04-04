@@ -10,7 +10,7 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
-func checkDCAAppAttributes(app *CFApplication) {
+func checkDCAAppAttributes(app *CFApplication, advancedTagging bool) {
 	Expect(app.GUID).To(Equal("a7bebd67-1991-4e9e-8d44-399acf2f13e8"))
 	Expect(app.Name).To(Equal("logs-backend-demo"))
 	Expect(app.SpaceGUID).To(Equal("68a6159c-cb4a-4f70-bb48-f2c24bd79c6b"))
@@ -41,9 +41,11 @@ func checkDCAAppAttributes(app *CFApplication) {
 		"space-label":         "space-label-value",
 		"org-label":           "org-label-value",
 	}))
-	Expect(len(app.Sidecars)).To(Equal(1))
-	Expect(app.Sidecars[0].Name).To(Equal("sidecar-name-1"))
-	Expect(app.Sidecars[0].GUID).To(Equal("sidecar-guid-1"))
+	if advancedTagging {
+		Expect(len(app.Sidecars)).To(Equal(1))
+		Expect(app.Sidecars[0].Name).To(Equal("sidecar-name-1"))
+		Expect(app.Sidecars[0].GUID).To(Equal("sidecar-guid-1"))
+	}
 }
 
 func checkVersionAttributes(version *Version) {
@@ -100,21 +102,38 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	})
 
 	Context("GetApplications method", func() {
-		It("retrieves all apps correctly from the cluster agent api", func() {
+		It("retrieves all apps correctly from the cluster agent api without advanced tags", func() {
 			res, err := fakeDCAClient.GetApplications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(21))
-			checkDCAAppAttributes(&res[0])
+			checkDCAAppAttributes(&res[0], fakeDCAClient.advancedTagging)
+		})
+
+		It("retrieves all apps correctly from the cluster agent api with advanced tags", func() {
+			fakeDCAClient.advancedTagging = true
+			res, err := fakeDCAClient.GetApplications()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(21))
+			checkDCAAppAttributes(&res[0], fakeDCAClient.advancedTagging)
 		})
 	})
 
 	Context("GetApplication method", func() {
-		It("retrieves a single app correctly from the cluster agent api", func() {
+		It("retrieves a single app correctly from the cluster agent api without advanced tags", func() {
 			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			checkDCAAppAttributes(res)
+			checkDCAAppAttributes(res, fakeDCAClient.advancedTagging)
+		})
+
+		It("retrieves a single app correctly from the cluster agent api with advanced tags", func() {
+			fakeDCAClient.advancedTagging = true
+			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			checkDCAAppAttributes(res, fakeDCAClient.advancedTagging)
 		})
 	})
 

@@ -10,7 +10,7 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
-func checkAppAttributes(app *CFApplication, apiVersion int) {
+func checkAppAttributes(app *CFApplication, apiVersion int, advancedTagging bool) {
 	Expect(app.GUID).To(Equal("6d254438-cc3b-44a6-b2e6-343ca92deb5f"))
 	Expect(app.Name).To(Equal("p-invitations-green"))
 	Expect(app.SpaceGUID).To(Equal("417b893e-291e-48ec-94c7-7b2348604365"))
@@ -42,13 +42,15 @@ func checkAppAttributes(app *CFApplication, apiVersion int) {
 			"space-label":         "space-label-value",
 			"org-label":           "org-label-value",
 		}))
+	} else {
+		Expect(app.Annotations).To(BeNil())
+		Expect(app.Labels).To(BeNil())
+	}
+	if advancedTagging {
 		Expect(app.Sidecars).NotTo(BeNil())
 		Expect(len(app.Sidecars)).To(Equal(1))
 		Expect(app.Sidecars[0].GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
 		Expect(app.Sidecars[0].Name).To(Equal("config-server"))
-	} else {
-		Expect(app.Annotations).To(BeNil())
-		Expect(app.Labels).To(BeNil())
 	}
 }
 
@@ -108,7 +110,6 @@ var _ = Describe("CloudFoundryClient", func() {
 			ClientSecret:            "123456789",
 			InsecureSSLSkipVerify:   true,
 			NumWorkers:              0,
-			EnableAdvancedTagging:   true,
 		}
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
@@ -123,7 +124,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(15))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
@@ -131,7 +132,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(15))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 3 // As many runners as pages
 			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
@@ -139,7 +140,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
 			Expect(len(res)).To(Equal(15))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 		})
 
 		It("with v3 spaces is retrieved correctly", func() {
@@ -181,92 +182,143 @@ var _ = Describe("CloudFoundryClient", func() {
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, err = fakeCfClient.getV2Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 3 // As many runners as pages
 			res, err = fakeCfClient.getV2Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 		})
 	})
 
 	Context("getV3Applications method", func() {
-		It("retrieves apps correctly", func() {
+		It("retrieves apps correctly without advanced tags", func() {
 			res, err := fakeCfClient.getV3Applications()
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
 			Expect(len(res)).To(Equal(14))
-			checkAppAttributes(&res[0], 3)
+			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+		})
+
+		It("retrieves apps correctly with advanced tags", func() {
+			fakeCfClient.advancedTagging = true
+			res, err := fakeCfClient.getV3Applications()
+			Expect(err).To(BeNil())
+			Expect(res).NotTo(BeNil())
+			Expect(len(res)).To(Equal(14))
+			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 		})
 	})
 
 	Context("GetApplications method", func() {
-		It("retrieves apps correctly without specified API Version", func() {
-			fakeCfClient.NumWorkers = 1
-			res, err := fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
-			checkAppAttributes(&res[0], 3)
+		Context("without advanced tagging", func() {
+			It("retrieves apps correctly without specified API Version", func() {
+				fakeCfClient.NumWorkers = 1
+				res, err := fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, err = fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
-			checkAppAttributes(&res[0], 3)
+				fakeCfClient.NumWorkers = 100 // More runners than pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
-			fakeCfClient.NumWorkers = 2 // As many runners as pages
-			res, err = fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(fakeCfClient.ApiVersion).To(Equal(3))
-			Expect(len(res)).To(Equal(14))
-			checkAppAttributes(&res[0], 3)
+				fakeCfClient.NumWorkers = 2 // As many runners as pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+			})
+
+			It("retrieves apps correctly with explicitly specified v3 API version", func() {
+				fakeCfClient.ApiVersion = 3
+				res, err := fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+			})
+
+			It("retrieves apps correctly with explicitly specified v2 API version", func() {
+				fakeCfClient.NumWorkers = 1
+				fakeCfClient.ApiVersion = 2
+				res, err := fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(len(res)).To(Equal(45))
+				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
+
+				fakeCfClient.NumWorkers = 100 // More runners than pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(len(res)).To(Equal(45))
+				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
+
+				fakeCfClient.NumWorkers = 3 // As many runners as pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(len(res)).To(Equal(45))
+				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
+			})
 		})
 
-		It("retrieves apps correctly with explicitly specified v3 API version", func() {
-			fakeCfClient.ApiVersion = 3
-			res, err := fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
-			checkAppAttributes(&res[0], 3)
-		})
+		Context("with advanced tagging", func() {
+			BeforeEach(func() {
+				fakeCfClient.advancedTagging = true
+			})
+			It("retrieves apps correctly without specified API Version", func() {
+				fakeCfClient.NumWorkers = 1
+				res, err := fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
-		It("retrieves apps correctly with explicitly specified v2 API version", func() {
-			fakeCfClient.NumWorkers = 1
-			fakeCfClient.ApiVersion = 2
-			res, err := fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+				fakeCfClient.NumWorkers = 100 // More runners than pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, err = fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+				fakeCfClient.NumWorkers = 2 // As many runners as pages
+				res, err = fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(fakeCfClient.ApiVersion).To(Equal(3))
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+			})
 
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, err = fakeCfClient.GetApplications()
-			Expect(err).To(BeNil())
-			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
-			checkAppAttributes(&res[0], 2)
+			It("retrieves apps correctly with explicitly specified v3 API version", func() {
+				fakeCfClient.ApiVersion = 3
+				res, err := fakeCfClient.GetApplications()
+				Expect(err).To(BeNil())
+				Expect(res).NotTo(BeNil())
+				Expect(len(res)).To(Equal(14))
+				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+			})
 		})
 	})
 
@@ -275,7 +327,7 @@ var _ = Describe("CloudFoundryClient", func() {
 			res, err := fakeCfClient.GetApplication("6d254438-cc3b-44a6-b2e6-343ca92deb5f")
 			Expect(err).To(BeNil())
 			Expect(res).NotTo(BeNil())
-			checkAppAttributes(res, 2)
+			checkAppAttributes(res, 2, fakeCfClient.advancedTagging)
 		})
 	})
 
