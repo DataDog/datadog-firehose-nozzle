@@ -1,7 +1,6 @@
 package uaatokenfetcher
 
 import (
-	"github.com/cloudfoundry-incubator/uaago"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -24,7 +23,7 @@ func New(uaaUrl string, username string, password string, sslSkipVerify bool, lo
 }
 
 func (uaa *UAATokenFetcher) FetchAuthToken() string {
-	uaaClient, err := uaago.NewClient(uaa.uaaUrl)
+	uaaClient, err := NewClient(uaa.uaaUrl)
 	if err != nil {
 		uaa.log.Fatalf("Error creating uaa client: %s", err.Error())
 	}

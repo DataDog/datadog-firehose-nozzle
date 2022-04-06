@@ -56,6 +56,7 @@ type Config struct {
 	WorkerTimeoutSeconds          uint32
 	OrgDataCollectionInterval     uint32
 	EnableMetadataCollection      bool
+	EnableAdvancedTagging         bool
 	MetadataKeysWhitelistPatterns []string
 	MetadataKeysBlacklistPatterns []string
 	MetadataKeysWhitelist         []*regexp.Regexp `json:"-"`
@@ -148,6 +149,7 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvBool("NOZZLE_DCA_ENABLED", &config.DCAEnabled)
 	overrideWithEnvVar("NOZZLE_DCA_URL", &config.DCAUrl)
 	overrideWithEnvVar("NOZZLE_DCA_TOKEN", &config.DCAToken)
+	overrideWithEnvBool("NOZZLE_DCA_ADVANCED_TAGGING", &config.EnableAdvancedTagging)
 
 	for _, pattern := range config.MetadataKeysWhitelistPatterns {
 		re, err := regexp.Compile(pattern)

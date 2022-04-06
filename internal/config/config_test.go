@@ -53,6 +53,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DCAEnabled).To(Equal(true))
 		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
 		Expect(conf.DCAToken).To(Equal("123456789"))
+		Expect(conf.EnableAdvancedTagging).To(Equal(true))
 	})
 
 	It("successfully sets default configuration values", func() {
@@ -74,6 +75,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DCAEnabled).To(BeFalse())
 		Expect(conf.DCAUrl).To(BeEmpty())
 		Expect(conf.DCAToken).To(BeEmpty())
+		Expect(conf.EnableAdvancedTagging).To(BeFalse())
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -108,6 +110,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_DCA_ENABLED", "true")
 		os.Setenv("NOZZLE_DCA_URL", "datadog-cluster-agent.bosh-deployment-name:5005")
 		os.Setenv("NOZZLE_DCA_TOKEN", "123456789")
+		os.Setenv("NOZZLE_DCA_ADVANCED_TAGGING", "true")
 		conf, err := Parse("testdata/test_config.json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(conf.UAAURL).To(Equal("https://uaa.walnut-env.cf-app.com"))
@@ -141,6 +144,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DCAEnabled).To(BeEquivalentTo(true))
 		Expect(conf.DCAUrl).To(Equal("datadog-cluster-agent.bosh-deployment-name:5005"))
 		Expect(conf.DCAToken).To(Equal("123456789"))
+		Expect(conf.EnableAdvancedTagging).To(BeEquivalentTo(true))
 	})
 
 	It("correctly serializes to log string", func() {
@@ -151,7 +155,7 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
-		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
+		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableAdvancedTagging":true,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
 		expected += `"FirehoseSubscriptionID":"datadog-nozzle","FlushDurationSeconds":15,"FlushMaxBytes":57671680,`
 		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
 		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`

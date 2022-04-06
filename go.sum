@@ -18,8 +18,6 @@ github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloudfoundry-community/go-cfclient v0.0.0-20210621174645-7773f7e22665 h1:LDCKU3OIIsl7sX1KggC6zIHKk0PCeYbmOGbCHqNCSOQ=
 github.com/cloudfoundry-community/go-cfclient v0.0.0-20210621174645-7773f7e22665/go.mod h1:0FdHblxw7g3M2PPICOw9i8YZOHP9dZTHbJUtoxL7Z/E=
-github.com/cloudfoundry-incubator/uaago v0.0.0-20190307164349-8136b7bbe76e h1:DFYA2+zpeaTPEOizAJuaee2O7YX3UP5tOMjkeXL8iLo=
-github.com/cloudfoundry-incubator/uaago v0.0.0-20190307164349-8136b7bbe76e/go.mod h1:8wJCVaTSjT8phXCkbZWAKIB9JU8BEVHbnSbLgkr8WfY=
 github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35 h1:HdAWGlVEbFxuALqHXYu14XvAbRbyWZLd817ojygGnk0=
 github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35/go.mod h1:3YBPUR85RIrvaUTdA1dL38YSp6s3OHu1xrWLkGt2Mog=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=

@@ -58,6 +58,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
+			time.Sleep(time.Second)
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -131,12 +132,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}, 2)
 
 		It("gets a valid authentication token", func() {
-			Eventually(fakeFirehose.Requested).Should(BeTrue())
+			Eventually(fakeFirehose.Requested, 10).Should(BeTrue())
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
 		})
 
 		It("refreshes authentication token when expired", func() {
-			Eventually(fakeUAA.Requested).Should(BeTrue())
+			Eventually(fakeUAA.Requested, 10).Should(BeTrue())
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 
 			fakeFirehose.SetToken("invalid")
@@ -564,7 +565,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		}, 2)
 
 		It("gets a valid authentication token", func() {
-			Eventually(fakeFirehose.Requested).Should(BeTrue())
+			Eventually(fakeFirehose.Requested, 10).Should(BeTrue())
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal("bearer 123456789"))
 		})
 
