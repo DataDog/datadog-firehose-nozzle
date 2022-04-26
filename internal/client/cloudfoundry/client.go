@@ -618,7 +618,7 @@ func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 
 func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
 	query := url.Values{}
-	query.Set("results-per-page", "100")
+	query.Set("per_page", "100")
 
 	var sidecars []CFSidecar
 
