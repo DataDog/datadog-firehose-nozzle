@@ -336,6 +336,8 @@ var _ = Describe("AppMetrics", func() {
 				Expect(metric.MetricValue.Tags).To(ContainElement("annotation/app-annotation:app-annotation-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("auto-annotation-tag:auto-annotation-tag-value"))
 				Expect(metric.MetricValue.Tags).To(ContainElement("auto-label-tag:auto-label-tag-value"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("sidecar_present:true"))
+				Expect(metric.MetricValue.Tags).To(ContainElement("sidecar_count:1"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("annotation/blacklisted_key:foo"))
 				Expect(metric.MetricValue.Tags).ToNot(ContainElement("label/blacklisted_key:bar"))
 			}
