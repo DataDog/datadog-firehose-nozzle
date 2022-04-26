@@ -3129,10 +3129,10 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 				   "total_results": 1,
 				   "total_pages": 1,
 				   "first": {
-					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4/sidecars?page=1&per_page=50"
+					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a/sidecars?page=1&per_page=50"
 				   },
 				   "last": {
-					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/a7ddcd5e-bdf0-44b5-8473-df6fcccd9dc4/sidecars?page=1&per_page=50"
+					  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a/sidecars?page=1&per_page=50"
 				   },
 				   "next": null,
 				   "previous": null
@@ -3160,6 +3160,44 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 				]
 			 }
 			`))
+			} else if strings.Contains(r.URL.Path, "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a") {
+				rw.Write([]byte(`
+				{
+					"pagination": {
+					   "total_results": 1,
+					   "total_pages": 1,
+					   "first": {
+						  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a/sidecars?page=1&per_page=50"
+					   },
+					   "last": {
+						  "href": "https://api.sys.integrations-lab.devenv.dog/v3/apps/6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a/sidecars?page=1&per_page=50"
+					   },
+					   "next": null,
+					   "previous": null
+					},
+					"resources": [
+					   {
+						  "guid": "sidecar_guid",
+						  "name": "sidecar_name",
+						  "command": "sidecar_command",
+						  "process_types": [
+							 "process_type_1"
+						  ],
+						  "memory_in_mb": null,
+						  "origin": "user",
+						  "relationships": {
+							 "app": {
+								"data": {
+								   "guid": "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"
+								}
+							 }
+						  },
+						  "created_at": "2022-03-17T09:57:48Z",
+						  "updated_at": "2022-03-17T09:57:48Z"
+					   }
+					]
+				 }
+				`))
 			} else {
 				rw.Write([]byte(`
 				{
