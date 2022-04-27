@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.1 / 2022-04-27
+
+* [Fixed] Fix sidecars tagging. See [#90](https://github.com/DataDog/datadog-firehose-nozzle/pull/90).
+
 ## 2.4.0 / 2022-04-13
 
 * [Added] Add sidecars tags to app metrics. See [#88](https://github.com/DataDog/datadog-firehose-nozzle/pull/88).
