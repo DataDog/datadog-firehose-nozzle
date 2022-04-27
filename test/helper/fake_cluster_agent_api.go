@@ -178,7 +178,12 @@ func (f *FakeClusterAgentAPI) writeResponse(rw http.ResponseWriter, r *http.Requ
 				"blacklisted_key": "bar",
 				"tags.datadoghq.com/auto-annotation-tag": "auto-annotation-tag-value"
 			},
-			"Sidecars": null
+			"Sidecars": [
+				{
+					"Name": "sidecar-name-2",
+					"GUID": "sidecar-guid-2"
+				}
+			]
 		}, {
 			"GUID": "9d519c2b-261e-4553-9db3-c79c8a9857f5",
 			"Name": "test_log_redirect",
