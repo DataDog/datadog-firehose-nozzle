@@ -124,6 +124,11 @@ func (l *LoggregatorClient) EnvelopeStream() loggregator.EnvelopeStream {
 						Gauge: &loggregator_v2.GaugeSelector{},
 					},
 				},
+				{
+					Message: &loggregator_v2.Selector_Log{
+						Log: &loggregator_v2.LogSelector{},
+					},
+				},
 			},
 		},
 	)
