@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
@@ -22,6 +23,7 @@ const (
 // Processor extracts metrics from envelopes
 type Processor struct {
 	processedMetrics      chan<- []metric.MetricPackage
+	processedLogs         chan<- logs.LogMessage
 	appMetrics            parser.Parser
 	customTags            []string
 	environment           string
@@ -32,6 +34,7 @@ type Processor struct {
 // NewProcessor creates a new processor
 func NewProcessor(
 	pm chan<- []metric.MetricPackage,
+	pl chan<- logs.LogMessage,
 	customTags []string,
 	environment string,
 	parseAppMetricsEnable bool,
@@ -44,6 +47,7 @@ func NewProcessor(
 
 	processor := &Processor{
 		processedMetrics:      pm,
+		processedLogs:         pl,
 		customTags:            customTags,
 		environment:           environment,
 		deploymentUUIDRegex:   regexp.MustCompile(deploymentUUIDPattern),
@@ -95,6 +99,25 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 	metricsPackages, err = p.parseAppMetric(envelope)
 	if err == nil {
 		p.processedMetrics <- metricsPackages
+	}
+}
+
+// ProcessLog takes an envelope, parses it and sends the processed logs to the nozzle
+func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
+	var err error
+	var logsMessages logs.LogMessage
+
+	// Parse infrastructure type of envelopes
+	infraParser, err := parser.NewInfraParser(
+		p.environment,
+		p.deploymentUUIDRegex,
+		p.jobPartitionUUIDRegex,
+		p.customTags,
+	)
+	logsMessages, err = infraParser.ParseLog(envelope)
+	if err == nil {
+		p.processedLogs <- logsMessages
+		return
 	}
 }
 

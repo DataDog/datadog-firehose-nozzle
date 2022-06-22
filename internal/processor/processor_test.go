@@ -2,6 +2,7 @@ package processor
 
 import (
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 
 	. "github.com/onsi/ginkgo"
@@ -10,13 +11,15 @@ import (
 
 var (
 	mchan chan []metric.MetricPackage
+	lchan chan logs.LogMessage
 	p     *Processor
 )
 
 var _ = Describe("MetricProcessor", func() {
 	BeforeEach(func() {
 		mchan = make(chan []metric.MetricPackage, 1500)
-		p, _ = NewProcessor(mchan, []string{}, "", false,
+		lchan = make(chan logs.LogMessage, 1500)
+		p, _ = NewProcessor(mchan, lchan, []string{}, "", false,
 			nil, nil, 4, 0, nil)
 	})
 
@@ -359,7 +362,8 @@ var _ = Describe("MetricProcessor", func() {
 	Context("custom tags", func() {
 		BeforeEach(func() {
 			mchan = make(chan []metric.MetricPackage, 1500)
-			p, _ = NewProcessor(mchan, []string{"environment:foo", "foundry:bar"}, "", false,
+			lchan = make(chan logs.LogMessage, 1500)
+			p, _ = NewProcessor(mchan, lchan, []string{"environment:foo", "foundry:bar"}, "", false,
 				nil, nil, 4, 0, nil)
 		})
 

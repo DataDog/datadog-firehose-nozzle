@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -29,6 +30,7 @@ type Nozzle struct {
 	dcaClient             *cloudfoundry.DCAClient
 	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
+	processedLogs         chan logs.LogMessage
 	orgCollector          *orgcollector.OrgCollector
 	log                   *gosteno.Logger
 	parseAppMetricsEnable bool
@@ -36,11 +38,15 @@ type Nozzle struct {
 	workersStopper        chan bool
 	mapLock               sync.RWMutex
 	metricsMap            metric.MetricsMap // modified by workers & main thread
-	totalMessagesReceived uint64            // modified by workers, read by main thread
-	slowConsumerAlert     uint64            // modified by workers, read by main thread
+	logsBuffer            []logs.LogMessage
+	totalMessagesReceived uint64 // modified by workers, read by main thread
+	slowConsumerAlert     uint64 // modified by workers, read by main thread
 	totalMetricsSent      uint64
 	metricsSent           uint64
 	metricsDropped        uint64
+	totalLogsSent         uint64
+	logsSent              uint64
+	logsDropped           uint64
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -54,7 +60,9 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		config:                config,
 		authTokenFetcher:      tokenFetcher,
 		metricsMap:            make(metric.MetricsMap),
+		logsBuffer:            make([]logs.LogMessage, 0, 1000),
 		processedMetrics:      make(chan []metric.MetricPackage, 1000),
+		processedLogs:         make(chan logs.LogMessage, 1000),
 		log:                   log,
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
@@ -98,6 +106,7 @@ func (n *Nozzle) Start() error {
 	// Initialize Firehose processor
 	n.processor, n.parseAppMetricsEnable = processor.NewProcessor(
 		n.processedMetrics,
+		n.processedLogs,
 		n.config.CustomTags,
 		n.config.EnvironmentName,
 		n.parseAppMetricsEnable,
@@ -150,6 +159,9 @@ func (n *Nozzle) Start() error {
 	// Submit metrics left in cache if any
 	n.postMetrics()
 
+	// Submit logs left in cache if any
+	n.postLogs()
+
 	return err
 }
 
@@ -176,6 +188,7 @@ func (n *Nozzle) startFirehoseConsumer(authTokenFetcher AuthTokenFetcher) error 
 func (n *Nozzle) run() error {
 	// Start infinite loop to periodically:
 	// - submit metrics to Datadog
+	// - submit logs to Datadog
 	// - handle error
 	//   - log error
 	//   - break out of the loop if error is not a retry error
@@ -187,6 +200,9 @@ func (n *Nozzle) run() error {
 		case <-ticker.C:
 			// Submit metrics to Datadog
 			n.postMetrics()
+
+			// Submit application logs to Datadog
+			n.postLogs()
 		case <-n.stopper:
 			return nil
 		}
@@ -198,6 +214,26 @@ func (n *Nozzle) Stop() {
 	// We only push value to the `stopper` channel of the Nozzle.
 	// Hence, if the nozzle is running (`run` method)
 	n.stopper <- true
+}
+
+// postLogs posts logs to datadog
+func (n *Nozzle) postLogs() {
+	n.mapLock.Lock()
+
+	logsBuffer := make([]logs.LogMessage, len(n.logsBuffer))
+	copy(logsBuffer, n.logsBuffer)
+
+	n.logsBuffer = make([]logs.LogMessage, 0, 1000)
+	n.mapLock.Unlock()
+
+	for _, client := range n.ddClients {
+		unsentLogs := client.PostLogs(n.logsBuffer)
+		n.logsSent += uint64(len(n.logsBuffer)) - unsentLogs
+		n.logsDropped += unsentLogs
+	}
+
+	n.totalLogsSent += n.totalLogsSent
+	n.ResetSlowConsumerError()
 }
 
 // PostMetrics posts metrics do to datadog

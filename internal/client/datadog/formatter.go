@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
 )
@@ -85,6 +86,41 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 		return nil, fmt.Errorf("Error marshalling metrics: %v", err)
 	}
 	compressedPayload, err := compress(encodedMetric)
+	if err != nil {
+		return nil, fmt.Errorf("Error compressing payload: %v", err)
+	}
+	return compressedPayload, nil
+}
+
+func (f Formatter) FormatLogs(prefix string, maxPostBytes uint32, data []logs.LogMessage) []FormatData {
+	if len(data) == 0 {
+		return nil
+	}
+
+	var result []FormatData
+	compressedLogsBytes, err := f.formatLogs(prefix, data)
+	if err != nil {
+		f.log.Errorf("Error formatting logs payload: %v", err)
+		return result
+	}
+
+	result = append(result, FormatData{data: compressedLogsBytes, nbrMetrics: uint64(len(data))})
+	return result
+}
+
+func (f Formatter) formatLogs(prefix string, data []logs.LogMessage) ([]byte, error) {
+	s := []logs.LogMessage{}
+
+	for _, entry := range data {
+		e := entry
+		s = append(s, e)
+	}
+
+	encodedLogs, err := json.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("Error marshalling metrics: %v", err)
+	}
+	compressedPayload, err := compress(encodedLogs)
 	if err != nil {
 		return nil, fmt.Errorf("Error compressing payload: %v", err)
 	}

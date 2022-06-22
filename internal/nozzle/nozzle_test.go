@@ -415,7 +415,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		It("logs a warning", func() {
 			go nozzle.Start()
-			time.Sleep(time.Second)
+			time.Sleep(5 * time.Second)
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
 

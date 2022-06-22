@@ -19,6 +19,7 @@ func (d *Nozzle) startWorkers() {
 	// into d.metricsMap
 	// NOTE: This step is not parallelized and should part of another class
 	go d.readProcessedMetrics()
+	go d.readProcessedLogs()
 }
 
 func (d *Nozzle) stopWorkers() {
@@ -50,8 +51,15 @@ func (d *Nozzle) work() {
 			if !d.keepMessage(envelope) {
 				continue
 			}
-			d.handleMessage(envelope)
-			d.processor.ProcessMetric(envelope)
+			switch envelope.GetMessage().(type) {
+			// metrics
+			case *loggregator_v2.Envelope_Counter:
+				d.handleMessage(envelope)
+				d.processor.ProcessMetric(envelope)
+			// application logs
+			case *loggregator_v2.Envelope_Log:
+				d.processor.ProcessLog(envelope)
+			}
 		case <-d.workersStopper:
 			d.log.Info("Worker shutting down...")
 			return
@@ -72,6 +80,21 @@ func (d *Nozzle) readProcessedMetrics() {
 			d.mapLock.Unlock()
 		case <-d.workersStopper:
 			d.log.Info("Processed metrics reader shutting down...")
+			return
+		}
+	}
+}
+
+func (d *Nozzle) readProcessedLogs() {
+	d.log.Info("Processed logs reader started")
+	for {
+		select {
+		case logMessage := <-d.processedLogs:
+			d.mapLock.Lock()
+			d.logsBuffer = append(d.logsBuffer, logMessage)
+			d.mapLock.Unlock()
+		case <-d.workersStopper:
+			d.log.Info("Processed logs reader shutting down...")
 			return
 		}
 	}

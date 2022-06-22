@@ -14,6 +14,7 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/gosteno"
@@ -153,6 +154,62 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	}
 
 	return ddClients, nil
+}
+
+// PostLogs forwards the logs to datadog
+func (c *Client) PostLogs(logs []logs.LogMessage) uint64 {
+	c.log.Debugf("Posting %d logs to account %s", len(logs), c.apiKey[len(c.apiKey)-4:])
+
+	logsData := c.formatter.FormatLogs(c.prefix, c.maxPostBytes, logs)
+
+	unsentLogs := uint64(0)
+	for _, entry := range logsData {
+		if err := c.postLogs(entry.data); err != nil {
+			// TODO: add unsentLogs logic
+			unsentLogs += uint64(entry.nbrMetrics)
+			c.log.Errorf("Error posting logs: %s\n\n", err)
+		}
+	}
+
+	return unsentLogs
+}
+
+func (c *Client) postLogs(logsBytes []byte) error {
+	url, err := c.logsIntakeURL()
+	if err != nil {
+		return err
+	}
+
+	req, err := retryablehttp.NewRequest("POST", url, logsBytes)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "deflate") // Additional header for zlib compression
+
+	// If an error is returned by the client (connection errors, etc.), or if a 500-range
+	// response code is received, then a retry is invoked on this request after a wait period
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.log.Errorf("error returned by the http client, %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Handle errors that occurred even after the retries
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			body = []byte("failed to read body")
+		}
+		return fmt.Errorf("datadog request returned HTTP response: %s\nResponse Body: %s", resp.Status, body)
+	}
+
+	return nil
+}
+
+func (c *Client) logsIntakeURL() (string, error) {
+	return "https://http-intake.logs.datadoghq.com/api/v2/logs", nil
 }
 
 // PostMetrics forwards the metrics to datadog
