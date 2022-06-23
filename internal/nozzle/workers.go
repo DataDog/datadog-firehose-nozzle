@@ -27,14 +27,14 @@ func (d *Nozzle) stopWorkers() {
 	d.processor.StopAppMetrics()
 
 	timedOut := false
-	for i := 0; i < d.config.NumWorkers+1; i++ {
+	for i := 0; i < d.config.NumWorkers+2; i++ {
 		// +1 is for the readProcessedMetrics worker
 		select {
 		case d.workersStopper <- true:
 		case <-time.After(time.Duration(d.config.WorkerTimeoutSeconds) * time.Second):
 			// No worker responded in time to get the stop message
 			// Assuming they crashed
-			d.log.Warnf("Could not stop %d workers after %ds", d.config.NumWorkers+1-i, d.config.WorkerTimeoutSeconds)
+			d.log.Warnf("Could not stop %d workers after %ds", d.config.NumWorkers+2-i, d.config.WorkerTimeoutSeconds)
 			timedOut = true
 		}
 		if timedOut {
@@ -51,15 +51,22 @@ func (d *Nozzle) work() {
 			if !d.keepMessage(envelope) {
 				continue
 			}
-			switch envelope.GetMessage().(type) {
 			// metrics
-			case *loggregator_v2.Envelope_Counter:
+			if m := envelope.GetGauge(); m != nil {
 				d.handleMessage(envelope)
 				d.processor.ProcessMetric(envelope)
-			// application logs
-			case *loggregator_v2.Envelope_Log:
+			}
+
+			if m := envelope.GetCounter(); m != nil {
+				d.handleMessage(envelope)
+				d.processor.ProcessMetric(envelope)
+			}
+
+			// logs
+			if l := envelope.GetLog(); l != nil {
 				d.processor.ProcessLog(envelope)
 			}
+
 		case <-d.workersStopper:
 			d.log.Info("Worker shutting down...")
 			return
