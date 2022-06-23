@@ -118,7 +118,7 @@ func (f Formatter) formatLogs(prefix string, data []logs.LogMessage) ([]byte, er
 
 	encodedLogs, err := json.Marshal(s)
 	if err != nil {
-		return nil, fmt.Errorf("Error marshalling metrics: %v", err)
+		return nil, fmt.Errorf("Error marshalling logs: %v", err)
 	}
 	compressedPayload, err := compress(encodedLogs)
 	if err != nil {

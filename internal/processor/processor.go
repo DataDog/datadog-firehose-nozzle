@@ -82,7 +82,7 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 	var metricsPackages []metric.MetricPackage
 
 	// Parse infrastructure type of envelopes
-	infraParser, err := parser.NewInfraParser(
+	infraParser, _ := parser.NewInfraParser(
 		p.environment,
 		p.deploymentUUIDRegex,
 		p.jobPartitionUUIDRegex,
@@ -105,18 +105,18 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 // ProcessLog takes an envelope, parses it and sends the processed logs to the nozzle
 func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 	var err error
-	var logsMessages logs.LogMessage
+	var logsMessage logs.LogMessage
 
 	// Parse infrastructure type of envelopes
-	infraParser, err := parser.NewInfraParser(
+	infraParser, _ := parser.NewInfraParser(
 		p.environment,
 		p.deploymentUUIDRegex,
 		p.jobPartitionUUIDRegex,
 		p.customTags,
 	)
-	logsMessages, err = infraParser.ParseLog(envelope)
+	logsMessage, err = infraParser.ParseLog(envelope)
 	if err == nil {
-		p.processedLogs <- logsMessages
+		p.processedLogs <- logsMessage
 		return
 	}
 }

@@ -227,7 +227,7 @@ func (n *Nozzle) postLogs() {
 	n.mapLock.Unlock()
 
 	for _, client := range n.ddClients {
-		unsentLogs := client.PostLogs(n.logsBuffer)
+		unsentLogs := client.PostLogs(logsBuffer)
 		n.logsSent += uint64(len(n.logsBuffer)) - unsentLogs
 		n.logsDropped += unsentLogs
 	}

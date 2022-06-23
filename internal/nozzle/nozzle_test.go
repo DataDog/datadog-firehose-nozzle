@@ -58,7 +58,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Start()
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -330,9 +330,10 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 			fakeCCAPI.Start()
+			time.Sleep(time.Second)
 
 			configuration = &config.Config{
-				FlushDurationSeconds:      1,
+				FlushDurationSeconds:      2,
 				FlushMaxBytes:             10240,
 				DataDogURL:                fakeDatadogAPI.URL(),
 				DataDogAPIKey:             "1234567890",
@@ -359,6 +360,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("can still tries to connect to the firehose", func() {
+			time.Sleep(1 * time.Second)
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 		})
 
@@ -415,7 +417,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		It("logs a warning", func() {
 			go nozzle.Start()
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
 
