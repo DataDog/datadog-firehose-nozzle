@@ -25,6 +25,7 @@ type Processor struct {
 	processedMetrics      chan<- []metric.MetricPackage
 	processedLogs         chan<- logs.LogMessage
 	appMetrics            parser.Parser
+	appCache              *parser.AppCache
 	customTags            []string
 	environment           string
 	deploymentUUIDRegex   *regexp.Regexp
@@ -48,6 +49,7 @@ func NewProcessor(
 	processor := &Processor{
 		processedMetrics:      pm,
 		processedLogs:         pl,
+		appCache:              parser.GetGlobalAppCache(),
 		customTags:            customTags,
 		environment:           environment,
 		deploymentUUIDRegex:   regexp.MustCompile(deploymentUUIDPattern),
@@ -63,6 +65,7 @@ func NewProcessor(
 			log,
 			customTags,
 			environment,
+			true,
 		)
 		if err != nil {
 			parseAppMetricsEnable = false
@@ -115,6 +118,11 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 		p.customTags,
 	)
 	logsMessage, err = infraParser.ParseLog(envelope)
+
+	cfapp := p.appCache.Get(envelope.SourceId)
+	logsMessage.Source = "datadog-firehose-nozzle"
+	logsMessage.Service = cfapp.Name
+
 	if err == nil {
 		p.processedLogs <- logsMessage
 		return

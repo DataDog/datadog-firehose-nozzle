@@ -109,7 +109,7 @@ func (p InfraParser) ParseLog(envelope *loggregator_v2.Envelope) (logs.LogMessag
 	logValue.Hostname = host
 	logValue.Tags = strings.Join(tags, ",")
 	logValue.Message = string(envelope.GetLog().Payload)
-	logValue.Source = envelope.SourceId
+	logValue.Source = envelope.SourceId // TODO: get app name
 	logValue.Service = envelope.GetTags()["process_id"]
 
 	return logValue, nil
