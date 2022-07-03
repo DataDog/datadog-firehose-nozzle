@@ -19,7 +19,11 @@ func (d *Nozzle) startWorkers() {
 	// into d.metricsMap
 	// NOTE: This step is not parallelized and should part of another class
 	go d.readProcessedMetrics()
-	go d.readProcessedLogs()
+
+	if d.config.DataDogLogIntakeURL != "" || len(d.config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+		go d.readProcessedLogs()
+	}
+
 }
 
 func (d *Nozzle) stopWorkers() {
@@ -27,14 +31,21 @@ func (d *Nozzle) stopWorkers() {
 	d.processor.StopAppMetrics()
 
 	timedOut := false
-	for i := 0; i < d.config.NumWorkers+2; i++ {
-		// +2 is for the readProcessedMetrics and readProcessedLogs workers
+
+	// +1 is for the readProcessedMetrics worker
+	numWorkers := d.config.NumWorkers + 1
+
+	// +1 for the readProcessedLogs worker
+	if d.config.DataDogLogIntakeURL != "" || len(d.config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+		numWorkers++
+	}
+	for i := 0; i < numWorkers; i++ {
 		select {
 		case d.workersStopper <- true:
 		case <-time.After(time.Duration(d.config.WorkerTimeoutSeconds) * time.Second):
 			// No worker responded in time to get the stop message
 			// Assuming they crashed
-			d.log.Warnf("Could not stop %d workers after %ds", d.config.NumWorkers+2-i, d.config.WorkerTimeoutSeconds)
+			d.log.Warnf("Could not stop %d workers after %ds", numWorkers-i, d.config.WorkerTimeoutSeconds)
 			timedOut = true
 		}
 		if timedOut {
@@ -54,7 +65,9 @@ func (d *Nozzle) work() {
 
 			// logs
 			if l := envelope.GetLog(); l != nil {
-				d.processor.ProcessLog(envelope)
+				if d.config.DataDogLogIntakeURL != "" || len(d.config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+					d.processor.ProcessLog(envelope)
+				}
 				continue
 			}
 
