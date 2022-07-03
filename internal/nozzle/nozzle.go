@@ -232,7 +232,7 @@ func (n *Nozzle) postLogs() {
 		n.logsDropped += unsentLogs
 	}
 
-	n.totalLogsSent += n.totalLogsSent
+	n.totalLogsSent += n.logsSent
 	n.ResetSlowConsumerError()
 }
 
@@ -257,6 +257,8 @@ func (n *Nozzle) postMetrics() {
 		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("totalMetricsSent", metric.GAUGE, n.totalMetricsSent, timestamp)
 		metricsMap[k] = v
+		k, v = client.MakeInternalMetric("totalLogsSent", metric.GAUGE, n.totalLogsSent, timestamp)
+		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
@@ -267,6 +269,15 @@ func (n *Nozzle) postMetrics() {
 			metricsMap[k] = v
 			n.metricsSent = 0
 			n.metricsDropped = 0
+		}
+
+		if n.totalLogsSent > 0 {
+			k, v = client.MakeInternalMetric("logs.sent", metric.COUNT, n.logsSent, timestamp)
+			metricsMap[k] = v
+			k, v = client.MakeInternalMetric("logs.dropped", metric.COUNT, n.logsDropped, timestamp)
+			metricsMap[k] = v
+			n.logsSent = 0
+			n.logsDropped = 0
 		}
 
 		unsentMetrics := client.PostMetrics(metricsMap)

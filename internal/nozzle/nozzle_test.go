@@ -128,7 +128,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(25)) // +3 is because of the internal metrics, +2 because of org metrics
+			Expect(payload.Series).To(HaveLen(26)) // +3 is because of the internal metrics, +2 because of org metrics
 		}, 2)
 
 		It("gets a valid authentication token", func() {
@@ -187,7 +187,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(25))
+			Expect(payload.Series).To(HaveLen(26))
 
 			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
 
@@ -195,9 +195,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 			err = json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(5)) // only internal metrics
+			Expect(payload.Series).To(HaveLen(6)) // only internal metrics
 
-			validateMetrics(payload, 11, 25, 25, 0)
+			validateMetrics(payload, 11, 26, 26, 0)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {
@@ -563,7 +563,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(25)) // +3 is because of the internal metrics, +2 because of org metrics
+			Expect(payload.Series).To(HaveLen(26)) // +3 is because of the internal metrics, +2 because of org metrics
 		}, 2)
 
 		It("gets a valid authentication token", func() {
@@ -607,7 +607,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			var payload datadog.Payload
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(25))
+			Expect(payload.Series).To(HaveLen(26))
 
 			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
 
@@ -615,9 +615,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 			err = json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(5)) // only internal metrics
+			Expect(payload.Series).To(HaveLen(6)) // only internal metrics
 
-			validateMetrics(payload, 11, 25, 25, 0)
+			validateMetrics(payload, 11, 26, 26, 0)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {

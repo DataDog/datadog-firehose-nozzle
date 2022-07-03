@@ -172,8 +172,7 @@ func (c *Client) PostLogs(logs []logs.LogMessage) uint64 {
 	unsentLogs := uint64(0)
 	for _, entry := range logsData {
 		if err := c.postLogs(entry.data); err != nil {
-			// TODO: add unsentLogs logic
-			unsentLogs += uint64(entry.nbrMetrics)
+			unsentLogs += entry.nbrItems
 			c.log.Errorf("Error posting logs: %s\n\n", err)
 		}
 	}
@@ -239,7 +238,7 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 		}
 
 		if err := c.postMetrics(entry.data); err != nil {
-			unsentMetrics += entry.nbrMetrics
+			unsentMetrics += entry.nbrItems
 			c.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
 	}

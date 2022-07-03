@@ -18,8 +18,8 @@ type Formatter struct {
 }
 
 type FormatData struct {
-	data       []byte
-	nbrMetrics uint64
+	data     []byte
+	nbrItems uint64
 }
 
 func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
@@ -50,7 +50,7 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 		return result
 	}
 
-	result = append(result, FormatData{data: compressedSeriesBytes, nbrMetrics: uint64(len(data))})
+	result = append(result, FormatData{data: compressedSeriesBytes, nbrItems: uint64(len(data))})
 	return result
 }
 
@@ -104,7 +104,7 @@ func (f Formatter) FormatLogs(prefix string, maxPostBytes uint32, data []logs.Lo
 		return result
 	}
 
-	result = append(result, FormatData{data: compressedLogsBytes, nbrMetrics: uint64(len(data))})
+	result = append(result, FormatData{data: compressedLogsBytes, nbrItems: uint64(len(data))})
 	return result
 }
 
