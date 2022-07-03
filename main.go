@@ -56,6 +56,7 @@ func main() {
 
 	// Initialize and start Nozzle
 	log.Infof("Targeting datadog API URL: %s \n", config.NozzleConfig.DataDogURL)
+	log.Infof("Targeting datadog LogIntake URL: %s \n", config.NozzleConfig.DataDogLogIntakeURL)
 	datadogNozzle := nozzle.NewNozzle(&config.NozzleConfig, tokenFetcher, log)
 	err = datadogNozzle.Start()
 	if err != nil {

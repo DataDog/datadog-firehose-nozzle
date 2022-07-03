@@ -23,6 +23,7 @@ import (
 
 type Client struct {
 	apiURL       string
+	logIntakeURL string
 	apiKey       string
 	prefix       string
 	deployment   string
@@ -46,6 +47,7 @@ type Proxy struct {
 
 func New(
 	apiURL string,
+	logIntakeURL string,
 	apiKey string,
 	prefix string,
 	deployment string,
@@ -123,6 +125,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	var ddClients []*Client
 	ddClients = append(ddClients, New(
 		config.DataDogURL,
+		config.DataDogLogIntakeURL,
 		config.DataDogAPIKey,
 		config.MetricPrefix,
 		config.Deployment,
@@ -135,10 +138,13 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 		proxy,
 	))
 	// Instantiating Additional Datadog endpoints
+	i := 0
 	for endpoint, keys := range config.DataDogAdditionalEndpoints {
+		logIntakeEndpoint := config.DataDogAdditionalLogIntakeEndpoints[i]
 		for keyIndex := range keys {
 			ddClients = append(ddClients, New(
 				endpoint,
+				logIntakeEndpoint,
 				keys[keyIndex],
 				config.MetricPrefix,
 				config.Deployment,
@@ -151,6 +157,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 				proxy,
 			))
 		}
+		i++
 	}
 
 	return ddClients, nil
@@ -175,7 +182,7 @@ func (c *Client) PostLogs(logs []logs.LogMessage) uint64 {
 }
 
 func (c *Client) postLogs(logsBytes []byte) error {
-	url, err := c.logsIntakeURL()
+	url, err := c.logsURL()
 	if err != nil {
 		return err
 	}
@@ -209,9 +216,15 @@ func (c *Client) postLogs(logsBytes []byte) error {
 	return nil
 }
 
-func (c *Client) logsIntakeURL() (string, error) {
-	logIntakeURL := "https://http-intake.logs.datadoghq.com/api/v2/logs"
-	return logIntakeURL, nil
+func (c *Client) logsURL() (string, error) {
+	logIntakeURL, err := url.Parse(c.logIntakeURL)
+	if err != nil {
+		return "", fmt.Errorf("error parsing LogIntake API URL %s: %v", c.logIntakeURL, err)
+	}
+	if !strings.Contains(logIntakeURL.EscapedPath(), "api/v2/logs") {
+		logIntakeURL.Path = path.Join(logIntakeURL.Path, "api/v2/logs")
+	}
+	return logIntakeURL.String(), nil
 }
 
 // PostMetrics forwards the metrics to datadog
@@ -277,6 +290,7 @@ func (c *Client) seriesURL() (string, error) {
 		apiURL.Path = path.Join(apiURL.Path, "api/v1/series")
 	}
 	query := apiURL.Query()
+	// TODO: send api key in the headers
 	query.Add("api_key", c.apiKey)
 	apiURL.RawQuery = query.Encode()
 	return apiURL.String(), nil
