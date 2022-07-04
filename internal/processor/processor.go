@@ -91,7 +91,7 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 		p.jobPartitionUUIDRegex,
 		p.customTags,
 	)
-	metricsPackages, err = infraParser.Parse(envelope)
+	metricsPackages, err = infraParser.ParseMetrics(envelope)
 	if err == nil {
 		p.processedMetrics <- metricsPackages
 		// it can only be one or the other
@@ -110,18 +110,25 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 	var err error
 	var logsMessage logs.LogMessage
 
+	var appTags []string
+	var serviceName string = envelope.SourceId
+
+	cfapp := p.appCache.Get(envelope.SourceId)
+	if cfapp != nil {
+		appTags = cfapp.Tags
+		serviceName = cfapp.Name
+	}
+
 	// Parse infrastructure type of envelopes
 	infraParser, _ := parser.NewInfraParser(
 		p.environment,
 		p.deploymentUUIDRegex,
 		p.jobPartitionUUIDRegex,
-		p.customTags,
+		append(p.customTags, appTags...),
 	)
-	logsMessage, err = infraParser.ParseLog(envelope)
 
-	cfapp := p.appCache.Get(envelope.SourceId)
-	logsMessage.Source = "datadog-firehose-nozzle"
-	logsMessage.Service = cfapp.Name
+	logsMessage, err = infraParser.ParseLog(envelope)
+	logsMessage.Service = serviceName
 
 	if err == nil {
 		p.processedLogs <- logsMessage
