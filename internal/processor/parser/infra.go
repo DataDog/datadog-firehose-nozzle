@@ -33,7 +33,7 @@ func NewInfraParser(
 	}, nil
 }
 
-func (p InfraParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
+func (p InfraParser) ParseMetrics(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
 	metrics := []metric.MetricPackage{}
 
 	switch envelope.GetMessage().(type) {
@@ -109,8 +109,7 @@ func (p InfraParser) ParseLog(envelope *loggregator_v2.Envelope) (logs.LogMessag
 	logValue.Hostname = host
 	logValue.Tags = strings.Join(tags, ",")
 	logValue.Message = string(envelope.GetLog().Payload)
-	logValue.Source = envelope.SourceId // TODO: get app name
-	logValue.Service = envelope.GetTags()["process_id"]
+	logValue.Source = "datadog-firehose-nozzle"
 
 	return logValue, nil
 }
