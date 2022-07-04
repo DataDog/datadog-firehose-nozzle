@@ -172,7 +172,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 func (c *Client) PostLogs(logs []logs.LogMessage) uint64 {
 	c.log.Debugf("Posting %d logs to account %s", len(logs), c.apiKey[len(c.apiKey)-4:])
 
-	logsData := c.formatter.FormatLogs(c.prefix, c.maxPostBytes, logs)
+	logsData := c.formatter.FormatLogs(c.maxPostBytes, logs)
 
 	unsentLogs := uint64(0)
 	for _, entry := range logsData {

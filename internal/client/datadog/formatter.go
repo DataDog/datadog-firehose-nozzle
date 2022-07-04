@@ -92,13 +92,13 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 	return compressedPayload, nil
 }
 
-func (f Formatter) FormatLogs(prefix string, maxPostBytes uint32, data []logs.LogMessage) []FormatData {
+func (f Formatter) FormatLogs(maxPostBytes uint32, data []logs.LogMessage) []FormatData {
 	if len(data) == 0 {
 		return nil
 	}
 
 	var result []FormatData
-	compressedLogsBytes, err := f.formatLogs(prefix, data)
+	compressedLogsBytes, err := f.formatLogs(data)
 	if err != nil {
 		f.log.Errorf("Error formatting logs payload: %v", err)
 		return result
@@ -108,7 +108,7 @@ func (f Formatter) FormatLogs(prefix string, maxPostBytes uint32, data []logs.Lo
 	return result
 }
 
-func (f Formatter) formatLogs(prefix string, data []logs.LogMessage) ([]byte, error) {
+func (f Formatter) formatLogs(data []logs.LogMessage) ([]byte, error) {
 	s := []logs.LogMessage{}
 
 	for _, entry := range data {
