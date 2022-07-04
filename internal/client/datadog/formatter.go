@@ -104,6 +104,20 @@ func (f Formatter) FormatLogs(maxPostBytes uint32, data []logs.LogMessage) []For
 		return result
 	}
 
+	if uint32(len(compressedLogsBytes)) > maxPostBytes {
+		if len(data) == 1 {
+			f.log.Warn(fmt.Sprintf("Warning dropping logs payload for service: %v", data[0].Service))
+			return nil
+		}
+
+		logsA, logsB := splitLogs(data)
+
+		result = append(result, f.FormatLogs(maxPostBytes, logsA)...)
+		result = append(result, f.FormatLogs(maxPostBytes, logsB)...)
+
+		return result
+	}
+
 	result = append(result, FormatData{data: compressedLogsBytes, nbrItems: uint64(len(data))})
 	return result
 }
@@ -138,6 +152,13 @@ func (f Formatter) removeNANs(points []metric.Point, metricName string, tags []s
 	}
 	return sanitizedPoints
 
+}
+
+func splitLogs(data []logs.LogMessage) (a, b []logs.LogMessage) {
+	l := len(data)
+	a = data[l/2:]
+	b = data[:l/2]
+	return a, b
 }
 
 func splitMetrics(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.MetricKey]metric.MetricValue) {
