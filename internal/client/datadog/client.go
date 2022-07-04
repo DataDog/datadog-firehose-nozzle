@@ -92,6 +92,7 @@ func New(
 
 	return &Client{
 		apiURL:       apiURL,
+		logIntakeURL: logIntakeURL,
 		apiKey:       apiKey,
 		prefix:       prefix,
 		deployment:   deployment,

@@ -48,6 +48,7 @@ var _ = Describe("DatadogClient", func() {
 
 		c = New(
 			ts.URL,
+			ts.URL,
 			"dummykey",
 			"datadog.nozzle.",
 			"test-deployment",
@@ -89,6 +90,34 @@ var _ = Describe("DatadogClient", func() {
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal("https://app.datadoghq.com/a/path/api/v1/series?api_key=dummykey&key=value"))
 		})
+
+		It("appends api/v2/logs if not present", func() {
+			// With trailing slash
+			c.logIntakeURL = "http-intake.logs.datadoghq.com/"
+			result, err := c.logsURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
+
+			// Without trailing slash
+			c.logIntakeURL = "http-intake.logs.datadoghq.com"
+			result, err = c.logsURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
+		})
+
+		It("doesn't append api/v2/logs if present", func() {
+			c.logIntakeURL = "http-intake.logs.datadoghq.com/api/v2/logs"
+			result, err := c.logsURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
+		})
+
+		It("keeps logs query and path intact", func() {
+			c.logIntakeURL = "http-intake.logs.datadoghq.com/a/path?key=value"
+			result, err := c.logsURL()
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal("http-intake.logs.datadoghq.com/a/path/api/v2/logs?key=value"))
+		})
 	})
 
 	Context("datadog does not respond", func() {
@@ -111,6 +140,7 @@ var _ = Describe("DatadogClient", func() {
 			gosteno.Init(config)
 
 			c = New(
+				ts.URL,
 				ts.URL,
 				"dummykey",
 				"datadog.nozzle.",
@@ -207,6 +237,7 @@ var _ = Describe("DatadogClient", func() {
 	Context("user configures custom tags", func() {
 		BeforeEach(func() {
 			c = New(
+				ts.URL,
 				ts.URL,
 				"dummykey",
 				"datadog.nozzle.",
