@@ -106,6 +106,7 @@ func (d *Nozzle) readProcessedLogs() {
 		select {
 		case logMessage := <-d.processedLogs:
 			d.mapLock.Lock()
+			d.totalMessagesReceived++
 			d.logsBuffer = append(d.logsBuffer, logMessage)
 			d.mapLock.Unlock()
 		case <-d.workersStopper:
