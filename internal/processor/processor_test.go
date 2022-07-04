@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"strings"
+
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
@@ -312,8 +314,9 @@ var _ = Describe("Processor", func() {
 					"source_id:some.source",
 				}))
 			}
+		})
 
-			// Check it does the correct dogate tag replacements when env_name and index are set
+		It("does the correct dogate tag replacements when env_name and index are set", func() {
 			p.environment = "env_name"
 			p.ProcessMetric(&loggregator_v2.Envelope{
 				Timestamp: 1000000000,
@@ -338,6 +341,7 @@ var _ = Describe("Processor", func() {
 				},
 			})
 
+			var metricPkg []metric.MetricPackage
 			Eventually(mchan).Should(Receive(&metricPkg))
 
 			Expect(metricPkg).To(HaveLen(2))
@@ -460,6 +464,172 @@ var _ = Describe("Processor", func() {
 
 			Expect(logMessage1.Message).To(Equal("log message 1"))
 			Expect(logMessage2.Message).To(Equal("log message 2"))
+		})
+
+		It("ignores messages that aren't log events", func() {
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				SourceId:   "app-id",
+				InstanceId: "4",
+				Tags: map[string]string{
+					"origin":     "origin",
+					"deployment": "deployment-name",
+					"job":        "doppler",
+				},
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"cpu": &loggregator_v2.GaugeValue{
+								Unit:  "gauge",
+								Value: float64(20.0),
+							},
+							"memory": &loggregator_v2.GaugeValue{
+								Unit:  "gauge",
+								Value: float64(19939949),
+							},
+							"disk": &loggregator_v2.GaugeValue{
+								Unit:  "gauge",
+								Value: float64(29488929),
+							},
+							"memory_quota": &loggregator_v2.GaugeValue{
+								Unit:  "gauge",
+								Value: float64(19939949),
+							},
+							"disk_quota": &loggregator_v2.GaugeValue{
+								Unit:  "gauge",
+								Value: float64(29488929),
+							},
+						},
+					},
+				},
+			})
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				InstanceId: "123",
+				Tags: map[string]string{
+					"origin":     "origin",
+					"deployment": "deployment-name",
+					"job":        "doppler",
+				},
+				Message: &loggregator_v2.Envelope_Gauge{
+					Gauge: &loggregator_v2.Gauge{
+						Metrics: map[string]*loggregator_v2.GaugeValue{
+							"valueName": &loggregator_v2.GaugeValue{
+								Unit:  "counter",
+								Value: float64(5),
+							},
+						},
+					},
+				},
+			})
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  2000000000,
+				InstanceId: "123",
+				Tags: map[string]string{
+					"origin":     "origin",
+					"deployment": "deployment-name",
+					"job":        "doppler",
+				},
+				Message: &loggregator_v2.Envelope_Counter{
+					Counter: &loggregator_v2.Counter{
+						Name:  "counterName",
+						Delta: uint64(6),
+						Total: uint64(11),
+					},
+				},
+			})
+
+			Consistently(lchan).ShouldNot(Receive())
+		})
+
+		It("adds tags", func() {
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				SourceId:   "source-id-1",
+				InstanceId: "instance-id-1",
+				Tags: map[string]string{
+					"origin":     "test-origin",
+					"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+					"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+					"ip":         "10.0.1.2",
+					"protocol":   "http",
+					"request_id": "a1f5-deadbeef",
+				},
+				Message: &loggregator_v2.Envelope_Log{
+					Log: &loggregator_v2.Log{
+						Payload: []byte("log message 1"),
+						Type:    loggregator_v2.Log_OUT,
+					},
+				},
+			})
+
+			var logMessage logs.LogMessage
+			Eventually(lchan).Should(Receive(&logMessage))
+
+			expectedTags := []string{
+				"ip:10.0.1.2",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+				"deployment:deployment-name",
+				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job:doppler",
+				"job:doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"name:test-origin",
+				"origin:test-origin",
+				"source_id:source-id-1",
+				"instance_id:instance-id-1",
+			}
+
+			for _, tag := range expectedTags {
+				Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
+			}
+		})
+
+		It("does the correct dogate tag replacements when env_name and index are set", func() {
+			p.environment = "env_name"
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				SourceId:   "source-id-1",
+				InstanceId: "instance-id-1",
+				Tags: map[string]string{
+					"origin":     "test-origin",
+					"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+					"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+					"ip":         "10.0.1.2",
+					"protocol":   "http",
+					"request_id": "a1f5-deadbeef",
+					"index":      "1",
+				},
+				Message: &loggregator_v2.Envelope_Log{
+					Log: &loggregator_v2.Log{
+						Payload: []byte("log message 1"),
+						Type:    loggregator_v2.Log_OUT,
+					},
+				},
+			})
+
+			var logMessage logs.LogMessage
+			Eventually(lchan).Should(Receive(&logMessage))
+
+			expectedTags := []string{
+				"ip:10.0.1.2",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+				"deployment:deployment-name",
+				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job:doppler",
+				"job:doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"name:test-origin",
+				"origin:test-origin",
+				"source_id:source-id-1",
+				"instance_id:instance-id-1",
+				"index:1",
+				"env:env_name",
+			}
+
+			for _, tag := range expectedTags {
+				Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
+			}
 		})
 	})
 })
