@@ -45,13 +45,7 @@ var _ = Describe("Formatter", func() {
 
 	It("compresses logs with zlib", func() {
 		lm := []logs.LogMessage{
-			{
-				Hostname: "hostname",
-				Source:   "source",
-				Service:  "service",
-				Tags:     "tags",
-				Message:  "message",
-			},
+			makeFakeLogMessage("hostname", "source", "service", "message", "tags"),
 		}
 		result := formatter.FormatLogs(1024, lm)
 		Expect(string(helper.Decompress(result[0].data))).To(Equal(`[{"ddsource":"source","ddtags":"tags","hostname":"hostname","message":"message","service":"service"}]`))
@@ -71,13 +65,7 @@ var _ = Describe("Formatter", func() {
 
 	It("drops logs that are larger than maxPostBytes", func() {
 		lm := []logs.LogMessage{
-			{
-				Hostname: "hostname",
-				Source:   "source",
-				Service:  "service",
-				Tags:     "tags",
-				Message:  "message",
-			},
+			makeFakeLogMessage("hostname", "source", "service", "message", "tags"),
 		}
 		result := formatter.FormatLogs(1, lm)
 
@@ -129,14 +117,7 @@ var _ = Describe("Formatter", func() {
 	It("properly splits logs into two slices", func() {
 		var data []logs.LogMessage
 		for i := 0; i < 1000; i++ {
-			lm := logs.LogMessage{
-				Hostname: "hostname",
-				Source:   "source",
-				Service:  "service",
-				Tags:     "tags",
-				Message:  "message",
-			}
-
+			lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
 			data = append(data, lm)
 		}
 

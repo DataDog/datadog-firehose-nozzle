@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/gosteno"
-	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -155,7 +156,7 @@ var _ = Describe("DatadogClient", func() {
 			)
 		})
 
-		It("respects the timeout", func() {
+		It("respects the timeout for metrics payloads", func() {
 			k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
@@ -163,13 +164,36 @@ var _ = Describe("DatadogClient", func() {
 			Expect(unsentMetrics).ToNot(Equal(uint64(0)))
 		})
 
-		It("attempts to retry the connection", func() {
+		It("respects the timeout for logs payloads", func() {
+			var data []logs.LogMessage
+			lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
+			data = append(data, lm)
+
+			unsentLogs := c.PostLogs(data)
+			Expect(unsentLogs).ToNot(Equal(uint64(0)))
+		})
+
+		It("attempts to retry the connection for metrics payloads", func() {
 			k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 			metricsMap.Add(k, v)
 
 			unsentMetrics := c.PostMetrics(metricsMap)
 
 			Expect(unsentMetrics).ToNot(Equal(uint64(0)))
+
+			logOutput := fakeBuffer.GetContent()
+			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
+			Expect(logOutput).To(ContainSubstring("(2 left)"))
+			Expect(logOutput).To(ContainSubstring("(1 left)"))
+		})
+
+		It("attempts to retry the connection for logs payloads", func() {
+			var data []logs.LogMessage
+			lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
+			data = append(data, lm)
+
+			unsentLogs := c.PostLogs(data)
+			Expect(unsentLogs).ToNot(Equal(uint64(0)))
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("request failed. Wait before retrying:"))
@@ -380,7 +404,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(m.Tags).To(Equal(defaultTags))
 	})
 
-	It("breaks up a message that exceeds the FlushMaxBytes", func() {
+	It("breaks up a metrics message that exceeds the FlushMaxBytes", func() {
 		for i := 0; i < 1000; i++ {
 			k, v := makeFakeMetric(fmt.Sprintf("metricName_%v", i), "gauge", 1000, 1, defaultTags)
 			metricsMap.Add(k, v)
@@ -393,9 +417,24 @@ var _ = Describe("DatadogClient", func() {
 		Eventually(f).Should(BeNumerically(">", 1))
 	})
 
+	It("breaks up a logs message that exceeds the FlushMaxBytes", func() {
+		var data []logs.LogMessage
+		for i := 0; i < 10000; i++ {
+			lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
+			data = append(data, lm)
+		}
+		unsentLogs := c.PostLogs(data)
+		Expect(unsentLogs).To(Equal(uint64(0)))
+		f := func() int {
+			return len(bodies)
+		}
+		Eventually(f).Should(BeNumerically(">", 1))
+	})
+
 	It("discards metrics that exceed that max size", func() {
-		name := proto.String(strings.Repeat("some-big-name", 1000))
 		c.maxPostBytes = 10
+
+		name := proto.String(strings.Repeat("some-big-name", 1000))
 		k, v := makeFakeMetric(*name, "gauge", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
 
@@ -409,11 +448,30 @@ var _ = Describe("DatadogClient", func() {
 		Consistently(f).Should(Equal(0))
 	})
 
+	It("discards logs that exceed that max size", func() {
+		c.maxPostBytes = 10
+
+		message := strings.Repeat("some-big-message", 1000)
+		var data []logs.LogMessage
+		lm := makeFakeLogMessage("hostname", "source", "service", message, "tags")
+		data = append(data, lm)
+
+		unsentLogs := c.PostLogs(data)
+		Expect(unsentLogs).To(Equal(uint64(0)))
+
+		f := func() int {
+			return len(bodies)
+		}
+
+		Consistently(f).Should(Equal(0))
+	})
+
 	It("returns an error when datadog responds with a non 200 response code", func() {
 		// Need to add at least 1 value to metrics map for it to send a message
 		k, v := c.MakeInternalMetric("test", metric.GAUGE, 5, time.Now().Unix())
 		metricsMap[k] = v
 
+		// PostMetrics
 		responseCode = http.StatusBadRequest // 400
 		responseBody = []byte("something went horribly wrong")
 		unsentMetrics := c.PostMetrics(metricsMap)
@@ -426,6 +484,24 @@ var _ = Describe("DatadogClient", func() {
 		responseCode = http.StatusAccepted // 201
 		unsentMetrics = c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
+
+		var data []logs.LogMessage
+		lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
+		data = append(data, lm)
+
+		// PostLogs
+		responseCode = http.StatusBadRequest // 400
+		responseBody = []byte("something went horribly wrong")
+		unsentLogs := c.PostLogs(data)
+		Expect(unsentLogs).ToNot(Equal(uint64(0)))
+
+		responseCode = http.StatusSwitchingProtocols // 101
+		unsentLogs = c.PostLogs(data)
+		Expect(unsentLogs).ToNot(Equal(uint64(0)))
+
+		responseCode = http.StatusAccepted // 201
+		unsentLogs = c.PostLogs(data)
+		Expect(unsentLogs).To(Equal(uint64(0)))
 	})
 
 	It("parses proxy URLs correctly & chooses the correct proxy to use by scheme", func() {
@@ -526,4 +602,14 @@ func makeFakeMetric(name, _type string, timeStamp, value uint64, tags []string) 
 	}
 
 	return key, mValue
+}
+
+func makeFakeLogMessage(hostname, source, service, message, tags string) logs.LogMessage {
+	return logs.LogMessage{
+		Hostname: hostname,
+		Source:   source,
+		Service:  service,
+		Tags:     tags,
+		Message:  message,
+	}
 }

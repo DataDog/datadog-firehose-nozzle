@@ -763,6 +763,7 @@ func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetric
 	totalMessagesReceivedFound := false
 	totalMetricsSentFound := false
 	slowConsumerAlertFound := false
+	// TODO: add checks for logs metrics
 
 	for _, metric := range payload.Series {
 		internalMetric := false
