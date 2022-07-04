@@ -23,7 +23,7 @@ var _ = Describe("Formatter", func() {
 	})
 
 	It("does not return empty data", func() {
-		result := formatter.Format("some-prefix", 1024, nil)
+		result := formatter.FormatMetrics("some-prefix", 1024, nil)
 		Expect(result).To(HaveLen(0))
 	})
 
@@ -35,7 +35,7 @@ var _ = Describe("Formatter", func() {
 			}},
 			Type: metric.GAUGE,
 		}
-		result := formatter.Format("foo", 1024, m)
+		result := formatter.FormatMetrics("foo", 1024, m)
 		Expect(string(helper.Decompress(result[0].data))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
 	})
 
@@ -46,7 +46,7 @@ var _ = Describe("Formatter", func() {
 				Value: 9,
 			}},
 		}
-		result := formatter.Format("some-prefix", 1, m)
+		result := formatter.FormatMetrics("some-prefix", 1, m)
 
 		Expect(result).To(HaveLen(0))
 	})
@@ -58,7 +58,7 @@ var _ = Describe("Formatter", func() {
 				Value: 9,
 			}},
 		}
-		result := formatter.Format("some-prefix", 1024, m)
+		result := formatter.FormatMetrics("some-prefix", 1024, m)
 
 		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
 	})
@@ -76,7 +76,7 @@ var _ = Describe("Formatter", func() {
 				Value: 1.0,
 			}},
 		}
-		result := formatter.Format("some-prefix", 1024, m)
+		result := formatter.FormatMetrics("some-prefix", 1024, m)
 		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"metric":"bosh.healthmonitor.foo"`))
 		Expect(string(helper.Decompress(result[0].data))).To(ContainSubstring(`"points":[[0,9.000000],[0,1.000000]]`))
 	})

@@ -234,7 +234,7 @@ func (c *Client) logsURL() (string, error) {
 // PostMetrics forwards the metrics to datadog
 func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
-	seriesData := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
+	seriesData := c.formatter.FormatMetrics(c.prefix, c.maxPostBytes, metrics)
 	unsentMetrics := uint64(0)
 	for _, entry := range seriesData {
 		if entry.data == nil {

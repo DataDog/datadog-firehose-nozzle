@@ -22,7 +22,7 @@ type FormatData struct {
 	nbrItems uint64
 }
 
-func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
+func (f Formatter) FormatMetrics(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
 	if len(data) == 0 {
 		return nil
 	}
@@ -44,8 +44,8 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 
 		metricsA, metricsB := splitMetrics(data)
 
-		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
-		result = append(result, f.Format(prefix, maxPostBytes, metricsB)...)
+		result = append(result, f.FormatMetrics(prefix, maxPostBytes, metricsA)...)
+		result = append(result, f.FormatMetrics(prefix, maxPostBytes, metricsB)...)
 
 		return result
 	}
