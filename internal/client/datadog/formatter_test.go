@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	"github.com/cloudfoundry/gosteno"
@@ -25,6 +26,9 @@ var _ = Describe("Formatter", func() {
 	It("does not return empty data", func() {
 		result := formatter.FormatMetrics("some-prefix", 1024, nil)
 		Expect(result).To(HaveLen(0))
+
+		result = formatter.FormatLogs(1024, nil)
+		Expect(result).To(HaveLen(0))
 	})
 
 	It("compresses series with zlib", func() {
@@ -39,6 +43,20 @@ var _ = Describe("Formatter", func() {
 		Expect(string(helper.Decompress(result[0].data))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge"}]}`))
 	})
 
+	It("compresses logs with zlib", func() {
+		lm := []logs.LogMessage{
+			{
+				Hostname: "hostname",
+				Source:   "source",
+				Service:  "service",
+				Tags:     "tags",
+				Message:  "message",
+			},
+		}
+		result := formatter.FormatLogs(1024, lm)
+		Expect(string(helper.Decompress(result[0].data))).To(Equal(`[{"ddsource":"source","ddtags":"tags","hostname":"hostname","message":"message","service":"service"}]`))
+	})
+
 	It("drops metrics that are larger than maxPostBytes", func() {
 		m := make(map[metric.MetricKey]metric.MetricValue)
 		m[metric.MetricKey{Name: "a"}] = metric.MetricValue{
@@ -47,6 +65,21 @@ var _ = Describe("Formatter", func() {
 			}},
 		}
 		result := formatter.FormatMetrics("some-prefix", 1, m)
+
+		Expect(result).To(HaveLen(0))
+	})
+
+	It("drops logs that are larger than maxPostBytes", func() {
+		lm := []logs.LogMessage{
+			{
+				Hostname: "hostname",
+				Source:   "source",
+				Service:  "service",
+				Tags:     "tags",
+				Message:  "message",
+			},
+		}
+		result := formatter.FormatLogs(1, lm)
 
 		Expect(result).To(HaveLen(0))
 	})
@@ -88,6 +121,26 @@ var _ = Describe("Formatter", func() {
 		}
 
 		a, b := splitMetrics(metricsMap)
+
+		Expect(len(a)).To(Equal(500))
+		Expect(len(b)).To(Equal(500))
+	})
+
+	It("properly splits logs into two slices", func() {
+		var data []logs.LogMessage
+		for i := 0; i < 1000; i++ {
+			lm := logs.LogMessage{
+				Hostname: "hostname",
+				Source:   "source",
+				Service:  "service",
+				Tags:     "tags",
+				Message:  "message",
+			}
+
+			data = append(data, lm)
+		}
+
+		a, b := splitLogs(data)
 
 		Expect(len(a)).To(Equal(500))
 		Expect(len(b)).To(Equal(500))
