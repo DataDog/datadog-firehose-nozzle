@@ -418,11 +418,11 @@ var _ = Describe("Processor", func() {
 			// custom tags on internal metrics tested in datadogclient_test
 		})
 	})
+
 	Context("LogProcessor", func() {
 		BeforeEach(func() {
-			mchan = make(chan []metric.MetricPackage, 1500)
 			lchan = make(chan logs.LogMessage, 1500)
-			p, _ = NewProcessor(mchan, lchan, []string{}, "", false,
+			p, _ = NewProcessor(nil, lchan, []string{}, "", false,
 				nil, nil, 4, 0, nil)
 		})
 
@@ -630,6 +630,59 @@ var _ = Describe("Processor", func() {
 			for _, tag := range expectedTags {
 				Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
 			}
+		})
+
+		Context("custom tags", func() {
+			BeforeEach(func() {
+				lchan = make(chan logs.LogMessage, 1500)
+				p, _ = NewProcessor(nil, lchan, []string{"environment:foo", "foundry:bar"}, "", false,
+					nil, nil, 4, 0, nil)
+			})
+
+			It("adds custom tags to logs messages", func() {
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp:  1000000000,
+					SourceId:   "source-id-1",
+					InstanceId: "instance-id-1",
+					Tags: map[string]string{
+						"origin":     "test-origin",
+						"deployment": "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+						"job":        "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+						"ip":         "10.0.1.2",
+						"protocol":   "http",
+						"request_id": "a1f5-deadbeef",
+						"index":      "1",
+					},
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				var logMessage logs.LogMessage
+				Eventually(lchan).Should(Receive(&logMessage))
+
+				expectedTags := []string{
+					"deployment:deployment-name",
+					"environment:foo",
+					"foundry:bar",
+					"index:1",
+					"ip:10.0.1.2",
+					"job:doppler",
+					"name:test-origin",
+					"origin:test-origin",
+					"protocol:http",
+					"request_id:a1f5-deadbeef",
+					"source_id:source-id-1",
+					"instance_id:instance-id-1",
+				}
+
+				for _, tag := range expectedTags {
+					Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
+				}
+			})
 		})
 	})
 })
