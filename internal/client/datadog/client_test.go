@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/gosteno"
+	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
