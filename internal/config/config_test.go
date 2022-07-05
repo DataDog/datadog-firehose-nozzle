@@ -21,6 +21,8 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("user_password"))
 		Expect(conf.RLPGatewayURL).To(Equal("https://some-url.blah"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq.com/api/v1/series"))
+		Expect(conf.DataDogLogIntakeURL).To(Equal("https://http-intake.logs.datadoghq.com/api/v2/logs"))
+		Expect(conf.DataDogAdditionalLogIntakeEndpoints).To(BeEquivalentTo([]string{"https://http-intake.logs.us3.datadoghq.com/api/v2/logs", "https://http-intake.logs.datadoghq.eu/api/v2/logs"}))
 		Expect(conf.DataDogAPIKey).To(Equal("<enter api key>"))
 		Expect(conf.HTTPProxyURL).To(Equal("http://user:password@host.com:port"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://user:password@host.com:port"))
@@ -84,6 +86,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_CLIENT_SECRET", "env-user-password")
 		os.Setenv("NOZZLE_RLP_GATEWAY_URL", "https://even-more-different.com")
 		os.Setenv("NOZZLE_DATADOGURL", "https://app.datadoghq-env.com/api/v1/series")
+		os.Setenv("NOZZLE_DATADOGLOGINTAKEURL", "https://http-intake.logs.datadoghq-env.com/api/v2/logs")
 		os.Setenv("NOZZLE_DATADOGAPIKEY", "envapi-key>")
 		os.Setenv("HTTP_PROXY", "http://test:proxy")
 		os.Setenv("HTTPS_PROXY", "https://test:proxy")
@@ -118,6 +121,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.ClientSecret).To(Equal("env-user-password"))
 		Expect(conf.RLPGatewayURL).To(Equal("https://even-more-different.com"))
 		Expect(conf.DataDogURL).To(Equal("https://app.datadoghq-env.com/api/v1/series"))
+		Expect(conf.DataDogLogIntakeURL).To(Equal("https://http-intake.logs.datadoghq-env.com/api/v2/logs"))
 		Expect(conf.DataDogAPIKey).To(Equal("envapi-key>"))
 		Expect(conf.HTTPProxyURL).To(Equal("http://test:proxy"))
 		Expect(conf.HTTPSProxyURL).To(Equal("https://test:proxy"))
@@ -153,7 +157,8 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
 		expected += `"DCAEnabled":true,"DCAToken":"123456789","DCAUrl":"datadog-cluster-agent.bosh-deployment-name:5005",`
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
-		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},"DataDogTimeoutSeconds":5,`
+		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},`
+		expected += `"DataDogAdditionalLogIntakeEndpoints":["https://http-intake.logs.us3.datadoghq.com/api/v2/logs","https://http-intake.logs.datadoghq.eu/api/v2/logs"],"DataDogLogIntakeURL":"https://http-intake.logs.datadoghq.com/api/v2/logs","DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
 		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableAdvancedTagging":true,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
 		expected += `"FirehoseSubscriptionID":"datadog-nozzle","FlushDurationSeconds":15,"FlushMaxBytes":57671680,`

@@ -124,6 +124,7 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvVar("NOZZLE_DATADOGLOGINTAKEURL", &config.DataDogLogIntakeURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)
 	//NOTE: Override of DataDogAdditionalEndpoints not supported
+	//NOTE: Override of DataDogAdditionalLogIntakeEndpoints not supported
 
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
