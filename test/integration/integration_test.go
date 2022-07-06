@@ -174,7 +174,12 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(m.Tags).To(HaveLen(2))
 				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
 				Expect(m.Tags[1]).To(HavePrefix("ip:"))
-
+				Expect(m.Points).To(HaveLen(1))
+				Expect(m.Points[0].Value).To(Equal(0.0))
+			} else if m.Metric == "cloudfoundry.nozzle.totalLogsSent" {
+				Expect(m.Tags).To(HaveLen(2))
+				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(m.Tags[1]).To(HavePrefix("ip:"))
 				Expect(m.Points).To(HaveLen(1))
 				Expect(m.Points[0].Value).To(Equal(0.0))
 			} else if m.Metric == "cloudfoundry.nozzle.slowConsumerAlert" {
