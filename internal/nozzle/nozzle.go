@@ -228,7 +228,7 @@ func (n *Nozzle) postLogs() {
 
 	for _, client := range n.ddClients {
 		unsentLogs := client.PostLogs(logsBuffer)
-		n.logsSent += uint64(len(n.logsBuffer)) - unsentLogs
+		n.logsSent += uint64(len(logsBuffer)) - unsentLogs
 		n.logsDropped += unsentLogs
 	}
 
