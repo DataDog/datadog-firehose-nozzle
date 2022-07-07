@@ -135,16 +135,8 @@ func parseTags(
 	deploymentUUIDRegex *regexp.Regexp,
 	jobPartitionUUIDRegex *regexp.Regexp) []string {
 
-	tagNameMap := map[string]string{
-		"app_id":   "application_id",
-		"app_name": "application_name",
-	}
-
 	var tags []string
 	for tname, tvalue := range envelope.GetTags() {
-		if val, ok := tagNameMap[tname]; ok {
-			tname = val
-		}
 		tags = appendTagIfNotEmpty(tags, tname, tvalue)
 	}
 	if origin, ok := envelope.GetTags()["origin"]; ok {

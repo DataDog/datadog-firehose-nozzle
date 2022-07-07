@@ -45,15 +45,13 @@ func NewFakeClusterAgentAPI(tokenType string, accessToken string) *FakeClusterAg
 }
 
 // Start starts the cloud controller
-func (f *FakeClusterAgentAPI) Start(wg *sync.WaitGroup) {
+func (f *FakeClusterAgentAPI) Start() {
 	f.server = httptest.NewUnstartedServer(f)
-	wg.Done()
 	f.server.Start()
 }
 
 // Close closes the cloud controller
 func (f *FakeClusterAgentAPI) Close() {
-	f.server.CloseClientConnections()
 	f.server.Close()
 }
 

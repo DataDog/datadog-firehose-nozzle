@@ -1,8 +1,6 @@
 package uaatokenfetcher
 
 import (
-	"sync"
-
 	"github.com/cloudfoundry/gosteno"
 
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -12,7 +10,6 @@ import (
 
 var _ = Describe("UaaTokenFetcher", func() {
 	var (
-		wg           *sync.WaitGroup
 		tokenFetcher *UAATokenFetcher
 		fakeUAA      *helper.FakeUAA
 		fakeToken    string
@@ -23,10 +20,7 @@ var _ = Describe("UaaTokenFetcher", func() {
 		fakeLogger = helper.Logger()
 		fakeUAA = helper.NewFakeUAA("bearer", "123456789")
 		fakeToken = fakeUAA.AuthToken()
-		wg = &sync.WaitGroup{}
-		wg.Add(1)
-		fakeUAA.Start(wg)
-		wg.Wait()
+		fakeUAA.Start()
 
 		tokenFetcher = New(fakeUAA.URL(), "username", "password", true, fakeLogger)
 	})

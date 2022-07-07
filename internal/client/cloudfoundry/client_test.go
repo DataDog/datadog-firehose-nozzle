@@ -1,8 +1,6 @@
 package cloudfoundry
 
 import (
-	"sync"
-
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -103,10 +101,7 @@ var _ = Describe("CloudFoundryClient", func() {
 	BeforeEach(func() {
 		log = gosteno.NewLogger("cloudfoundry client test")
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
-		var wg sync.WaitGroup
-		wg.Add(1)
-		fakeCloudControllerAPI.Start(&wg)
-		wg.Wait()
+		fakeCloudControllerAPI.Start()
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
 		cfg := config.Config{

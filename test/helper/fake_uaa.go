@@ -24,14 +24,12 @@ func NewFakeUAA(tokenType string, accessToken string) *FakeUAA {
 	}
 }
 
-func (f *FakeUAA) Start(wg *sync.WaitGroup) {
+func (f *FakeUAA) Start() {
 	f.server = httptest.NewUnstartedServer(f)
-	wg.Done()
 	f.server.Start()
 }
 
 func (f *FakeUAA) Close() {
-	f.server.CloseClientConnections()
 	f.server.Close()
 }
 

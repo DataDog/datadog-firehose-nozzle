@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 )
 
 type FakeDatadogAPI struct {
@@ -18,14 +17,12 @@ func NewFakeDatadogAPI() *FakeDatadogAPI {
 	}
 }
 
-func (f *FakeDatadogAPI) Start(wg *sync.WaitGroup) {
+func (f *FakeDatadogAPI) Start() {
 	f.server = httptest.NewUnstartedServer(f)
-	wg.Done()
 	f.server.Start()
 }
 
 func (f *FakeDatadogAPI) Close() {
-	f.server.CloseClientConnections()
 	f.server.Close()
 }
 

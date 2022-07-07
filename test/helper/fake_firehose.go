@@ -38,15 +38,13 @@ func NewFakeFirehose(validToken string) *FakeFirehose {
 	}
 }
 
-func (f *FakeFirehose) Start(wg *sync.WaitGroup) {
+func (f *FakeFirehose) Start() {
 	f.server = httptest.NewUnstartedServer(f)
-	wg.Done()
 	f.server.Start()
 }
 
 func (f *FakeFirehose) Close() {
 	f.closeServerLoop <- true
-	f.server.CloseClientConnections()
 	f.server.Close()
 }
 

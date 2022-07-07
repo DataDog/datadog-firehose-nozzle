@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/uaatokenfetcher"
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -24,18 +22,16 @@ import (
 
 var _ = Describe("Datadog Firehose Nozzle", func() {
 	var (
-		wg                      *sync.WaitGroup
-		fakeUAA                 *helper.FakeUAA
-		fakeFirehose            *helper.FakeFirehose
-		fakeDatadogAPI          *helper.FakeDatadogAPI
-		fakeDatadogLogIntakeAPI *helper.FakeDatadogLogIntakeAPI
-		fakeCCAPI               *helper.FakeCloudControllerAPI
-		fakeDCAAPI              *helper.FakeClusterAgentAPI
-		configuration           *config.Config
-		nozzle                  *Nozzle
-		log                     *gosteno.Logger
-		logContent              *bytes.Buffer
-		fakeBuffer              *helper.FakeBufferSink
+		fakeUAA        *helper.FakeUAA
+		fakeFirehose   *helper.FakeFirehose
+		fakeDatadogAPI *helper.FakeDatadogAPI
+		fakeCCAPI      *helper.FakeCloudControllerAPI
+		fakeDCAAPI     *helper.FakeClusterAgentAPI
+		configuration  *config.Config
+		nozzle         *Nozzle
+		log            *gosteno.Logger
+		logContent     *bytes.Buffer
+		fakeBuffer     *helper.FakeBufferSink
 	)
 
 	BeforeEach(func() {
@@ -57,26 +53,18 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeToken := fakeUAA.AuthToken()
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
-			fakeDatadogLogIntakeAPI = helper.NewFakeDatadogLogIntakeAPI()
 			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
-
-			wg = &sync.WaitGroup{}
-			wg.Add(5)
-
-			fakeCCAPI.Start(wg)
-			fakeUAA.Start(wg)
-			fakeFirehose.Start(wg)
-			fakeDatadogAPI.Start(wg)
-			fakeDatadogLogIntakeAPI.Start(wg)
-
-			wg.Wait()
+			fakeCCAPI.Start()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+			time.Sleep(2 * time.Second)
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
 				FlushDurationSeconds:      2,
 				FlushMaxBytes:             10240,
 				DataDogURL:                fakeDatadogAPI.URL(),
-				DataDogLogIntakeURL:       fakeDatadogLogIntakeAPI.URL(),
 				CloudControllerEndpoint:   fakeCCAPI.URL(),
 				RLPGatewayURL:             fakeFirehose.URL(),
 				Client:                    "bearer",
@@ -103,7 +91,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
-			fakeDatadogLogIntakeAPI.Close()
 			fakeCCAPI.Close()
 		})
 
@@ -192,23 +179,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				}
 				fakeFirehose.AddEvent(envelope)
 			}
-			for i := 0; i < 10; i++ {
-				envelope := loggregator_v2.Envelope{
-					Timestamp: 1000000000,
-					Tags: map[string]string{
-						"origin":     "origin",
-						"deployment": "deployment-name",
-						"job":        "doppler",
-					},
-					Message: &loggregator_v2.Envelope_Log{
-						Log: &loggregator_v2.Log{
-							Payload: []byte("log message"),
-							Type:    loggregator_v2.Log_OUT,
-						},
-					},
-				}
-				fakeFirehose.AddEvent(envelope)
-			}
 			fakeFirehose.ServeBatch()
 
 			var contents []byte
@@ -219,22 +189,15 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(26))
 
-			validateMetrics(payload, 21, 0, 0, 0, 0, 0, 0) // +1 for total messages because of Org Quota
-
-			Eventually(fakeDatadogLogIntakeAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
-
-			var logPayload []logs.LogMessage
-			err = json.Unmarshal(helper.Decompress(contents), &logPayload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logPayload)).To(Equal(10))
+			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 			err = json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(payload.Series).To(HaveLen(8)) // only internal metrics
+			Expect(payload.Series).To(HaveLen(6)) // only internal metrics
 
-			validateMetrics(payload, 21, 26, 26, 0, 10, 10, 0)
+			validateMetrics(payload, 11, 26, 26, 0)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {
@@ -363,15 +326,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
 			tokenFetcher = &helper.FakeTokenFetcher{}
 
-			wg = &sync.WaitGroup{}
-			wg.Add(4)
-
-			fakeUAA.Start(wg)
-			fakeFirehose.Start(wg)
-			fakeDatadogAPI.Start(wg)
-			fakeCCAPI.Start(wg)
-
-			wg.Wait()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+			fakeCCAPI.Start()
+			time.Sleep(time.Second)
 
 			configuration = &config.Config{
 				FlushDurationSeconds:      2,
@@ -401,7 +360,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("can still tries to connect to the firehose", func() {
-			time.Sleep(time.Second)
+			time.Sleep(1 * time.Second)
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 		})
 
@@ -422,16 +381,10 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
 			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
-
-			wg = &sync.WaitGroup{}
-			wg.Add(4)
-
-			fakeUAA.Start(wg)
-			fakeFirehose.Start(wg)
-			fakeDatadogAPI.Start(wg)
-			fakeCCAPI.Start(wg)
-
-			wg.Wait()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
+			fakeCCAPI.Start()
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -464,7 +417,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		It("logs a warning", func() {
 			go nozzle.Start()
-			time.Sleep(time.Second)
+			time.Sleep(1 * time.Second)
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
 
@@ -479,14 +432,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeToken := fakeUAA.AuthToken()
 			fakeFirehose = helper.NewFakeFirehose(fakeToken)
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
-
-			wg.Add(3)
-
-			fakeUAA.Start(wg)
-			fakeFirehose.Start(wg)
-			fakeDatadogAPI.Start(wg)
-
-			wg.Wait()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -537,17 +485,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeDatadogAPI = helper.NewFakeDatadogAPI()
 			fakeCCAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
 			fakeDCAAPI = helper.NewFakeClusterAgentAPI("bearer", "123456789")
-
-			wg = &sync.WaitGroup{}
-			wg.Add(5)
-
-			fakeCCAPI.Start(wg)
-			fakeDCAAPI.Start(wg)
-			fakeUAA.Start(wg)
-			fakeFirehose.Start(wg)
-			fakeDatadogAPI.Start(wg)
-
-			wg.Wait()
+			fakeCCAPI.Start()
+			fakeDCAAPI.Start()
+			fakeUAA.Start()
+			fakeFirehose.Start()
+			fakeDatadogAPI.Start()
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -667,7 +609,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(26))
 
-			validateMetrics(payload, 11, 0, 0, 0, 0, 0, 0) // +1 for total messages because of Org Quota
+			validateMetrics(payload, 11, 0, 0, 0) // +1 for total messages because of Org Quota
 
 			// Wait a bit more for the new tick. We should receive only internal metrics
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
@@ -675,7 +617,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(6)) // only internal metrics
 
-			validateMetrics(payload, 11, 26, 26, 0, 0, 0, 0)
+			validateMetrics(payload, 11, 26, 26, 0)
 		}, 3)
 
 		Context("receives a rlp.dropped value metric", func() {
@@ -817,11 +759,11 @@ func filterOutNozzleMetrics(deployment string, c <-chan []byte) <-chan []byte {
 	return result
 }
 
-func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent, metricsSent, metricsDropped, totalLogsSent, logsSent, logsDropped int) {
+func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetricsSent, metricsSent, metricsDropped int) {
 	totalMessagesReceivedFound := false
 	totalMetricsSentFound := false
-	totalLogsSentFound := false
 	slowConsumerAlertFound := false
+	// TODO: add checks for logs metrics
 
 	for _, metric := range payload.Series {
 		internalMetric := false
@@ -854,34 +796,16 @@ func validateMetrics(payload datadog.Payload, totalMessagesReceived, totalMetric
 			internalMetric = true
 			metricValue = metricsDropped
 		}
-		if metric.Metric == "datadog.nozzle.totalLogsSent" {
-			Expect(metric.Type).To(Equal("gauge"))
-			totalLogsSentFound = true
-			internalMetric = true
-			metricValue = totalLogsSent
-		}
-		if metric.Metric == "datadog.nozzle.logs.sent" {
-			Expect(metric.Type).To(Equal("count"))
-			internalMetric = true
-			metricValue = logsSent
-		}
-		if metric.Metric == "datadog.nozzle.logs.dropped" {
-			Expect(metric.Type).To(Equal("count"))
-			internalMetric = true
-			metricValue = logsDropped
-		}
+
 		if internalMetric {
 			Expect(metric.Points).To(HaveLen(1))
 			Expect(metric.Points[0].Timestamp).To(BeNumerically(">", time.Now().Unix()-10), "Timestamp should not be less than 10 seconds ago")
-			actual := fmt.Sprintf("%s:%v", metric.Metric, metric.Points[0].Value)
-			expected := fmt.Sprintf("%s:%v", metric.Metric, float64(metricValue))
-			Expect(actual).To(Equal(expected))
+			Expect(metric.Points[0].Value).To(Equal(float64(metricValue)))
 			ip, _ := localip.LocalIP()
 			Expect(metric.Tags).To(Equal([]string{"deployment:nozzle-deployment", "ip:" + ip}))
 		}
 	}
 	Expect(totalMessagesReceivedFound).To(BeTrue())
 	Expect(totalMetricsSentFound).To(BeTrue())
-	Expect(totalLogsSentFound).To(BeTrue())
 	Expect(slowConsumerAlertFound).To(BeTrue())
 }

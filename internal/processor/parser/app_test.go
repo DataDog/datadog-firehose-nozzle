@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"sync"
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
@@ -22,7 +21,6 @@ import (
 
 var _ = Describe("AppMetrics", func() {
 	var (
-		wg                     *sync.WaitGroup
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
@@ -36,17 +34,11 @@ var _ = Describe("AppMetrics", func() {
 		log = gosteno.NewLogger("datadogclient test")
 
 		fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
-		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
-
-		wg = &sync.WaitGroup{}
-		wg.Add(2)
-
-		fakeCloudControllerAPI.Start(wg)
-		fakeClusterAgentAPI.Start(wg)
-
-		wg.Wait()
-
+		fakeCloudControllerAPI.Start()
 		ccAPIURL = fakeCloudControllerAPI.URL()
+
+		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
+		fakeClusterAgentAPI.Start()
 		dcaAPIURL = fakeClusterAgentAPI.URL()
 
 		config.NozzleConfig = config.Config{}
