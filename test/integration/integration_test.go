@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -19,6 +20,7 @@ import (
 
 var _ = Describe("DatadogFirehoseNozzle", func() {
 	var (
+		wg             *sync.WaitGroup
 		fakeUAA        *FakeUAA
 		fakeFirehose   *FakeFirehose
 		fakeDatadogAPI *FakeDatadogAPI
@@ -32,9 +34,14 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 		fakeFirehose = NewFakeFirehose(fakeToken)
 		fakeDatadogAPI = NewFakeDatadogAPI()
 
-		fakeUAA.Start()
-		fakeFirehose.Start()
-		fakeDatadogAPI.Start()
+		wg = &sync.WaitGroup{}
+		wg.Add(3)
+
+		fakeUAA.Start(wg)
+		fakeFirehose.Start(wg)
+		fakeDatadogAPI.Start(wg)
+
+		wg.Wait()
 
 		os.Setenv("NOZZLE_FLUSHDURATIONSECONDS", "2")
 		os.Setenv("NOZZLE_FLUSHMAXBYTES", "10240")

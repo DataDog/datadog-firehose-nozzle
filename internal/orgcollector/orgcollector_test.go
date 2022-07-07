@@ -1,6 +1,8 @@
 package orgcollector
 
 import (
+	"sync"
+
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,6 +15,7 @@ import (
 
 var _ = Describe("OrgCollector", func() {
 	var (
+		wg                     *sync.WaitGroup
 		log                    *gosteno.Logger
 		fakeCloudControllerAPI *FakeCloudControllerAPI
 		ccAPIURL               string
@@ -27,7 +30,9 @@ var _ = Describe("OrgCollector", func() {
 		BeforeEach(func() {
 			log = gosteno.NewLogger("cloudfoundry client test")
 			fakeCloudControllerAPI = NewFakeCloudControllerAPI("bearer", "123456789")
-			fakeCloudControllerAPI.Start()
+			wg.Add(1)
+			fakeCloudControllerAPI.Start(wg)
+			wg.Wait()
 
 			ccAPIURL = fakeCloudControllerAPI.URL()
 
@@ -107,7 +112,9 @@ var _ = Describe("OrgCollector", func() {
 			log = gosteno.NewLogger("cluster agent client test")
 
 			fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
-			fakeClusterAgentAPI.Start()
+			wg.Add(1)
+			fakeClusterAgentAPI.Start(wg)
+			wg.Wait()
 
 			dcaAPIURL = fakeClusterAgentAPI.URL()
 

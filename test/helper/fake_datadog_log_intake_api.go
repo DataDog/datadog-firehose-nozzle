@@ -7,33 +7,33 @@ import (
 	"sync"
 )
 
-type FakeDatadogAPI struct {
+type FakeDatadogLogIntakeAPI struct {
 	server           *httptest.Server
 	ReceivedContents chan []byte
 }
 
-func NewFakeDatadogAPI() *FakeDatadogAPI {
-	return &FakeDatadogAPI{
+func NewFakeDatadogLogIntakeAPI() *FakeDatadogLogIntakeAPI {
+	return &FakeDatadogLogIntakeAPI{
 		ReceivedContents: make(chan []byte, 100),
 	}
 }
 
-func (f *FakeDatadogAPI) Start(wg *sync.WaitGroup) {
+func (f *FakeDatadogLogIntakeAPI) Start(wg *sync.WaitGroup) {
 	f.server = httptest.NewUnstartedServer(f)
 	wg.Done()
 	f.server.Start()
 }
 
-func (f *FakeDatadogAPI) Close() {
+func (f *FakeDatadogLogIntakeAPI) Close() {
 	f.server.CloseClientConnections()
 	f.server.Close()
 }
 
-func (f *FakeDatadogAPI) URL() string {
+func (f *FakeDatadogLogIntakeAPI) URL() string {
 	return f.server.URL
 }
 
-func (f *FakeDatadogAPI) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (f *FakeDatadogLogIntakeAPI) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	contents, _ := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 

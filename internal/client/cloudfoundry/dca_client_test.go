@@ -1,6 +1,8 @@
 package cloudfoundry
 
 import (
+	"sync"
+
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	"github.com/cloudfoundry-community/go-cfclient"
 	. "github.com/onsi/ginkgo"
@@ -70,6 +72,7 @@ func checkV2OrgQuotaAttributes(orgQuota *CFOrgQuota) {
 
 var _ = Describe("DatadogClusterAgentClient", func() {
 	var (
+		wg                  *sync.WaitGroup
 		log                 *gosteno.Logger
 		fakeClusterAgentAPI *FakeClusterAgentAPI
 		dcaAPIURL           string
@@ -79,7 +82,10 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	BeforeEach(func() {
 		log = gosteno.NewLogger("DCA client test")
 		fakeClusterAgentAPI = NewFakeClusterAgentAPI("bearer", "123456789")
-		fakeClusterAgentAPI.Start()
+		wg = &sync.WaitGroup{}
+		wg.Add(1)
+		fakeClusterAgentAPI.Start(wg)
+		wg.Wait()
 
 		dcaAPIURL = fakeClusterAgentAPI.URL()
 		cfg := config.Config{

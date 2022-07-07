@@ -3,6 +3,7 @@ package helper
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,13 +19,15 @@ func NewFakeIdleFirehose(timeout time.Duration) *FakeIdleFirehose {
 	return &FakeIdleFirehose{idleTimeout: timeout, done: make(chan struct{})}
 }
 
-func (f *FakeIdleFirehose) Start() {
+func (f *FakeIdleFirehose) Start(wg *sync.WaitGroup) {
 	f.server = httptest.NewUnstartedServer(f)
+	wg.Done()
 	f.server.Start()
 }
 
 func (f *FakeIdleFirehose) Close() {
 	close(f.done)
+	f.server.CloseClientConnections()
 	f.server.Close()
 }
 

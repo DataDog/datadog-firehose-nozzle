@@ -50,13 +50,15 @@ func NewFakeCloudControllerAPI(tokenType string, accessToken string) *FakeCloudC
 }
 
 // Start starts the cloud controller
-func (f *FakeCloudControllerAPI) Start() {
+func (f *FakeCloudControllerAPI) Start(wg *sync.WaitGroup) {
 	f.server = httptest.NewUnstartedServer(f)
+	wg.Done()
 	f.server.Start()
 }
 
 // Close closes the cloud controller
 func (f *FakeCloudControllerAPI) Close() {
+	f.server.CloseClientConnections()
 	f.server.Close()
 }
 
