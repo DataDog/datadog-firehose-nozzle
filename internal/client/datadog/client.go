@@ -142,7 +142,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	i := 0
 	for endpoint, keys := range config.DataDogAdditionalEndpoints {
 		var logIntakeEndpoint string
-		if len(config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+		if l := len(config.DataDogAdditionalLogIntakeEndpoints); l > 0 && i < l {
 			logIntakeEndpoint = config.DataDogAdditionalLogIntakeEndpoints[i]
 		}
 
