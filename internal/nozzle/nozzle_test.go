@@ -70,6 +70,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				FlushMaxBytes:             10240,
 				DataDogURL:                fakeDatadogAPI.URL(),
 				DataDogLogIntakeURL:       fakeDatadogLogIntakeAPI.URL(),
+				EnableApplicationLogs:     true,
 				CloudControllerEndpoint:   fakeCCAPI.URL(),
 				RLPGatewayURL:             fakeFirehose.URL(),
 				Client:                    "bearer",
