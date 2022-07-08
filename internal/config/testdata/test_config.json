@@ -45,6 +45,7 @@
   "OrgDataCollectionInterval": 100,
   "EnableMetadataCollection": true,
   "EnableAdvancedTagging": true,
+  "EnableApplicationLogs": true,
   "MetadataKeysWhitelistPatterns": ["whitelisted1", "whitelisted2"],
   "MetadataKeysBlacklistPatterns": ["blacklisted1", "blacklisted2"],
   "DCAUrl": "datadog-cluster-agent.bosh-deployment-name:5005",

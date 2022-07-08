@@ -59,6 +59,7 @@ type Config struct {
 	OrgDataCollectionInterval           uint32
 	EnableMetadataCollection            bool
 	EnableAdvancedTagging               bool
+	EnableApplicationLogs               bool
 	MetadataKeysWhitelistPatterns       []string
 	MetadataKeysBlacklistPatterns       []string
 	MetadataKeysWhitelist               []*regexp.Regexp `json:"-"`
@@ -146,6 +147,7 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
 	overrideWithEnvBool("NOZZLE_ENABLE_METADATA_COLLECTION", &config.EnableMetadataCollection)
+	overrideWithEnvBool("NOZZLE_ENABLE_APPLICATION_LOGS", &config.EnableApplicationLogs)
 
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_WHITELIST", &config.MetadataKeysWhitelistPatterns)
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_BLACKLIST", &config.MetadataKeysBlacklistPatterns)

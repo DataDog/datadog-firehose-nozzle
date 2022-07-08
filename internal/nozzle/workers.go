@@ -20,7 +20,7 @@ func (d *Nozzle) startWorkers() {
 	// NOTE: This step is not parallelized and should part of another class
 	go d.readProcessedMetrics()
 
-	if d.config.DataDogLogIntakeURL != "" || len(d.config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+	if d.config.EnableApplicationLogs {
 		go d.readProcessedLogs()
 	}
 
@@ -64,11 +64,11 @@ func (d *Nozzle) work() {
 			}
 
 			// logs
-			if l := envelope.GetLog(); l != nil {
-				if d.config.DataDogLogIntakeURL != "" || len(d.config.DataDogAdditionalLogIntakeEndpoints) > 0 {
+			if d.config.EnableApplicationLogs {
+				if l := envelope.GetLog(); l != nil {
 					d.processor.ProcessLog(envelope)
+					continue
 				}
-				continue
 			}
 
 			// metrics

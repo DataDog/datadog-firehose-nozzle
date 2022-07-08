@@ -144,6 +144,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 		var logIntakeEndpoint string
 		if l := len(config.DataDogAdditionalLogIntakeEndpoints); l > 0 && i < l {
 			logIntakeEndpoint = config.DataDogAdditionalLogIntakeEndpoints[i]
+			i++
 		}
 
 		for keyIndex := range keys {
@@ -162,7 +163,6 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 				proxy,
 			))
 		}
-		i++
 	}
 
 	return ddClients, nil

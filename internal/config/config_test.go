@@ -48,6 +48,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(1000))
 		Expect(conf.OrgDataCollectionInterval).To(BeEquivalentTo(100))
 		Expect(conf.EnableMetadataCollection).To(BeTrue())
+		Expect(conf.EnableApplicationLogs).To(BeTrue())
 		Expect(conf.MetadataKeysBlacklist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("blacklisted1"), regexp.MustCompile("blacklisted2")}))
 		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
@@ -78,6 +79,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.DCAUrl).To(BeEmpty())
 		Expect(conf.DCAToken).To(BeEmpty())
 		Expect(conf.EnableAdvancedTagging).To(BeFalse())
+		Expect(conf.EnableApplicationLogs).To(BeFalse())
 	})
 
 	It("successfully overwrites file config values with environmental variables", func() {
@@ -110,6 +112,7 @@ var _ = Describe("NozzleConfig", func() {
 		os.Setenv("NOZZLE_METADATA_KEYS_WHITELIST", "whitelisted1,whitelisted2")
 		os.Setenv("NOZZLE_METADATA_KEYS_BLACKLIST", "blacklisted1,blacklisted2")
 		os.Setenv("NOZZLE_ENABLE_METADATA_COLLECTION", "true")
+		os.Setenv("NOZZLE_ENABLE_APPLICATION_LOGS", "true")
 		os.Setenv("NOZZLE_DCA_ENABLED", "true")
 		os.Setenv("NOZZLE_DCA_URL", "datadog-cluster-agent.bosh-deployment-name:5005")
 		os.Setenv("NOZZLE_DCA_TOKEN", "123456789")
@@ -142,6 +145,7 @@ var _ = Describe("NozzleConfig", func() {
 		Expect(conf.CloudControllerAPIBatchSize).To(BeEquivalentTo(100))
 		Expect(conf.OrgDataCollectionInterval).To(BeEquivalentTo(100))
 		Expect(conf.EnableMetadataCollection).To(BeTrue())
+		Expect(conf.EnableApplicationLogs).To(BeTrue())
 		Expect(conf.MetadataKeysBlacklist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("blacklisted1"), regexp.MustCompile("blacklisted2")}))
 		Expect(conf.MetadataKeysWhitelist).To(BeEquivalentTo([]*regexp.Regexp{regexp.MustCompile("whitelisted1"), regexp.MustCompile("whitelisted2")}))
 		Expect(conf.MetadataKeysBlacklistPatterns).To(BeEquivalentTo([]string{"blacklisted1", "blacklisted2"}))
@@ -160,7 +164,7 @@ var _ = Describe("NozzleConfig", func() {
 		expected += `"https://app.datadoghq.com/api/v2/series":["*****"]},`
 		expected += `"DataDogAdditionalLogIntakeEndpoints":["https://http-intake.logs.us3.datadoghq.com/api/v2/logs","https://http-intake.logs.datadoghq.eu/api/v2/logs"],"DataDogLogIntakeURL":"https://http-intake.logs.datadoghq.com/api/v2/logs","DataDogTimeoutSeconds":5,`
 		expected += `"DataDogURL":"https://app.datadoghq.com/api/v1/series","Deployment":"deployment-name",`
-		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableAdvancedTagging":true,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
+		expected += `"DeploymentFilter":"deployment-filter","DisableAccessControl":false,"EnableAdvancedTagging":true,"EnableApplicationLogs":true,"EnableMetadataCollection":true,"EnvironmentName":"env_name",`
 		expected += `"FirehoseSubscriptionID":"datadog-nozzle","FlushDurationSeconds":15,"FlushMaxBytes":57671680,`
 		expected += `"GrabInterval":50,"HTTPProxyURL":"http://user:password@host.com:port",`
 		expected += `"HTTPSProxyURL":"https://user:password@host.com:port","IdleTimeoutSeconds":60,"InsecureSSLSkipVerify":true,`

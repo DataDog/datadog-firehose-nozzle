@@ -159,9 +159,10 @@ func (n *Nozzle) Start() error {
 	// Submit metrics left in cache if any
 	n.postMetrics()
 
-	// Submit logs left in cache if any
-	n.postLogs()
-
+	if n.config.EnableApplicationLogs {
+		// Submit logs left in cache if any
+		n.postLogs()
+	}
 	return err
 }
 
