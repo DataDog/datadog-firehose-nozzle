@@ -3,6 +3,7 @@ package processor
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
@@ -112,10 +113,20 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 
 	var appTags []string
 	var serviceName string = envelope.SourceId
+	var source string
 
 	cfapp := p.appCache.Get(envelope.SourceId)
 	if cfapp != nil {
 		appTags = cfapp.Tags
+		appTags = append(appTags, fmt.Sprintf("application_id:%s", envelope.GetTags()["app_id"]))
+		appTags = append(appTags, fmt.Sprintf("application_name:%s", envelope.GetTags()["app_name"]))
+		appTags = append(appTags, fmt.Sprintf("instance_index:%s", envelope.GetTags()["instance_id"]))
+		for _, tag := range appTags {
+			if strings.HasPrefix(tag, "source") {
+				source = strings.TrimPrefix(tag, "source:")
+				break
+			}
+		}
 		serviceName = cfapp.Name
 	}
 
@@ -129,6 +140,11 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 
 	logsMessage, err = infraParser.ParseLog(envelope)
 	logsMessage.Service = serviceName
+	if source == "" {
+		logsMessage.Source = "datadog-firehose-nozzle"
+	} else {
+		logsMessage.Source = source
+	}
 
 	if err == nil {
 		p.processedLogs <- logsMessage
