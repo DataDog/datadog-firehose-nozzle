@@ -71,6 +71,7 @@ func newRLPGatewayClientDoer(disableACS bool, tokenFetcher AuthTokenFetcher, ins
 				InsecureSkipVerify: insecureSkipVerify,
 			},
 		},
+		Timeout: 1 * time.Minute,
 	}
 
 	return &rlpGatewayClientDoer{
