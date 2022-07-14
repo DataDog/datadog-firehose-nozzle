@@ -8,7 +8,7 @@ import (
 	"time"
 
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
@@ -58,7 +58,7 @@ var _ = Describe("AppMetrics", func() {
 		Expect(err).To(BeNil())
 		fakeDCAClient, err = cloudfoundry.NewDCAClient(&cfg, log)
 		Expect(err).To(BeNil())
-	}, 0)
+	}, 0.0)
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {

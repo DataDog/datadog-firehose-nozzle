@@ -47,6 +47,7 @@ type Nozzle struct {
 	totalLogsSent         uint64
 	logsSent              uint64
 	logsDropped           uint64
+	running               chan interface{}
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -68,6 +69,7 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
 		messages:              make(chan *loggregator_v2.Envelope, 10000),
+		running:               make(chan interface{}),
 	}
 }
 
@@ -196,6 +198,10 @@ func (n *Nozzle) run() error {
 	// - stop nozzle
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
+
+	n.mapLock.Lock()
+	close(n.running)
+	n.mapLock.Unlock()
 	for {
 		select {
 		case <-ticker.C:
@@ -206,6 +212,15 @@ func (n *Nozzle) run() error {
 			n.postLogs()
 		case <-n.stopper:
 			return nil
+		}
+	}
+}
+
+// Wait blocks if the nozzle is not running, does nothing otherwise
+func (n *Nozzle) Wait() {
+	for {
+		if _, ok := <-n.running; !ok {
+			return
 		}
 	}
 }

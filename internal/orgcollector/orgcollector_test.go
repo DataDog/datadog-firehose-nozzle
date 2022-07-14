@@ -2,7 +2,7 @@ package orgcollector
 
 import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/cloudfoundry/gosteno"
@@ -49,7 +49,7 @@ var _ = Describe("OrgCollector", func() {
 				customTags,
 			)
 			Expect(err).To(BeNil())
-		}, 0)
+		}, 0.0)
 
 		It("pushes correct metrics using cloud foundry client", func() {
 			fakeOrgCollector.pushMetrics()
@@ -127,7 +127,7 @@ var _ = Describe("OrgCollector", func() {
 				customTags,
 			)
 			Expect(err).To(BeNil())
-		}, 0)
+		}, 0.0)
 
 		It("pushes correct metrics using cluster agent client", func() {
 			fakeOrgCollector.pushMetrics()

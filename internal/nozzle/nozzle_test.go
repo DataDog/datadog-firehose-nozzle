@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"code.cloudfoundry.org/localip"
 	"github.com/cloudfoundry/gosteno"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
@@ -88,7 +88,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
+
 			go nozzle.Start()
+			nozzle.Wait()
 			time.Sleep(time.Second)
 		})
 
@@ -136,7 +138,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(26)) // +3 is because of the internal metrics, +2 because of org metrics
-		}, 2)
+		}, 2.0)
 
 		It("receives logs data from the firehose", func() {
 			for i := 0; i < 10; i++ {
@@ -169,7 +171,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			err := json.Unmarshal(helper.Decompress(contents), &payload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(payload).To(HaveLen(10))
-		}, 2)
+		}, 2.0)
 
 		It("gets a valid authentication token", func() {
 			Eventually(fakeFirehose.Requested, 10).Should(BeTrue())
@@ -262,7 +264,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Expect(payload.Series).To(HaveLen(8)) // only internal metrics
 
 			validateMetrics(payload, 21, 26, 26, 0, 10, 10, 0)
-		}, 3)
+		}, 3.0)
 
 		Context("receives a rlp.dropped value metric", func() {
 			It("reports a slow-consumer error", func() {
@@ -341,7 +343,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				Expect(slowConsumerMetric.Type).To(Equal("gauge"))
 				Expect(slowConsumerMetric.Points).To(HaveLen(1))
 				Expect(slowConsumerMetric.Points[0].Value).To(BeEquivalentTo(0))
-			}, 2)
+			}, 2.0)
 		})
 
 		Context("with DeploymentFilter provided", func() {
@@ -349,7 +351,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				configuration.DeploymentFilter = "good-deployment-name"
 			})
 
-			It("includes messages that match deployment filter", func() {
+			It("includes messages that match deployment filter", FlakeAttempts(3), func() {
 				goodEnvelope := loggregator_v2.Envelope{
 					Timestamp: 1000000000,
 					Tags: map[string]string{
@@ -411,8 +413,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
+
 			go nozzle.Start()
-			time.Sleep(time.Second)
+			nozzle.Wait()
 		})
 
 		AfterEach(func() {
@@ -433,7 +436,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal(""))
 		})
 
-		It("does not require the presence of configuration.UAAURL", func() {
+		It("does not require the presence of configuration.UAAURL", FlakeAttempts(3), func() {
+			time.Sleep(time.Second)
 			Consistently(func() int { return tokenFetcher.NumCalls }).Should(Equal(0))
 		})
 	})
@@ -480,14 +484,16 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("logs a warning", func() {
+
 			go nozzle.Start()
+			nozzle.Wait()
 			time.Sleep(time.Second)
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
 
 			logOutput := fakeBuffer.GetContent()
 			Expect(logOutput).To(ContainSubstring("Could not stop 1 workers after 1s"))
-		}, 4)
+		}, 4.0)
 	})
 
 	Context("without config.CloudControllerEndpoint specified", func() {
@@ -536,6 +542,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				err = nozzle.Start()
 			}()
 			time.Sleep(time.Second)
+			nozzle.Wait()
 			nozzle.Stop()
 			Expect(err).To(BeNil())
 		})
@@ -580,8 +587,9 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
+
 			go nozzle.Start()
-			time.Sleep(time.Second)
+			nozzle.Wait()
 		})
 
 		AfterEach(func() {
