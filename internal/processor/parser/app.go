@@ -409,8 +409,8 @@ func (a *App) setAppData(cfapp cloudfoundry.CFApplication) error {
 	}
 
 	// Append labels and annotations
-	tags = appendMetadataTags(tags, cfapp.Annotations, "annotation/")
-	tags = appendMetadataTags(tags, cfapp.Labels, "label/")
+	tags = appendMetadataTags(tags, cfapp.Annotations, "")
+	tags = appendMetadataTags(tags, cfapp.Labels, "")
 
 	a.Tags = tags
 
