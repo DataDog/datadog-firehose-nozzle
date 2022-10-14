@@ -25,45 +25,46 @@ var NozzleConfig Config
 type Config struct {
 	// NOTE: When adding new attributes that can be considered secrets,
 	// make sure to mark them for omission when logging config in AsLogString
-	UAAURL                        string
-	Client                        string
-	ClientSecret                  string
-	RLPGatewayURL                 string
-	FirehoseSubscriptionID        string
-	DataDogURL                    string
-	DataDogAPIKey                 string
-	DataDogAdditionalEndpoints    map[string][]string
-	HTTPProxyURL                  string
-	HTTPSProxyURL                 string
-	NoProxy                       []string
-	CloudControllerEndpoint       string
-	CloudControllerAPIBatchSize   uint32
-	DataDogTimeoutSeconds         uint32
-	FlushDurationSeconds          uint32
-	FlushMaxBytes                 uint32
-	InsecureSSLSkipVerify         bool
-	MetricPrefix                  string
-	Deployment                    string
-	DeploymentFilter              string
-	DisableAccessControl          bool
-	IdleTimeoutSeconds            uint32
-	AppMetrics                    bool
-	NumWorkers                    int
-	NumCacheWorkers               int
-	GrabInterval                  int
-	CustomTags                    []string
-	EnvironmentName               string
-	WorkerTimeoutSeconds          uint32
-	OrgDataCollectionInterval     uint32
-	EnableMetadataCollection      bool
-	EnableAdvancedTagging         bool
-	MetadataKeysWhitelistPatterns []string
-	MetadataKeysBlacklistPatterns []string
-	MetadataKeysWhitelist         []*regexp.Regexp `json:"-"`
-	MetadataKeysBlacklist         []*regexp.Regexp `json:"-"`
-	DCAEnabled                    bool
-	DCAUrl                        string
-	DCAToken                      string
+	UAAURL                         string
+	Client                         string
+	ClientSecret                   string
+	RLPGatewayURL                  string
+	FirehoseSubscriptionID         string
+	DataDogURL                     string
+	DataDogAPIKey                  string
+	DataDogAdditionalEndpoints     map[string][]string
+	HTTPProxyURL                   string
+	HTTPSProxyURL                  string
+	NoProxy                        []string
+	CloudControllerEndpoint        string
+	CloudControllerAPIBatchSize    uint32
+	DataDogTimeoutSeconds          uint32
+	FlushDurationSeconds           uint32
+	FlushMaxBytes                  uint32
+	InsecureSSLSkipVerify          bool
+	MetricPrefix                   string
+	Deployment                     string
+	DeploymentFilter               string
+	DisableAccessControl           bool
+	IdleTimeoutSeconds             uint32
+	AppMetrics                     bool
+	NumWorkers                     int
+	NumCacheWorkers                int
+	GrabInterval                   int
+	CustomTags                     []string
+	EnvironmentName                string
+	WorkerTimeoutSeconds           uint32
+	OrgDataCollectionInterval      uint32
+	EnableMetadataCollection       bool
+	EnableAdvancedTagging          bool
+	MetadataKeysWhitelistPatterns  []string
+	MetadataKeysBlacklistPatterns  []string
+	MetadataKeysWhitelist          []*regexp.Regexp `json:"-"`
+	MetadataKeysBlacklist          []*regexp.Regexp `json:"-"`
+	EnableMetadataAppMetricsPrefix bool
+	DCAEnabled                     bool
+	DCAUrl                         string
+	DCAToken                       string
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
