@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.0 / 2022-11-10
+
+* [Added] Add option to disable application metadata prefix. See [#93](https://github.com/DataDog/datadog-firehose-nozzle/pull/93).
+* [Fixed] Fix SSL errors when using the Cluster Agent API. See [#96](https://github.com/DataDog/datadog-firehose-nozzle/pull/96).
+
 ## 2.4.1 / 2022-04-27
 
 * [Fixed] Fix sidecars tagging. See [#90](https://github.com/DataDog/datadog-firehose-nozzle/pull/90).
