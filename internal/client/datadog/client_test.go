@@ -199,6 +199,37 @@ var _ = Describe("DatadogClient", func() {
 		})
 	})
 
+	Context("It sets the api key in the DD-API-KEY header", func() {
+		It("when posting metrics", func() {
+			k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
+			metricsMap.Add(k, v)
+
+			unsentMetrics := c.PostMetrics(metricsMap)
+			Expect(unsentMetrics).To(Equal(uint64(0)))
+
+			var req *http.Request
+			Eventually(fakeDatadogAPI.ReceivedRequests).Should(Receive(&req))
+			Expect(req.Method).To(Equal("POST"))
+			Expect(req.Header.Get("DD-API-KEY")).To(Equal(c.apiKey))
+		})
+
+		It("when posting logs", func() {
+			var data []logs.LogMessage
+			for i := 0; i < 1000; i++ {
+				lm := makeFakeLogMessage("hostname", "source", "service", "message", "tags")
+				data = append(data, lm)
+			}
+
+			unsentLogs := c.PostLogs(data)
+			Expect(unsentLogs).To(Equal(uint64(0)))
+
+			var req *http.Request
+			Eventually(fakeDatadogAPI.ReceivedRequests).Should(Receive(&req))
+			Expect(req.Method).To(Equal("POST"))
+			Expect(req.Header.Get("DD-API-KEY")).To(Equal(c.apiKey))
+		})
+	})
+
 	It("sets Content-Type header when making POST requests", func() {
 		k, v := makeFakeMetric("metricName", "gauge", 1000, 5, defaultTags)
 		metricsMap.Add(k, v)
