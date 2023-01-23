@@ -22,14 +22,12 @@ import (
 )
 
 var (
-	bodies       [][]byte
-	reqs         chan *http.Request
-	responseCode int
-	responseBody []byte
-	ts           *httptest.Server
-	c            *Client
-	metricsMap   metric.MetricsMap
-	defaultTags  = []string{
+	responseCode   int
+	responseBody   []byte
+	fakeDatadogAPI *helper.FakeDatadogAPI
+	c              *Client
+	metricsMap     metric.MetricsMap
+	defaultTags    = []string{
 		"deployment: test-deployment",
 		"job: doppler",
 		"origin: test-origin",
@@ -40,16 +38,15 @@ var (
 
 var _ = Describe("DatadogClient", func() {
 	BeforeEach(func() {
-		bodies = nil
-		reqs = make(chan *http.Request, 1000)
 		responseCode = http.StatusOK
 		responseBody = []byte("some-response-body")
-		ts = httptest.NewServer(http.HandlerFunc(handlePost))
+		fakeDatadogAPI = helper.NewFakeDatadogAPI()
+		fakeDatadogAPI.Start()
 		metricsMap = make(metric.MetricsMap)
 
 		c = New(
-			ts.URL,
-			ts.URL,
+			fakeDatadogAPI.URL(),
+			fakeDatadogAPI.URL(),
 			"dummykey",
 			"datadog.nozzle.",
 			"test-deployment",
@@ -76,7 +73,6 @@ var _ = Describe("DatadogClient", func() {
 			result, err = c.seriesURL()
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series"))
-
 		})
 
 		It("doesn't append api/v1/series if present", func() {
@@ -126,7 +122,7 @@ var _ = Describe("DatadogClient", func() {
 		var fakeBuffer *helper.FakeBufferSink
 
 		BeforeEach(func() {
-			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var nilChan chan struct{}
 				<-nilChan
 			}))
@@ -210,7 +206,7 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 		var req *http.Request
-		Eventually(reqs).Should(Receive(&req))
+		Eventually(fakeDatadogAPI.ReceivedRequests).Should(Receive(&req))
 		Expect(req.Method).To(Equal("POST"))
 		Expect(req.Header.Get("Content-Type")).To(Equal("application/json"))
 	})
@@ -222,9 +218,9 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
-		Eventually(bodies).Should(HaveLen(1))
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 		var payload Payload
-		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -244,9 +240,9 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
-		Eventually(bodies).Should(HaveLen(1))
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 		var payload Payload
-		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -262,8 +258,8 @@ var _ = Describe("DatadogClient", func() {
 	Context("user configures custom tags", func() {
 		BeforeEach(func() {
 			c = New(
-				ts.URL,
-				ts.URL,
+				fakeDatadogAPI.URL(),
+				fakeDatadogAPI.URL(),
 				"dummykey",
 				"datadog.nozzle.",
 				"test-deployment",
@@ -284,9 +280,9 @@ var _ = Describe("DatadogClient", func() {
 			unsentMetrics := c.PostMetrics(metricsMap)
 			Expect(unsentMetrics).To(Equal(uint64(0)))
 
-			Eventually(bodies).Should(HaveLen(1))
+			Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 			var payload Payload
-			err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+			err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(payload.Series).To(HaveLen(1))
 
@@ -315,9 +311,9 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
-		Eventually(bodies).Should(HaveLen(1))
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 		var payload Payload
-		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(payload.Series).To(HaveLen(2))
@@ -362,10 +358,10 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
-		Eventually(bodies).Should(HaveLen(1))
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 
 		var payload Payload
-		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -388,10 +384,10 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
-		Eventually(bodies).Should(HaveLen(1))
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
 
 		var payload Payload
-		err := json.Unmarshal(helper.Decompress(bodies[0]), &payload)
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.Series).To(HaveLen(1))
 
@@ -413,7 +409,7 @@ var _ = Describe("DatadogClient", func() {
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 		f := func() int {
-			return len(bodies)
+			return len(fakeDatadogAPI.ReceivedContents)
 		}
 		Eventually(f).Should(BeNumerically(">", 1))
 	})
@@ -427,7 +423,7 @@ var _ = Describe("DatadogClient", func() {
 		unsentLogs := c.PostLogs(data)
 		Expect(unsentLogs).To(Equal(uint64(0)))
 		f := func() int {
-			return len(bodies)
+			return len(fakeDatadogAPI.ReceivedContents)
 		}
 		Eventually(f).Should(BeNumerically(">", 1))
 	})
@@ -443,7 +439,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
 		f := func() int {
-			return len(bodies)
+			return len(fakeDatadogAPI.ReceivedContents)
 		}
 
 		Consistently(f).Should(Equal(0))
@@ -461,7 +457,7 @@ var _ = Describe("DatadogClient", func() {
 		Expect(unsentLogs).To(Equal(uint64(0)))
 
 		f := func() int {
-			return len(bodies)
+			return len(fakeDatadogAPI.ReceivedContents)
 		}
 
 		Consistently(f).Should(Equal(0))
@@ -473,16 +469,21 @@ var _ = Describe("DatadogClient", func() {
 		metricsMap[k] = v
 
 		// PostMetrics
-		responseCode = http.StatusBadRequest // 400
-		responseBody = []byte("something went horribly wrong")
+		// 400
+		r := helper.NewFakeResponse(http.StatusBadRequest, []byte("something went horribly wrong"))
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentMetrics := c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
 
-		responseCode = http.StatusSwitchingProtocols // 101
+		// 101
+		r = helper.NewFakeResponse(http.StatusSwitchingProtocols, nil)
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentMetrics = c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).ToNot(Equal(uint64(0)))
 
-		responseCode = http.StatusAccepted // 201
+		// 201
+		r = helper.NewFakeResponse(http.StatusAccepted, nil)
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentMetrics = c.PostMetrics(metricsMap)
 		Expect(unsentMetrics).To(Equal(uint64(0)))
 
@@ -491,16 +492,22 @@ var _ = Describe("DatadogClient", func() {
 		data = append(data, lm)
 
 		// PostLogs
-		responseCode = http.StatusBadRequest // 400
-		responseBody = []byte("something went horribly wrong")
+
+		// 400
+		r = helper.NewFakeResponse(http.StatusBadRequest, []byte("something went horribly wrong"))
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentLogs := c.PostLogs(data)
 		Expect(unsentLogs).ToNot(Equal(uint64(0)))
 
-		responseCode = http.StatusSwitchingProtocols // 101
+		// 101
+		r = helper.NewFakeResponse(http.StatusSwitchingProtocols, nil)
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentLogs = c.PostLogs(data)
 		Expect(unsentLogs).ToNot(Equal(uint64(0)))
 
-		responseCode = http.StatusAccepted // 201
+		// 201
+		r = helper.NewFakeResponse(http.StatusAccepted, nil)
+		fakeDatadogAPI.SetNextResponse(r)
 		unsentLogs = c.PostLogs(data)
 		Expect(unsentLogs).To(Equal(uint64(0)))
 	})
@@ -573,13 +580,11 @@ var _ = Describe("DatadogClient", func() {
 
 func handlePost(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
+	_, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		panic("No body!")
 	}
 
-	reqs <- r
-	bodies = append(bodies, body)
 	w.WriteHeader(responseCode)
 	w.Write(responseBody)
 }
