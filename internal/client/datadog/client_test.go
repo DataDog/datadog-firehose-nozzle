@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,6 +57,10 @@ var _ = Describe("DatadogClient", func() {
 			[]string{},
 			nil,
 		)
+	})
+
+	AfterEach(func() {
+		fakeDatadogAPI.Close()
 	})
 
 	Context("It parses configured URL correctly", func() {
@@ -608,17 +611,6 @@ var _ = Describe("DatadogClient", func() {
 		Expect(proxyURL).To(BeNil())
 	})
 })
-
-func handlePost(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	_, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		panic("No body!")
-	}
-
-	w.WriteHeader(responseCode)
-	w.Write(responseBody)
-}
 
 func makeFakeMetric(name, _type string, timeStamp, value uint64, tags []string) (metric.MetricKey, metric.MetricValue) {
 	key := metric.MetricKey{
