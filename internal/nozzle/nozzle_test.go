@@ -62,7 +62,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 			fakeDatadogLogIntakeAPI.Start()
-			time.Sleep(2 * time.Second)
 
 			configuration = &config.Config{
 				UAAURL:                    fakeUAA.URL(),
@@ -90,8 +89,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
 			go nozzle.Start()
-			nozzle.Wait()
-			time.Sleep(time.Second)
 		})
 
 		AfterEach(func() {
@@ -131,6 +128,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 			fakeFirehose.ServeBatch()
 
+			<-nozzle.TickedOnce()
+
 			var contents []byte
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
@@ -164,6 +163,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 			fakeFirehose.ServeBatch()
 
+			<-nozzle.TickedOnce()
+
 			var contents []byte
 			Eventually(fakeDatadogLogIntakeAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
@@ -189,11 +190,16 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			Eventually(fakeUAA.TimesRequested).Should(BeNumerically(">", 1))
 
 			fakeFirehose.ServeBatch()
+
+			<-nozzle.TickedOnce()
+
 			var contents []byte
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 		})
 
 		It("runs orgCollector to obtain org metrics", func() {
+			<-nozzle.TickedOnce()
+
 			// need to use function to always return the current UsedEndpoints, since it's appended to
 			// and thus the address of the slice changes
 			Eventually(fakeCCAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/v2/quota_definitions"))
@@ -240,6 +246,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}
 			fakeFirehose.ServeBatch()
 
+			<-nozzle.TickedOnce()
+
 			var contents []byte
 			Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
@@ -285,6 +293,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				fakeFirehose.AddEvent(envelope)
 				fakeFirehose.ServeBatch()
 
+				<-nozzle.TickedOnce()
+
 				var contents []byte
 				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
 
@@ -319,6 +329,8 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 				}
 				fakeFirehose.AddEvent(envelope)
 				fakeFirehose.ServeBatch()
+
+				<-nozzle.TickedOnce()
 
 				var contents []byte
 				Eventually(fakeDatadogAPI.ReceivedContents, 15*time.Second, time.Second).Should(Receive(&contents))
@@ -396,7 +408,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			fakeFirehose.Start()
 			fakeDatadogAPI.Start()
 			fakeCCAPI.Start()
-			time.Sleep(time.Second)
 
 			configuration = &config.Config{
 				FlushDurationSeconds:      2,
@@ -415,7 +426,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
 			go nozzle.Start()
-			nozzle.Wait()
+			<-nozzle.TickedOnce()
 		})
 
 		AfterEach(func() {
@@ -427,7 +438,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("can still tries to connect to the firehose", func() {
-			time.Sleep(time.Second)
 			Eventually(fakeFirehose.Requested).Should(BeTrue())
 		})
 
@@ -437,7 +447,6 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("does not require the presence of configuration.UAAURL", FlakeAttempts(3), func() {
-			time.Sleep(time.Second)
 			Consistently(func() int { return tokenFetcher.NumCalls }).Should(Equal(0))
 		})
 	})
@@ -486,8 +495,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		It("logs a warning", func() {
 
 			go nozzle.Start()
-			nozzle.Wait()
-			time.Sleep(time.Second)
+			<-nozzle.TickedOnce()
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
 
@@ -541,8 +549,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			go func() {
 				err = nozzle.Start()
 			}()
-			time.Sleep(time.Second)
-			nozzle.Wait()
+			<-nozzle.TickedOnce()
 			nozzle.Stop()
 			Expect(err).To(BeNil())
 		})
@@ -589,7 +596,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
 			go nozzle.Start()
-			nozzle.Wait()
+			<-nozzle.TickedOnce()
 		})
 
 		AfterEach(func() {
