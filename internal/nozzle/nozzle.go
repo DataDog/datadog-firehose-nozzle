@@ -237,7 +237,7 @@ func (n *Nozzle) Wait() {
 	}
 }
 
-// Wait blocks if the nozzle is not running, does nothing otherwise
+// TickedOnce blocks until the nozzle flushes metrics/logs for the first time, does nothing otherwise
 func (n *Nozzle) TickedOnce() <-chan interface{} {
 	return n.tickedOnce
 }
