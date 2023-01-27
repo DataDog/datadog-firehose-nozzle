@@ -228,15 +228,6 @@ func (n *Nozzle) run() error {
 	}
 }
 
-// Wait blocks if the nozzle is not running, does nothing otherwise
-func (n *Nozzle) Wait() {
-	for {
-		if _, ok := <-n.running; !ok {
-			return
-		}
-	}
-}
-
 // TickedOnce blocks until the nozzle flushes metrics/logs for the first time, does nothing otherwise
 func (n *Nozzle) TickedOnce() <-chan interface{} {
 	return n.tickedOnce
