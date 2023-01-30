@@ -60,6 +60,7 @@ type Config struct {
 	EnableMetadataCollection            bool
 	EnableAdvancedTagging               bool
 	EnableApplicationLogs               bool
+	EnableMetadataAppMetricsPrefix      bool
 	MetadataKeysWhitelistPatterns       []string
 	MetadataKeysBlacklistPatterns       []string
 	MetadataKeysWhitelist               []*regexp.Regexp `json:"-"`
