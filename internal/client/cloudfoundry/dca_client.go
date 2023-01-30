@@ -50,7 +50,7 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 	dcaClient.clusterAgentAPIClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: config.InsecureSSLSkipVerify,
+				InsecureSkipVerify: true,
 			},
 		},
 		Timeout: 2 * time.Second,

@@ -48,6 +48,7 @@
   "EnableApplicationLogs": true,
   "MetadataKeysWhitelistPatterns": ["whitelisted1", "whitelisted2"],
   "MetadataKeysBlacklistPatterns": ["blacklisted1", "blacklisted2"],
+  "EnableMetadataAppMetricsPrefix": true,
   "DCAUrl": "datadog-cluster-agent.bosh-deployment-name:5005",
   "DCAToken": "123456789",
   "DCAEnabled": true
