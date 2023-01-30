@@ -1,13 +1,14 @@
 package integration
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"testing"
 
-	"github.com/onsi/gomega/gexec"
 	"os"
+
+	"github.com/onsi/gomega/gexec"
 )
 
 func TestDatadogFirehoseNozzle(t *testing.T) {

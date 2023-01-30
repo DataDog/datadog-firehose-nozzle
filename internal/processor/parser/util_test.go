@@ -4,7 +4,7 @@ import (
 	"regexp"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

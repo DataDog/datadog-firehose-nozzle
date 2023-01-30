@@ -47,6 +47,9 @@ type Nozzle struct {
 	totalLogsSent         uint64
 	logsSent              uint64
 	logsDropped           uint64
+	running               chan interface{}
+	tickedOnce            chan interface{}
+	firstTick             bool
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -68,6 +71,9 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
 		messages:              make(chan *loggregator_v2.Envelope, 10000),
+		running:               make(chan interface{}),
+		tickedOnce:            make(chan interface{}),
+		firstTick:             true,
 	}
 }
 
@@ -196,6 +202,7 @@ func (n *Nozzle) run() error {
 	// - stop nozzle
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
+	close(n.running)
 	for {
 		select {
 		case <-ticker.C:
@@ -204,10 +211,26 @@ func (n *Nozzle) run() error {
 
 			// Submit application logs to Datadog
 			n.postLogs()
+
+			n.mapLock.RLock()
+			if n.firstTick {
+				n.mapLock.RUnlock()
+				n.mapLock.Lock()
+				n.firstTick = false
+				n.mapLock.Unlock()
+				close(n.tickedOnce)
+			} else {
+				n.mapLock.RUnlock()
+			}
 		case <-n.stopper:
 			return nil
 		}
 	}
+}
+
+// TickedOnce blocks until the nozzle flushes metrics/logs for the first time, does nothing otherwise
+func (n *Nozzle) TickedOnce() <-chan interface{} {
+	return n.tickedOnce
 }
 
 // Stop stops the Nozzle

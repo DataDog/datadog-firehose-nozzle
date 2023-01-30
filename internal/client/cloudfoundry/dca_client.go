@@ -53,8 +53,8 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 				InsecureSkipVerify: config.InsecureSSLSkipVerify,
 			},
 		},
+		Timeout: 2 * time.Second,
 	}
-	dcaClient.clusterAgentAPIClient.Timeout = 2 * time.Second
 
 	// Validate the cluster agent client by checking the version
 	dcaClient.ClusterAgentVersion, err = dcaClient.GetVersion()
