@@ -140,11 +140,15 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 
 	logsMessage, err = infraParser.ParseLog(envelope)
 	logsMessage.Service = serviceName
-	if source == "" {
-		logsMessage.Source = "datadog-firehose-nozzle"
-	} else {
-		logsMessage.Source = source
+
+	// Detect source
+	if job, ok := envelope.GetTags()["job"]; ok {
+		source = job
+	} else if source == "" {
+		source = "datadog-firehose-nozzle"
 	}
+
+	logsMessage.Source = source
 
 	if err == nil {
 		p.processedLogs <- logsMessage
