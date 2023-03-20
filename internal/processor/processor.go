@@ -19,6 +19,7 @@ import (
 const (
 	deploymentUUIDPattern   = "-([0-9a-f]{20})"
 	jobPartitionUUIDPattern = "-partition-([0-9a-f]{20})"
+	enableLogsTagKey        = "dd_enable_logs"
 )
 
 // Processor extracts metrics from envelopes
@@ -117,16 +118,19 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 
 	cfapp := p.appCache.Get(envelope.SourceId)
 	if cfapp != nil {
+		for _, tag := range cfapp.Tags {
+			// check if app is enabling logs collection
+			if strings.HasPrefix(tag, enableLogsTagKey) {
+				if strings.Contains(tag, "false") {
+					return
+				}
+				break
+			}
+		}
 		appTags = cfapp.Tags
 		appTags = append(appTags, fmt.Sprintf("application_id:%s", envelope.GetTags()["app_id"]))
 		appTags = append(appTags, fmt.Sprintf("application_name:%s", envelope.GetTags()["app_name"]))
 		appTags = append(appTags, fmt.Sprintf("instance_index:%s", envelope.GetTags()["instance_id"]))
-		for _, tag := range appTags {
-			if strings.HasPrefix(tag, "source") {
-				source = strings.TrimPrefix(tag, "source:")
-				break
-			}
-		}
 		serviceName = cfapp.Name
 	}
 
