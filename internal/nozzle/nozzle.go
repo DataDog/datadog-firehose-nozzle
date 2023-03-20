@@ -240,7 +240,7 @@ func (n *Nozzle) Stop() {
 	n.stopper <- true
 }
 
-// postLogs posts logs to datadog
+// postLogs sends logs to datadog
 func (n *Nozzle) postLogs() {
 	n.mapLock.Lock()
 
@@ -260,10 +260,10 @@ func (n *Nozzle) postLogs() {
 	n.ResetSlowConsumerError()
 }
 
-// PostMetrics posts metrics do to datadog
+// postMetrics sends metrics to datadog
 func (n *Nozzle) postMetrics() {
 	n.mapLock.Lock()
-	// deep copy the metrics map to pass to PostMetrics so that we can unlock n.metricsMap while posting
+	// Deep copy the metrics map to pass to PostMetrics so that we can unlock n.metricsMap while posting
 	metricsMap := make(metric.MetricsMap)
 	for k, v := range n.metricsMap {
 		metricsMap[k] = v
@@ -314,7 +314,7 @@ func (n *Nozzle) postMetrics() {
 }
 
 func (n *Nozzle) keepMessage(envelope *loggregator_v2.Envelope) bool {
-	deployment, _ := envelope.GetTags()["deployment"]
+	deployment := envelope.GetTags()["deployment"]
 	return n.config.DeploymentFilter == "" || n.config.DeploymentFilter == deployment
 }
 
