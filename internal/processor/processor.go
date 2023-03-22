@@ -32,6 +32,7 @@ type Processor struct {
 	environment           string
 	deploymentUUIDRegex   *regexp.Regexp
 	jobPartitionUUIDRegex *regexp.Regexp
+	log                   *gosteno.Logger
 }
 
 // NewProcessor creates a new processor
@@ -56,6 +57,7 @@ func NewProcessor(
 		environment:           environment,
 		deploymentUUIDRegex:   regexp.MustCompile(deploymentUUIDPattern),
 		jobPartitionUUIDRegex: regexp.MustCompile(jobPartitionUUIDPattern),
+		log:                   log,
 	}
 
 	if parseAppMetricsEnable {
@@ -122,6 +124,7 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 			// check if app is enabling logs collection
 			if strings.HasPrefix(tag, enableLogsTagKey) {
 				if strings.Contains(tag, "false") {
+					p.log.Debugf("skipped log envelope for app %s", cfapp.Name)
 					return
 				}
 				break
