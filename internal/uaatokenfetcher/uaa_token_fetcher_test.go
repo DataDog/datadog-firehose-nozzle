@@ -4,7 +4,7 @@ import (
 	"github.com/cloudfoundry/gosteno"
 
 	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

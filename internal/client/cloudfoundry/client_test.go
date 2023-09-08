@@ -2,7 +2,7 @@ package cloudfoundry
 
 import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -114,7 +114,7 @@ var _ = Describe("CloudFoundryClient", func() {
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
 		Expect(err).To(BeNil())
-	}, 0)
+	}, 0.0)
 
 	Context("individual endpoint", func() {
 		It("with v2 apps is retrieved correctly", func() {

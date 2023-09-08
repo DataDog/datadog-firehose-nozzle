@@ -71,6 +71,7 @@ func newRLPGatewayClientDoer(disableACS bool, tokenFetcher AuthTokenFetcher, ins
 				InsecureSkipVerify: insecureSkipVerify,
 			},
 		},
+		Timeout: 1 * time.Minute,
 	}
 
 	return &rlpGatewayClientDoer{
@@ -122,6 +123,11 @@ func (l *LoggregatorClient) EnvelopeStream() loggregator.EnvelopeStream {
 				{
 					Message: &loggregator_v2.Selector_Gauge{
 						Gauge: &loggregator_v2.GaugeSelector{},
+					},
+				},
+				{
+					Message: &loggregator_v2.Selector_Log{
+						Log: &loggregator_v2.LogSelector{},
 					},
 				},
 			},

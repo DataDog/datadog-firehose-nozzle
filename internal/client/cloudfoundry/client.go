@@ -535,7 +535,7 @@ func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
 func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, error) {
 	q := url.Values{}
 	q.Set("inline-relations-depth", "2")
-	q.Set("results-per-page", "100") // 100 is the max
+	q.Set("results-per-page", cfc.apiBatchSize) // 100 is the max
 	if page > 0 {
 		q.Set("page", strconv.Itoa(page))
 	}
@@ -573,7 +573,7 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 
 func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 	query := url.Values{}
-	query.Set("per_page", "100")
+	query.Set("per_page", cfc.apiBatchSize)
 
 	allOrgs, err := cfc.client.ListV3OrganizationsByQuery(query)
 	if err != nil {
@@ -585,7 +585,7 @@ func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 
 func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 	query := url.Values{}
-	query.Set("results-per-page", "100")
+	query.Set("results-per-page", cfc.apiBatchSize)
 
 	allOrgs, err := cfc.client.ListOrgsByQuery(query)
 	if err != nil {
@@ -597,7 +597,7 @@ func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 
 func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	query := url.Values{}
-	query.Set("results-per-page", "100")
+	query.Set("results-per-page", cfc.apiBatchSize)
 
 	var allQuotas []CFOrgQuota
 
@@ -618,7 +618,7 @@ func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 
 func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
 	query := url.Values{}
-	query.Set("per_page", "100")
+	query.Set("per_page", cfc.apiBatchSize)
 
 	var sidecars []CFSidecar
 

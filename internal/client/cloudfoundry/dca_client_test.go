@@ -3,7 +3,7 @@ package cloudfoundry
 import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	"github.com/cloudfoundry-community/go-cfclient"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -90,7 +90,7 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		var err error
 		fakeDCAClient, err = NewDCAClient(&cfg, log)
 		Expect(err).To(BeNil())
-	}, 0)
+	}, 0.0)
 
 	Context("GetVersion method", func() {
 		It("retrieves the cluster agent api version correctly", func() {

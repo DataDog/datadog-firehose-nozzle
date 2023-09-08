@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/cloudfoundry/gosteno"
 )
@@ -17,11 +18,11 @@ type Formatter struct {
 }
 
 type FormatData struct {
-	data       []byte
-	nbrMetrics uint64
+	data     []byte
+	nbrItems uint64
 }
 
-func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
+func (f Formatter) FormatMetrics(prefix string, maxPostBytes uint32, data map[metric.MetricKey]metric.MetricValue) []FormatData {
 	if len(data) == 0 {
 		return nil
 	}
@@ -43,13 +44,13 @@ func (f Formatter) Format(prefix string, maxPostBytes uint32, data map[metric.Me
 
 		metricsA, metricsB := splitMetrics(data)
 
-		result = append(result, f.Format(prefix, maxPostBytes, metricsA)...)
-		result = append(result, f.Format(prefix, maxPostBytes, metricsB)...)
+		result = append(result, f.FormatMetrics(prefix, maxPostBytes, metricsA)...)
+		result = append(result, f.FormatMetrics(prefix, maxPostBytes, metricsB)...)
 
 		return result
 	}
 
-	result = append(result, FormatData{data: compressedSeriesBytes, nbrMetrics: uint64(len(data))})
+	result = append(result, FormatData{data: compressedSeriesBytes, nbrItems: uint64(len(data))})
 	return result
 }
 
@@ -91,6 +92,55 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 	return compressedPayload, nil
 }
 
+func (f Formatter) FormatLogs(maxPostBytes uint32, data []logs.LogMessage) []FormatData {
+	if len(data) == 0 {
+		return nil
+	}
+
+	var result []FormatData
+	compressedLogsBytes, err := f.formatLogs(data)
+	if err != nil {
+		f.log.Errorf("Error formatting logs payload: %v", err)
+		return result
+	}
+
+	if uint32(len(compressedLogsBytes)) > maxPostBytes {
+		if len(data) == 1 {
+			f.log.Warn(fmt.Sprintf("Warning dropping logs payload for service: %v", data[0].Service))
+			return nil
+		}
+
+		logsA, logsB := splitLogs(data)
+
+		result = append(result, f.FormatLogs(maxPostBytes, logsA)...)
+		result = append(result, f.FormatLogs(maxPostBytes, logsB)...)
+
+		return result
+	}
+
+	result = append(result, FormatData{data: compressedLogsBytes, nbrItems: uint64(len(data))})
+	return result
+}
+
+func (f Formatter) formatLogs(data []logs.LogMessage) ([]byte, error) {
+	s := []logs.LogMessage{}
+
+	for _, entry := range data {
+		e := entry
+		s = append(s, e)
+	}
+
+	encodedLogs, err := json.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("Error marshalling logs: %v", err)
+	}
+	compressedPayload, err := compress(encodedLogs)
+	if err != nil {
+		return nil, fmt.Errorf("Error compressing payload: %v", err)
+	}
+	return compressedPayload, nil
+}
+
 func (f Formatter) removeNANs(points []metric.Point, metricName string, tags []string) []metric.Point {
 	var sanitizedPoints []metric.Point
 	for _, point := range points {
@@ -102,6 +152,13 @@ func (f Formatter) removeNANs(points []metric.Point, metricName string, tags []s
 	}
 	return sanitizedPoints
 
+}
+
+func splitLogs(data []logs.LogMessage) (a, b []logs.LogMessage) {
+	l := len(data)
+	a = data[l/2:]
+	b = data[:l/2]
+	return a, b
 }
 
 func splitMetrics(data map[metric.MetricKey]metric.MetricValue) (a, b map[metric.MetricKey]metric.MetricValue) {

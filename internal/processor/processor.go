@@ -3,8 +3,10 @@ package processor
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor/parser"
@@ -17,21 +19,26 @@ import (
 const (
 	deploymentUUIDPattern   = "-([0-9a-f]{20})"
 	jobPartitionUUIDPattern = "-partition-([0-9a-f]{20})"
+	enableLogsTagKey        = "dd_enable_logs"
 )
 
 // Processor extracts metrics from envelopes
 type Processor struct {
 	processedMetrics      chan<- []metric.MetricPackage
+	processedLogs         chan<- logs.LogMessage
 	appMetrics            parser.Parser
+	appCache              *parser.AppCache
 	customTags            []string
 	environment           string
 	deploymentUUIDRegex   *regexp.Regexp
 	jobPartitionUUIDRegex *regexp.Regexp
+	log                   *gosteno.Logger
 }
 
 // NewProcessor creates a new processor
 func NewProcessor(
 	pm chan<- []metric.MetricPackage,
+	pl chan<- logs.LogMessage,
 	customTags []string,
 	environment string,
 	parseAppMetricsEnable bool,
@@ -44,10 +51,13 @@ func NewProcessor(
 
 	processor := &Processor{
 		processedMetrics:      pm,
+		processedLogs:         pl,
+		appCache:              parser.GetGlobalAppCache(),
 		customTags:            customTags,
 		environment:           environment,
 		deploymentUUIDRegex:   regexp.MustCompile(deploymentUUIDPattern),
 		jobPartitionUUIDRegex: regexp.MustCompile(jobPartitionUUIDPattern),
+		log:                   log,
 	}
 
 	if parseAppMetricsEnable {
@@ -59,6 +69,7 @@ func NewProcessor(
 			log,
 			customTags,
 			environment,
+			true,
 		)
 		if err != nil {
 			parseAppMetricsEnable = false
@@ -78,13 +89,13 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 	var metricsPackages []metric.MetricPackage
 
 	// Parse infrastructure type of envelopes
-	infraParser, err := parser.NewInfraParser(
+	infraParser, _ := parser.NewInfraParser(
 		p.environment,
 		p.deploymentUUIDRegex,
 		p.jobPartitionUUIDRegex,
 		p.customTags,
 	)
-	metricsPackages, err = infraParser.Parse(envelope)
+	metricsPackages, err = infraParser.ParseMetrics(envelope)
 	if err == nil {
 		p.processedMetrics <- metricsPackages
 		// it can only be one or the other
@@ -95,6 +106,60 @@ func (p *Processor) ProcessMetric(envelope *loggregator_v2.Envelope) {
 	metricsPackages, err = p.parseAppMetric(envelope)
 	if err == nil {
 		p.processedMetrics <- metricsPackages
+	}
+}
+
+// ProcessLog takes an envelope, parses it and sends the processed logs to the nozzle
+func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
+	var err error
+	var logsMessage logs.LogMessage
+
+	var appTags []string
+	var serviceName string = envelope.SourceId
+	var source string
+
+	cfapp := p.appCache.Get(envelope.SourceId)
+	if cfapp != nil {
+		for _, tag := range cfapp.Tags {
+			// check if app is enabling logs collection
+			if strings.HasPrefix(tag, enableLogsTagKey) {
+				if strings.Contains(tag, "false") {
+					p.log.Debugf("skipped log envelope for app %s", cfapp.Name)
+					return
+				}
+				break
+			}
+		}
+		appTags = cfapp.Tags
+		appTags = append(appTags, fmt.Sprintf("application_id:%s", envelope.GetTags()["app_id"]))
+		appTags = append(appTags, fmt.Sprintf("application_name:%s", envelope.GetTags()["app_name"]))
+		appTags = append(appTags, fmt.Sprintf("instance_index:%s", envelope.GetTags()["instance_id"]))
+		serviceName = cfapp.Name
+	}
+
+	// Parse infrastructure type of envelopes
+	infraParser, _ := parser.NewInfraParser(
+		p.environment,
+		p.deploymentUUIDRegex,
+		p.jobPartitionUUIDRegex,
+		append(p.customTags, appTags...),
+	)
+
+	logsMessage, err = infraParser.ParseLog(envelope)
+	logsMessage.Service = serviceName
+
+	// Detect source
+	if job, ok := envelope.GetTags()["job"]; ok {
+		source = job
+	} else if source == "" {
+		source = "datadog-firehose-nozzle"
+	}
+
+	logsMessage.Source = source
+
+	if err == nil {
+		p.processedLogs <- logsMessage
+		return
 	}
 }
 

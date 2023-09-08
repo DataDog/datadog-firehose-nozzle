@@ -12,7 +12,7 @@ echo "Go vetting..."
 go vet $(go list ./...)
 
 echo "Recursive ginkgo... ${*:+(with parameter(s) }$*${*:+)}"
-ginkgo -r --race --randomizeAllSpecs --failOnPending -cover $*
+ginkgo -r --race --randomize-all --fail-on-pending -cover $*
 
 if [ -z "$KEEP_COVER" -o -z "$CI" ]; then
   echo "Not in CI, deleting coverprofile"

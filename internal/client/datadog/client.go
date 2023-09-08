@@ -14,6 +14,7 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/gosteno"
@@ -22,6 +23,7 @@ import (
 
 type Client struct {
 	apiURL       string
+	logIntakeURL string
 	apiKey       string
 	prefix       string
 	deployment   string
@@ -45,6 +47,7 @@ type Proxy struct {
 
 func New(
 	apiURL string,
+	logIntakeURL string,
 	apiKey string,
 	prefix string,
 	deployment string,
@@ -89,6 +92,7 @@ func New(
 
 	return &Client{
 		apiURL:       apiURL,
+		logIntakeURL: logIntakeURL,
 		apiKey:       apiKey,
 		prefix:       prefix,
 		deployment:   deployment,
@@ -122,6 +126,7 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	var ddClients []*Client
 	ddClients = append(ddClients, New(
 		config.DataDogURL,
+		config.DataDogLogIntakeURL,
 		config.DataDogAPIKey,
 		config.MetricPrefix,
 		config.Deployment,
@@ -134,10 +139,18 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 		proxy,
 	))
 	// Instantiating Additional Datadog endpoints
+	i := 0
 	for endpoint, keys := range config.DataDogAdditionalEndpoints {
+		var logIntakeEndpoint string
+		if l := len(config.DataDogAdditionalLogIntakeEndpoints); l > 0 && i < l {
+			logIntakeEndpoint = config.DataDogAdditionalLogIntakeEndpoints[i]
+			i++
+		}
+
 		for keyIndex := range keys {
 			ddClients = append(ddClients, New(
 				endpoint,
+				logIntakeEndpoint,
 				keys[keyIndex],
 				config.MetricPrefix,
 				config.Deployment,
@@ -155,10 +168,73 @@ func NewClients(config *config.Config, log *gosteno.Logger) ([]*Client, error) {
 	return ddClients, nil
 }
 
+// PostLogs forwards the logs to datadog
+func (c *Client) PostLogs(logs []logs.LogMessage) uint64 {
+	c.log.Debugf("Posting %d logs to account %s", len(logs), c.apiKey[len(c.apiKey)-4:])
+
+	logsData := c.formatter.FormatLogs(c.maxPostBytes, logs)
+
+	unsentLogs := uint64(0)
+	for _, entry := range logsData {
+		if err := c.postLogs(entry.data); err != nil {
+			unsentLogs += entry.nbrItems
+			c.log.Errorf("Error posting logs: %s\n\n", err)
+		}
+	}
+
+	return unsentLogs
+}
+
+func (c *Client) postLogs(logsBytes []byte) error {
+	url, err := c.logsURL()
+	if err != nil {
+		return err
+	}
+
+	req, err := retryablehttp.NewRequest("POST", url, logsBytes)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "deflate") // Additional header for zlib compression
+	req.Header.Set("DD-API-KEY", c.apiKey)
+
+	// If an error is returned by the client (connection errors, etc.), or if a 500-range
+	// response code is received, then a retry is invoked on this request after a wait period
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.log.Errorf("error returned by the http client, %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Handle errors that occurred even after the retries
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			body = []byte("failed to read body")
+		}
+		return fmt.Errorf("datadog request returned HTTP response: %s\nResponse Body: %s", resp.Status, body)
+	}
+
+	return nil
+}
+
+func (c *Client) logsURL() (string, error) {
+	logIntakeURL, err := url.Parse(c.logIntakeURL)
+	if err != nil {
+		return "", fmt.Errorf("error parsing LogIntake API URL %s: %v", c.logIntakeURL, err)
+	}
+	if !strings.Contains(logIntakeURL.EscapedPath(), "api/v2/logs") {
+		logIntakeURL.Path = path.Join(logIntakeURL.Path, "api/v2/logs")
+	}
+	return logIntakeURL.String(), nil
+}
+
 // PostMetrics forwards the metrics to datadog
 func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 	c.log.Debugf("Posting %d metrics to account %s", len(metrics), c.apiKey[len(c.apiKey)-4:])
-	seriesData := c.formatter.Format(c.prefix, c.maxPostBytes, metrics)
+	seriesData := c.formatter.FormatMetrics(c.prefix, c.maxPostBytes, metrics)
 	unsentMetrics := uint64(0)
 	for _, entry := range seriesData {
 		if entry.data == nil {
@@ -167,7 +243,7 @@ func (c *Client) PostMetrics(metrics metric.MetricsMap) uint64 {
 		}
 
 		if err := c.postMetrics(entry.data); err != nil {
-			unsentMetrics += entry.nbrMetrics
+			unsentMetrics += entry.nbrItems
 			c.log.Errorf("Error posting metrics: %s\n\n", err)
 		}
 	}
@@ -187,6 +263,7 @@ func (c *Client) postMetrics(seriesBytes []byte) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "deflate") // Additional header for zlib compression
+	req.Header.Set("DD-API-KEY", c.apiKey)
 
 	// If an error is returned by the client (connection errors, etc.), or if a 500-range
 	// response code is received, then a retry is invoked on this request after a wait period
@@ -217,9 +294,6 @@ func (c *Client) seriesURL() (string, error) {
 	if !strings.Contains(apiURL.EscapedPath(), "api/v1/series") {
 		apiURL.Path = path.Join(apiURL.Path, "api/v1/series")
 	}
-	query := apiURL.Query()
-	query.Add("api_key", c.apiKey)
-	apiURL.RawQuery = query.Encode()
 	return apiURL.String(), nil
 }
 

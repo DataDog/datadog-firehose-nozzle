@@ -15,21 +15,32 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
-type appCache struct {
-	apps     map[string]*App
-	warmedUp bool
-	lock     sync.RWMutex
+type AppCache struct {
+	apps       map[string]*App
+	warmedUp   bool
+	lock       sync.RWMutex
+	configured bool
 }
 
-func newAppCache() appCache {
-	return appCache{
-		apps:     make(map[string]*App),
-		warmedUp: false,
+var globalAppCache *AppCache = nil
+
+func GetGlobalAppCache() *AppCache {
+	if globalAppCache == nil {
+		globalAppCache = newAppCache()
+	}
+	return globalAppCache
+}
+
+func newAppCache() *AppCache {
+	return &AppCache{
+		apps:       make(map[string]*App),
+		warmedUp:   false,
+		configured: true,
 	}
 }
 
 // Add inserts or update a new app in the cache, and returns it
-func (c *appCache) Add(cfApp cloudfoundry.CFApplication) (*App, error) {
+func (c *AppCache) Add(cfApp cloudfoundry.CFApplication) (*App, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -51,7 +62,7 @@ func (c *appCache) Add(cfApp cloudfoundry.CFApplication) (*App, error) {
 }
 
 // Get returns a cached app or nil if not found
-func (c *appCache) Get(guid string) *App {
+func (c *AppCache) Get(guid string) *App {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -59,7 +70,7 @@ func (c *appCache) Get(guid string) *App {
 }
 
 // IsWarmedUp returns true if the cache has completed its first warmup cycle
-func (c *appCache) IsWarmedUp() bool {
+func (c *AppCache) IsWarmedUp() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -67,7 +78,7 @@ func (c *appCache) IsWarmedUp() bool {
 }
 
 // setWarmedUp signals to the cache that it's ready to be used
-func (c *appCache) SetWarmedUp() {
+func (c *AppCache) SetWarmedUp() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -79,7 +90,7 @@ type AppParser struct {
 	cfClient     *cloudfoundry.CFClient
 	dcaClient    *cloudfoundry.DCAClient
 	log          *gosteno.Logger
-	AppCache     appCache
+	AppCache     *AppCache
 	cacheWorkers int
 	grabInterval int
 	customTags   []string
@@ -96,6 +107,7 @@ func NewAppParser(
 	log *gosteno.Logger,
 	customTags []string,
 	environment string,
+	sharedCache bool,
 ) (*AppParser, error) {
 
 	if cfClient == nil && dcaClient == nil {
@@ -105,11 +117,20 @@ func NewAppParser(
 	if environment != "" {
 		customTags = append(customTags, fmt.Sprintf("%s:%s", "env", environment))
 	}
+
+	var appC *AppCache
+
+	if sharedCache {
+		appC = GetGlobalAppCache()
+	} else {
+		appC = newAppCache()
+	}
+
 	appMetrics := &AppParser{
 		cfClient:     cfClient,
 		dcaClient:    dcaClient,
 		log:          log,
-		AppCache:     newAppCache(),
+		AppCache:     appC,
 		cacheWorkers: cacheWorkers,
 		grabInterval: grabInterval,
 		customTags:   customTags,

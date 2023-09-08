@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -29,6 +30,7 @@ type Nozzle struct {
 	dcaClient             *cloudfoundry.DCAClient
 	loggregatorClient     *cloudfoundry.LoggregatorClient
 	processedMetrics      chan []metric.MetricPackage
+	processedLogs         chan logs.LogMessage
 	orgCollector          *orgcollector.OrgCollector
 	log                   *gosteno.Logger
 	parseAppMetricsEnable bool
@@ -36,11 +38,18 @@ type Nozzle struct {
 	workersStopper        chan bool
 	mapLock               sync.RWMutex
 	metricsMap            metric.MetricsMap // modified by workers & main thread
-	totalMessagesReceived uint64            // modified by workers, read by main thread
-	slowConsumerAlert     uint64            // modified by workers, read by main thread
+	logsBuffer            []logs.LogMessage
+	totalMessagesReceived uint64 // modified by workers, read by main thread
+	slowConsumerAlert     uint64 // modified by workers, read by main thread
 	totalMetricsSent      uint64
 	metricsSent           uint64
 	metricsDropped        uint64
+	totalLogsSent         uint64
+	logsSent              uint64
+	logsDropped           uint64
+	running               chan interface{}
+	tickedOnce            chan interface{}
+	firstTick             bool
 }
 
 // AuthTokenFetcher is an interface for fetching an auth token from uaa
@@ -54,12 +63,17 @@ func NewNozzle(config *config.Config, tokenFetcher AuthTokenFetcher, log *gosten
 		config:                config,
 		authTokenFetcher:      tokenFetcher,
 		metricsMap:            make(metric.MetricsMap),
+		logsBuffer:            make([]logs.LogMessage, 0, 1000),
 		processedMetrics:      make(chan []metric.MetricPackage, 1000),
+		processedLogs:         make(chan logs.LogMessage, 1000),
 		log:                   log,
 		parseAppMetricsEnable: config.AppMetrics,
 		stopper:               make(chan bool),
 		workersStopper:        make(chan bool),
 		messages:              make(chan *loggregator_v2.Envelope, 10000),
+		running:               make(chan interface{}),
+		tickedOnce:            make(chan interface{}),
+		firstTick:             true,
 	}
 }
 
@@ -98,6 +112,7 @@ func (n *Nozzle) Start() error {
 	// Initialize Firehose processor
 	n.processor, n.parseAppMetricsEnable = processor.NewProcessor(
 		n.processedMetrics,
+		n.processedLogs,
 		n.config.CustomTags,
 		n.config.EnvironmentName,
 		n.parseAppMetricsEnable,
@@ -150,6 +165,10 @@ func (n *Nozzle) Start() error {
 	// Submit metrics left in cache if any
 	n.postMetrics()
 
+	if n.config.EnableApplicationLogs {
+		// Submit logs left in cache if any
+		n.postLogs()
+	}
 	return err
 }
 
@@ -176,21 +195,42 @@ func (n *Nozzle) startFirehoseConsumer(authTokenFetcher AuthTokenFetcher) error 
 func (n *Nozzle) run() error {
 	// Start infinite loop to periodically:
 	// - submit metrics to Datadog
+	// - submit logs to Datadog
 	// - handle error
 	//   - log error
 	//   - break out of the loop if error is not a retry error
 	// - stop nozzle
 	//   - break out of the loop
 	ticker := time.NewTicker(time.Duration(n.config.FlushDurationSeconds) * time.Second)
+	close(n.running)
 	for {
 		select {
 		case <-ticker.C:
 			// Submit metrics to Datadog
 			n.postMetrics()
+
+			// Submit application logs to Datadog
+			n.postLogs()
+
+			n.mapLock.RLock()
+			if n.firstTick {
+				n.mapLock.RUnlock()
+				n.mapLock.Lock()
+				n.firstTick = false
+				n.mapLock.Unlock()
+				close(n.tickedOnce)
+			} else {
+				n.mapLock.RUnlock()
+			}
 		case <-n.stopper:
 			return nil
 		}
 	}
+}
+
+// TickedOnce blocks until the nozzle flushes metrics/logs for the first time, does nothing otherwise
+func (n *Nozzle) TickedOnce() <-chan interface{} {
+	return n.tickedOnce
 }
 
 // Stop stops the Nozzle
@@ -200,10 +240,30 @@ func (n *Nozzle) Stop() {
 	n.stopper <- true
 }
 
-// PostMetrics posts metrics do to datadog
+// postLogs sends logs to datadog
+func (n *Nozzle) postLogs() {
+	n.mapLock.Lock()
+
+	logsBuffer := make([]logs.LogMessage, len(n.logsBuffer))
+	copy(logsBuffer, n.logsBuffer)
+
+	n.logsBuffer = make([]logs.LogMessage, 0, 1000)
+	n.mapLock.Unlock()
+
+	for _, client := range n.ddClients {
+		unsentLogs := client.PostLogs(logsBuffer)
+		n.logsSent += uint64(len(logsBuffer)) - unsentLogs
+		n.logsDropped += unsentLogs
+	}
+
+	n.totalLogsSent += n.logsSent
+	n.ResetSlowConsumerError()
+}
+
+// postMetrics sends metrics to datadog
 func (n *Nozzle) postMetrics() {
 	n.mapLock.Lock()
-	// deep copy the metrics map to pass to PostMetrics so that we can unlock n.metricsMap while posting
+	// Deep copy the metrics map to pass to PostMetrics so that we can unlock n.metricsMap while posting
 	metricsMap := make(metric.MetricsMap)
 	for k, v := range n.metricsMap {
 		metricsMap[k] = v
@@ -221,6 +281,8 @@ func (n *Nozzle) postMetrics() {
 		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("totalMetricsSent", metric.GAUGE, n.totalMetricsSent, timestamp)
 		metricsMap[k] = v
+		k, v = client.MakeInternalMetric("totalLogsSent", metric.GAUGE, n.totalLogsSent, timestamp)
+		metricsMap[k] = v
 		k, v = client.MakeInternalMetric("slowConsumerAlert", metric.GAUGE, atomic.LoadUint64(&n.slowConsumerAlert), timestamp)
 		metricsMap[k] = v
 
@@ -233,6 +295,15 @@ func (n *Nozzle) postMetrics() {
 			n.metricsDropped = 0
 		}
 
+		if n.totalLogsSent > 0 {
+			k, v = client.MakeInternalMetric("logs.sent", metric.COUNT, n.logsSent, timestamp)
+			metricsMap[k] = v
+			k, v = client.MakeInternalMetric("logs.dropped", metric.COUNT, n.logsDropped, timestamp)
+			metricsMap[k] = v
+			n.logsSent = 0
+			n.logsDropped = 0
+		}
+
 		unsentMetrics := client.PostMetrics(metricsMap)
 		n.metricsSent += uint64(len(metricsMap)) - unsentMetrics
 		n.metricsDropped += unsentMetrics
@@ -243,7 +314,7 @@ func (n *Nozzle) postMetrics() {
 }
 
 func (n *Nozzle) keepMessage(envelope *loggregator_v2.Envelope) bool {
-	deployment, _ := envelope.GetTags()["deployment"]
+	deployment := envelope.GetTags()["deployment"]
 	return n.config.DeploymentFilter == "" || n.config.DeploymentFilter == deployment
 }
 

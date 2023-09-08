@@ -12,7 +12,7 @@ import (
 	datadogclient "github.com/DataDog/datadog-firehose-nozzle/internal/client/datadog"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
@@ -174,7 +174,12 @@ var _ = Describe("DatadogFirehoseNozzle", func() {
 				Expect(m.Tags).To(HaveLen(2))
 				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
 				Expect(m.Tags[1]).To(HavePrefix("ip:"))
-
+				Expect(m.Points).To(HaveLen(1))
+				Expect(m.Points[0].Value).To(Equal(0.0))
+			} else if m.Metric == "cloudfoundry.nozzle.totalLogsSent" {
+				Expect(m.Tags).To(HaveLen(2))
+				Expect(m.Tags[0]).To(HavePrefix("deployment:"))
+				Expect(m.Tags[1]).To(HavePrefix("ip:"))
 				Expect(m.Points).To(HaveLen(1))
 				Expect(m.Points[0].Value).To(Equal(0.0))
 			} else if m.Metric == "cloudfoundry.nozzle.slowConsumerAlert" {

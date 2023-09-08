@@ -25,46 +25,49 @@ var NozzleConfig Config
 type Config struct {
 	// NOTE: When adding new attributes that can be considered secrets,
 	// make sure to mark them for omission when logging config in AsLogString
-	UAAURL                         string
-	Client                         string
-	ClientSecret                   string
-	RLPGatewayURL                  string
-	FirehoseSubscriptionID         string
-	DataDogURL                     string
-	DataDogAPIKey                  string
-	DataDogAdditionalEndpoints     map[string][]string
-	HTTPProxyURL                   string
-	HTTPSProxyURL                  string
-	NoProxy                        []string
-	CloudControllerEndpoint        string
-	CloudControllerAPIBatchSize    uint32
-	DataDogTimeoutSeconds          uint32
-	FlushDurationSeconds           uint32
-	FlushMaxBytes                  uint32
-	InsecureSSLSkipVerify          bool
-	MetricPrefix                   string
-	Deployment                     string
-	DeploymentFilter               string
-	DisableAccessControl           bool
-	IdleTimeoutSeconds             uint32
-	AppMetrics                     bool
-	NumWorkers                     int
-	NumCacheWorkers                int
-	GrabInterval                   int
-	CustomTags                     []string
-	EnvironmentName                string
-	WorkerTimeoutSeconds           uint32
-	OrgDataCollectionInterval      uint32
-	EnableMetadataCollection       bool
-	EnableAdvancedTagging          bool
-	MetadataKeysWhitelistPatterns  []string
-	MetadataKeysBlacklistPatterns  []string
-	MetadataKeysWhitelist          []*regexp.Regexp `json:"-"`
-	MetadataKeysBlacklist          []*regexp.Regexp `json:"-"`
-	EnableMetadataAppMetricsPrefix bool
-	DCAEnabled                     bool
-	DCAUrl                         string
-	DCAToken                       string
+	UAAURL                              string
+	Client                              string
+	ClientSecret                        string
+	RLPGatewayURL                       string
+	FirehoseSubscriptionID              string
+	DataDogURL                          string
+	DataDogLogIntakeURL                 string
+	DataDogAPIKey                       string
+	DataDogAdditionalEndpoints          map[string][]string
+	DataDogAdditionalLogIntakeEndpoints []string
+	HTTPProxyURL                        string
+	HTTPSProxyURL                       string
+	NoProxy                             []string
+	CloudControllerEndpoint             string
+	CloudControllerAPIBatchSize         uint32
+	DataDogTimeoutSeconds               uint32
+	FlushDurationSeconds                uint32
+	FlushMaxBytes                       uint32
+	InsecureSSLSkipVerify               bool
+	MetricPrefix                        string
+	Deployment                          string
+	DeploymentFilter                    string
+	DisableAccessControl                bool
+	IdleTimeoutSeconds                  uint32
+	AppMetrics                          bool
+	NumWorkers                          int
+	NumCacheWorkers                     int
+	GrabInterval                        int
+	CustomTags                          []string
+	EnvironmentName                     string
+	WorkerTimeoutSeconds                uint32
+	OrgDataCollectionInterval           uint32
+	EnableMetadataCollection            bool
+	EnableAdvancedTagging               bool
+	EnableApplicationLogs               bool
+	EnableMetadataAppMetricsPrefix      bool
+	MetadataKeysWhitelistPatterns       []string
+	MetadataKeysBlacklistPatterns       []string
+	MetadataKeysWhitelist               []*regexp.Regexp `json:"-"`
+	MetadataKeysBlacklist               []*regexp.Regexp `json:"-"`
+	DCAEnabled                          bool
+	DCAUrl                              string
+	DCAToken                            string
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)
@@ -120,8 +123,10 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvVar("NOZZLE_RLP_GATEWAY_URL", &config.RLPGatewayURL)
 	overrideWithEnvVar("NOZZLE_FIREHOSESUBSCRIPTIONID", &config.FirehoseSubscriptionID)
 	overrideWithEnvVar("NOZZLE_DATADOGURL", &config.DataDogURL)
+	overrideWithEnvVar("NOZZLE_DATADOGLOGINTAKEURL", &config.DataDogLogIntakeURL)
 	overrideWithEnvVar("NOZZLE_DATADOGAPIKEY", &config.DataDogAPIKey)
 	//NOTE: Override of DataDogAdditionalEndpoints not supported
+	//NOTE: Override of DataDogAdditionalLogIntakeEndpoints not supported
 
 	overrideWithEnvVar("HTTP_PROXY", &config.HTTPProxyURL)
 	overrideWithEnvVar("HTTPS_PROXY", &config.HTTPSProxyURL)
@@ -143,6 +148,7 @@ func Parse(configPath string) (Config, error) {
 	overrideWithEnvSliceStrings("NO_PROXY", &config.NoProxy)
 	overrideWithEnvVar("NOZZLE_ENVIRONMENT_NAME", &config.EnvironmentName)
 	overrideWithEnvBool("NOZZLE_ENABLE_METADATA_COLLECTION", &config.EnableMetadataCollection)
+	overrideWithEnvBool("NOZZLE_ENABLE_APPLICATION_LOGS", &config.EnableApplicationLogs)
 
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_WHITELIST", &config.MetadataKeysWhitelistPatterns)
 	overrideWithEnvSliceStrings("NOZZLE_METADATA_KEYS_BLACKLIST", &config.MetadataKeysBlacklistPatterns)

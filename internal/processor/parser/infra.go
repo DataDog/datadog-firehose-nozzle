@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
@@ -32,7 +33,7 @@ func NewInfraParser(
 	}, nil
 }
 
-func (p InfraParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
+func (p InfraParser) ParseMetrics(envelope *loggregator_v2.Envelope) ([]metric.MetricPackage, error) {
 	metrics := []metric.MetricPackage{}
 
 	switch envelope.GetMessage().(type) {
@@ -89,6 +90,27 @@ func (p InfraParser) Parse(envelope *loggregator_v2.Envelope) ([]metric.MetricPa
 	}
 
 	return metrics, nil
+}
+
+func (p InfraParser) ParseLog(envelope *loggregator_v2.Envelope) (logs.LogMessage, error) {
+	logValue := logs.LogMessage{}
+
+	switch envelope.GetMessage().(type) {
+	case *loggregator_v2.Envelope_Log:
+		break
+	default:
+		return logValue, fmt.Errorf("not a log envelope")
+	}
+
+	host := parseHost(envelope)
+	tags := parseTags(envelope, p.Environment, p.DeploymentUUIDRegex, p.JobPartitionUUIDRegex)
+	tags = append(tags, p.CustomTags...)
+
+	logValue.Hostname = host
+	logValue.Tags = strings.Join(tags, ",")
+	logValue.Message = string(envelope.GetLog().Payload)
+
+	return logValue, nil
 }
 
 func getValues(envelope *loggregator_v2.Envelope) map[string]float64 {
