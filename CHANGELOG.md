@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.0 / 2023-09-08
+
+* [Added] Add support for application logs. See [#92](https://github.com/DataDog/datadog-firehose-nozzle/pull/92).
+
 ## 2.5.0 / 2022-11-10
 
 * [Added] Add option to disable application metadata prefix. See [#93](https://github.com/DataDog/datadog-firehose-nozzle/pull/93).
