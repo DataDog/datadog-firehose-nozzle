@@ -68,27 +68,27 @@ var _ = Describe("DatadogClient", func() {
 			// With trailing slash
 			c.apiURL = "https://app.datadoghq.com/"
 			result, err := c.seriesURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series"))
 
 			// Without trailing slash
 			c.apiURL = "https://app.datadoghq.com"
 			result, err = c.seriesURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series"))
 		})
 
 		It("doesn't append api/v1/series if present", func() {
 			c.apiURL = "https://app.datadoghq.com/api/v1/series"
 			result, err := c.seriesURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("https://app.datadoghq.com/api/v1/series"))
 		})
 
 		It("keeps query and path intact", func() {
 			c.apiURL = "https://app.datadoghq.com/a/path?key=value"
 			result, err := c.seriesURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("https://app.datadoghq.com/a/path/api/v1/series?key=value"))
 		})
 
@@ -96,27 +96,27 @@ var _ = Describe("DatadogClient", func() {
 			// With trailing slash
 			c.logIntakeURL = "http-intake.logs.datadoghq.com/"
 			result, err := c.logsURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
 
 			// Without trailing slash
 			c.logIntakeURL = "http-intake.logs.datadoghq.com"
 			result, err = c.logsURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
 		})
 
 		It("doesn't append api/v2/logs if present", func() {
 			c.logIntakeURL = "http-intake.logs.datadoghq.com/api/v2/logs"
 			result, err := c.logsURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("http-intake.logs.datadoghq.com/api/v2/logs"))
 		})
 
 		It("keeps logs query and path intact", func() {
 			c.logIntakeURL = "http-intake.logs.datadoghq.com/a/path?key=value"
 			result, err := c.logsURL()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("http-intake.logs.datadoghq.com/a/path/api/v2/logs?key=value"))
 		})
 	})
@@ -562,17 +562,17 @@ var _ = Describe("DatadogClient", func() {
 		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("test"))
 
 		proxyURL, err := proxyFunc(rHTTP)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proxyURL.String()).To(Equal("http://user:password@host.com:1234"))
 		proxyURL, err = proxyFunc(rHTTPS)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proxyURL.String()).To(Equal("https://user:password@host.com:1234"))
 
 		proxyURL, err = proxyFunc(rHTTPNoProxy)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proxyURL).To(BeNil())
 		proxyURL, err = proxyFunc(rHTTPSNoProxy)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proxyURL).To(BeNil())
 	})
 
@@ -588,11 +588,11 @@ var _ = Describe("DatadogClient", func() {
 		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
 
 		proxyURL, err := proxyFunc(rHTTP)
-		Expect(err).ToNot(BeNil())
+		Expect(err).To(HaveOccurred())
 		Expect(proxyURL).To(BeNil())
 
 		proxyURL, err = proxyFunc(rHTTPS)
-		Expect(err).ToNot(BeNil())
+		Expect(err).To(HaveOccurred())
 		Expect(proxyURL).To(BeNil())
 	})
 
@@ -607,7 +607,7 @@ var _ = Describe("DatadogClient", func() {
 		proxyFunc := GetProxyTransportFunc(proxy, gosteno.NewLogger("datadogclient test"))
 
 		proxyURL, err := proxyFunc(rWS)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proxyURL).To(BeNil())
 	})
 })

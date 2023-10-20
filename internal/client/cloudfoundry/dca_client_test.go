@@ -42,7 +42,7 @@ func checkDCAAppAttributes(app *CFApplication, advancedTagging bool) {
 		"org-label":           "org-label-value",
 	}))
 	if advancedTagging {
-		Expect(len(app.Sidecars)).To(Equal(1))
+		Expect(app.Sidecars).To(HaveLen(1))
 		Expect(app.Sidecars[0].Name).To(Equal("sidecar-name-1"))
 		Expect(app.Sidecars[0].GUID).To(Equal("sidecar-guid-1"))
 	}
@@ -89,13 +89,13 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		}
 		var err error
 		fakeDCAClient, err = NewDCAClient(&cfg, log)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}, 0.0)
 
 	Context("GetVersion method", func() {
 		It("retrieves the cluster agent api version correctly", func() {
 			res, err := fakeDCAClient.GetVersion()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkVersionAttributes(&res)
 		})
@@ -104,18 +104,18 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	Context("GetApplications method", func() {
 		It("retrieves all apps correctly from the cluster agent api without advanced tags", func() {
 			res, err := fakeDCAClient.GetApplications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(21))
+			Expect(res).To(HaveLen(21))
 			checkDCAAppAttributes(&res[0], fakeDCAClient.advancedTagging)
 		})
 
 		It("retrieves all apps correctly from the cluster agent api with advanced tags", func() {
 			fakeDCAClient.advancedTagging = true
 			res, err := fakeDCAClient.GetApplications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(21))
+			Expect(res).To(HaveLen(21))
 			checkDCAAppAttributes(&res[0], fakeDCAClient.advancedTagging)
 		})
 	})
@@ -123,7 +123,7 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	Context("GetApplication method", func() {
 		It("retrieves a single app correctly from the cluster agent api without advanced tags", func() {
 			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkDCAAppAttributes(res, fakeDCAClient.advancedTagging)
 		})
@@ -131,7 +131,7 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		It("retrieves a single app correctly from the cluster agent api with advanced tags", func() {
 			fakeDCAClient.advancedTagging = true
 			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkDCAAppAttributes(res, fakeDCAClient.advancedTagging)
 		})
@@ -140,7 +140,7 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	Context("GetV3Orgs method", func() {
 		It("retrieves all orgs correctly from the cluster agent api", func() {
 			res, err := fakeDCAClient.GetV3Orgs()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkV3OrgAttributes(&res[0])
 		})
@@ -149,7 +149,7 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 	Context("GetV2OrgQuotas method", func() {
 		It("retrieves all orgs correctly from the cluster agent api", func() {
 			res, err := fakeDCAClient.GetV2OrgQuotas()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkV2OrgQuotaAttributes(&res[0])
 		})

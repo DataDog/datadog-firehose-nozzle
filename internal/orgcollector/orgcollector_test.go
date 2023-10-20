@@ -48,7 +48,7 @@ var _ = Describe("OrgCollector", func() {
 				log,
 				customTags,
 			)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}, 0.0)
 
 		It("pushes correct metrics using cloud foundry client", func() {
@@ -126,7 +126,7 @@ var _ = Describe("OrgCollector", func() {
 				log,
 				customTags,
 			)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}, 0.0)
 
 		It("pushes correct metrics using cluster agent client", func() {

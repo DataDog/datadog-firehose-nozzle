@@ -442,7 +442,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		It("gets an empty authentication token", func() {
-			Consistently(fakeUAA.Requested).Should(Equal(false))
+			Consistently(fakeUAA.Requested).Should(BeFalse())
 			Consistently(fakeFirehose.LastAuthorization).Should(Equal(""))
 		})
 
@@ -551,7 +551,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			}()
 			<-nozzle.TickedOnce()
 			nozzle.Stop()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
