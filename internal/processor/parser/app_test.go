@@ -55,20 +55,20 @@ var _ = Describe("AppMetrics", func() {
 		}
 		var err error
 		fakeCfClient, err = cloudfoundry.NewClient(&cfg, log)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		fakeDCAClient, err = cloudfoundry.NewDCAClient(&cfg, log)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}, 0.0)
 
 	Context("generator function", func() {
 		It("errors out properly when it cannot connect", func() {
 			_, err := NewAppParser(nil, nil, 5, 10, log, []string{}, "", false)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("generates it properly when it can connect using cloudfoundry client", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			a.Stop()
 			Eventually(a.Done()).Should(BeClosed())
@@ -76,7 +76,7 @@ var _ = Describe("AppMetrics", func() {
 
 		It("generates it properly when it can connect using cluster agent client", func() {
 			a, err := NewAppParser(nil, fakeDCAClient, 5, 10, log, []string{}, "", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			a.Stop()
 			Eventually(a.Done()).Should(BeClosed())
@@ -86,25 +86,25 @@ var _ = Describe("AppMetrics", func() {
 	Context("cache warmup", func() {
 		It("requests all the apps directly at startup using cluster agent client when when cluster agent is enabled", func() {
 			a, err := NewAppParser(nil, fakeDCAClient, 5, 999, log, []string{}, "", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(21))
+			Expect(a.AppCache.apps).To(HaveLen(21))
 		})
 
 		It("requests all the apps directly at startup using cloudfoundry client only when cluster agent is disabled", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 999, log, []string{}, "", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
-			Expect(len(a.AppCache.apps)).To(Equal(14))
+			Expect(a.AppCache.apps).To(HaveLen(14))
 		})
 
 		It("does not block while warming cache using cloudfoundry client", func() {
 			fakeCloudControllerAPI.RequestTime = 100
 			a, err := NewAppParser(fakeCfClient, nil, 5, 999, log, []string{}, "", false)
 			// Assertions are done while cache is warming up in the background
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			Expect(a.AppCache.IsWarmedUp()).To(BeFalse())
 			// Eventually, the cache is ready
@@ -115,7 +115,7 @@ var _ = Describe("AppMetrics", func() {
 			fakeClusterAgentAPI.RequestTime = 100
 			a, err := NewAppParser(nil, fakeDCAClient, 5, 999, log, []string{}, "", false)
 			// Assertions are done while cache is warming up in the background
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(a).NotTo(BeNil())
 			Expect(a.AppCache.IsWarmedUp()).To(BeFalse())
 			// Eventually, the cache is ready
@@ -130,7 +130,7 @@ var _ = Describe("AppMetrics", func() {
 			// Wait for cache warmup to finish
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).ShouldNot(Receive())
 			_, err := a.getAppData("app-5")
-			Expect(err).ToNot(BeNil()) // error expected because fake CC won't return an app, so unmarshalling will fail
+			Expect(err).To(HaveOccurred()) // error expected because fake CC won't return an app, so unmarshalling will fail
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive(&req))
 			Expect(req.URL.Path).To(Equal("/v2/apps/app-5"))
 		})
@@ -141,7 +141,7 @@ var _ = Describe("AppMetrics", func() {
 			// Wait for cache warmup to finish
 			Eventually(fakeClusterAgentAPI.ReceivedRequests).ShouldNot(Receive())
 			_, err := a.getAppData("app-5")
-			Expect(err).ToNot(BeNil()) // error expected because fake API won't return an app, so unmarshalling will fail
+			Expect(err).To(HaveOccurred()) // error expected because fake API won't return an app, so unmarshalling will fail
 			Eventually(fakeClusterAgentAPI.ReceivedRequests).Should(Receive(&req))
 			Expect(req.URL.Path).To(Equal("/api/v1/cf/apps/app-5"))
 		})
@@ -152,7 +152,7 @@ var _ = Describe("AppMetrics", func() {
 			// 6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a corresponds to hello-datadog-cf-ruby-dev
 			Expect(a.AppCache.apps).To(HaveKey("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 			app, err := a.getAppData("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(app).NotTo(BeNil())
 		})
 
@@ -162,7 +162,7 @@ var _ = Describe("AppMetrics", func() {
 			// 6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a corresponds to hello-datadog-cf-ruby-dev
 			Expect(a.AppCache.apps).To(HaveKey("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"))
 			app, err := a.getAppData("6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(app).NotTo(BeNil())
 		})
 	})
@@ -173,7 +173,7 @@ var _ = Describe("AppMetrics", func() {
 			config.NozzleConfig.EnableMetadataAppMetricsPrefix = true
 			config.NozzleConfig.MetadataKeysBlacklist = []*regexp.Regexp{regexp.MustCompile("blacklisted.*")}
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
@@ -217,7 +217,7 @@ var _ = Describe("AppMetrics", func() {
 
 			metrics, err := a.Parse(event)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics).To(HaveLen(10))
 
 			Expect(metrics).To(ContainMetric("app.disk.configured"))
@@ -264,7 +264,7 @@ var _ = Describe("AppMetrics", func() {
 			config.NozzleConfig.EnableMetadataCollection = true
 			config.NozzleConfig.MetadataKeysBlacklist = []*regexp.Regexp{regexp.MustCompile("blacklisted.*")}
 			a, err := NewAppParser(nil, fakeDCAClient, 5, 10, log, []string{}, "env_name", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
@@ -308,7 +308,7 @@ var _ = Describe("AppMetrics", func() {
 
 			metrics, err := a.Parse(event)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics).To(HaveLen(10))
 
 			Expect(metrics).To(ContainMetric("app.disk.configured"))
@@ -346,7 +346,7 @@ var _ = Describe("AppMetrics", func() {
 
 		It("parses an event properly and doesn't add metadata if not configured, except for autodiscovery tags", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
@@ -390,7 +390,7 @@ var _ = Describe("AppMetrics", func() {
 
 			metrics, err := a.Parse(event)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics).To(HaveLen(10))
 
 			Expect(metrics).To(ContainMetric("app.disk.configured"))
@@ -436,7 +436,7 @@ var _ = Describe("AppMetrics", func() {
 	Context("expected tags", func() {
 		It("adds proper instance tag", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{}, "env_name", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
@@ -510,7 +510,7 @@ var _ = Describe("AppMetrics", func() {
 		It("attaches custom tags if present", func() {
 			a, err := NewAppParser(fakeCfClient, nil, 5, 10, log, []string{"custom:tag", "foo:bar"},
 				"env_name", false)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(a.AppCache.IsWarmedUp).Should(BeTrue())
 
 			event := &loggregator_v2.Envelope{
@@ -554,7 +554,7 @@ var _ = Describe("AppMetrics", func() {
 
 			metrics, err := a.Parse(event)
 
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics).To(HaveLen(10))
 
 			for _, metric := range metrics {

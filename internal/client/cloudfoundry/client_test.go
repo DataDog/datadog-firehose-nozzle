@@ -48,7 +48,7 @@ func checkAppAttributes(app *CFApplication, apiVersion int, advancedTagging bool
 	}
 	if advancedTagging {
 		Expect(app.Sidecars).NotTo(BeNil())
-		Expect(len(app.Sidecars)).To(Equal(1))
+		Expect(app.Sidecars).To(HaveLen(1))
 		Expect(app.Sidecars[0].GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
 		Expect(app.Sidecars[0].Name).To(Equal("config-server"))
 	}
@@ -113,65 +113,65 @@ var _ = Describe("CloudFoundryClient", func() {
 		}
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	}, 0.0)
 
 	Context("individual endpoint", func() {
 		It("with v2 apps is retrieved correctly", func() {
 			fakeCfClient.NumWorkers = 1
 			res, page, err := fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(15))
+			Expect(res).To(HaveLen(15))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(15))
+			Expect(res).To(HaveLen(15))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 3 // As many runners as pages
 			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			Expect(page).To(Equal(3))
-			Expect(len(res)).To(Equal(15))
+			Expect(res).To(HaveLen(15))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 		})
 
 		It("with v3 spaces is retrieved correctly", func() {
 			res, err := fakeCfClient.getV3Spaces()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(6))
+			Expect(res).To(HaveLen(6))
 			checkSpaceAttributes(&res[0])
 		})
 
 		It("with v3 processes is retrieved correctly", func() {
 			res, err := fakeCfClient.getV3Processes()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(19))
+			Expect(res).To(HaveLen(19))
 			checkProcessAttributes(&res[0])
 		})
 
 		It("with v3 orgs is retrieved correctly", func() {
 			res, err := fakeCfClient.getV3Orgs()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(2))
+			Expect(res).To(HaveLen(2))
 			checkOrgAttributes(&res[0])
 		})
 
 		It("with v3 apps is retrieved correctly", func() {
 			res, err := fakeCfClient.getV3Apps()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
+			Expect(res).To(HaveLen(14))
 		})
 	})
 
@@ -179,23 +179,23 @@ var _ = Describe("CloudFoundryClient", func() {
 		It("retrieves apps correctly", func() {
 			fakeCfClient.NumWorkers = 1
 			res, err := fakeCfClient.getV2Applications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
+			Expect(res).To(HaveLen(45))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 100 // More runners than pages
 			res, err = fakeCfClient.getV2Applications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
+			Expect(res).To(HaveLen(45))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 			fakeCfClient.NumWorkers = 3 // As many runners as pages
 			res, err = fakeCfClient.getV2Applications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(45))
+			Expect(res).To(HaveLen(45))
 			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 		})
 	})
@@ -203,18 +203,18 @@ var _ = Describe("CloudFoundryClient", func() {
 	Context("getV3Applications method", func() {
 		It("retrieves apps correctly without advanced tags", func() {
 			res, err := fakeCfClient.getV3Applications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
+			Expect(res).To(HaveLen(14))
 			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 		})
 
 		It("retrieves apps correctly with advanced tags", func() {
 			fakeCfClient.advancedTagging = true
 			res, err := fakeCfClient.getV3Applications()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			Expect(len(res)).To(Equal(14))
+			Expect(res).To(HaveLen(14))
 			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 		})
 	})
@@ -224,35 +224,35 @@ var _ = Describe("CloudFoundryClient", func() {
 			It("retrieves apps correctly without specified API Version", func() {
 				fakeCfClient.NumWorkers = 1
 				res, err := fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 100 // More runners than pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 2 // As many runners as pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 			})
 
 			It("retrieves apps correctly with explicitly specified v3 API version", func() {
 				fakeCfClient.ApiVersion = 3
 				res, err := fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 			})
 
@@ -260,23 +260,23 @@ var _ = Describe("CloudFoundryClient", func() {
 				fakeCfClient.NumWorkers = 1
 				fakeCfClient.ApiVersion = 2
 				res, err := fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(len(res)).To(Equal(45))
+				Expect(res).To(HaveLen(45))
 				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 100 // More runners than pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(len(res)).To(Equal(45))
+				Expect(res).To(HaveLen(45))
 				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 3 // As many runners as pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(len(res)).To(Equal(45))
+				Expect(res).To(HaveLen(45))
 				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
 			})
 		})
@@ -288,35 +288,35 @@ var _ = Describe("CloudFoundryClient", func() {
 			It("retrieves apps correctly without specified API Version", func() {
 				fakeCfClient.NumWorkers = 1
 				res, err := fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 100 // More runners than pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 
 				fakeCfClient.NumWorkers = 2 // As many runners as pages
 				res, err = fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 			})
 
 			It("retrieves apps correctly with explicitly specified v3 API version", func() {
 				fakeCfClient.ApiVersion = 3
 				res, err := fakeCfClient.GetApplications()
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(len(res)).To(Equal(14))
+				Expect(res).To(HaveLen(14))
 				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
 			})
 		})
@@ -325,7 +325,7 @@ var _ = Describe("CloudFoundryClient", func() {
 	Context("GetApplication method", func() {
 		It("retrieves app correctly", func() {
 			res, err := fakeCfClient.GetApplication("6d254438-cc3b-44a6-b2e6-343ca92deb5f")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkAppAttributes(res, 2, fakeCfClient.advancedTagging)
 		})
@@ -334,7 +334,7 @@ var _ = Describe("CloudFoundryClient", func() {
 	Context("GetV3Orgs  method", func() {
 		It("retrieves v3 orgs correctly", func() {
 			res, err := fakeCfClient.GetV3Orgs()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			checkV3OrgAttributes2(&res[0])
 		})

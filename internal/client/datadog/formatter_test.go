@@ -25,10 +25,10 @@ var _ = Describe("Formatter", func() {
 
 	It("does not return empty data", func() {
 		result := formatter.FormatMetrics("some-prefix", 1024, nil)
-		Expect(result).To(HaveLen(0))
+		Expect(result).To(BeEmpty())
 
 		result = formatter.FormatLogs(1024, nil)
-		Expect(result).To(HaveLen(0))
+		Expect(result).To(BeEmpty())
 	})
 
 	It("compresses series with zlib", func() {
@@ -60,7 +60,7 @@ var _ = Describe("Formatter", func() {
 		}
 		result := formatter.FormatMetrics("some-prefix", 1, m)
 
-		Expect(result).To(HaveLen(0))
+		Expect(result).To(BeEmpty())
 	})
 
 	It("drops logs that are larger than maxPostBytes", func() {
@@ -69,7 +69,7 @@ var _ = Describe("Formatter", func() {
 		}
 		result := formatter.FormatLogs(1, lm)
 
-		Expect(result).To(HaveLen(0))
+		Expect(result).To(BeEmpty())
 	})
 
 	It("does not prepend prefix to `bosh.healthmonitor`", func() {
@@ -110,8 +110,8 @@ var _ = Describe("Formatter", func() {
 
 		a, b := splitMetrics(metricsMap)
 
-		Expect(len(a)).To(Equal(500))
-		Expect(len(b)).To(Equal(500))
+		Expect(a).To(HaveLen(500))
+		Expect(b).To(HaveLen(500))
 	})
 
 	It("properly splits logs into two slices", func() {
@@ -123,7 +123,7 @@ var _ = Describe("Formatter", func() {
 
 		a, b := splitLogs(data)
 
-		Expect(len(a)).To(Equal(500))
-		Expect(len(b)).To(Equal(500))
+		Expect(a).To(HaveLen(500))
+		Expect(b).To(HaveLen(500))
 	})
 })

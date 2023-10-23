@@ -54,7 +54,7 @@ func (d *rlpGatewayClientDoer) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 		d.token = d.tokenFetcher.FetchAuthToken()
 
 		req.Header.Set("Authorization", d.token)
