@@ -1371,6 +1371,7 @@ func (f *FakeCloudControllerAPI) writeResponse(rw http.ResponseWriter, r *http.R
 										"tags.datadoghq.com/auto-annotation-tag": "auto-annotation-tag-value"
 									},
 									"labels": {
+										"tags.datadoghq.com/ddsource": "ddsource-label-value",
 										"app-label": "app-label-value",
 										"app-space-label": "app-space-label-app-value",
 										"app-org-label": "app-org-label-app-value",

@@ -2,10 +2,15 @@ package processor
 
 import (
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
+	"github.com/cloudfoundry/gosteno"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -682,6 +687,126 @@ var _ = Describe("Processor", func() {
 				for _, tag := range expectedTags {
 					Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
 				}
+			})
+		})
+
+		Context("logs source detection", func() {
+			var (
+				log                    *gosteno.Logger
+				fakeCloudControllerAPI *helper.FakeCloudControllerAPI
+				ccAPIURL               string
+				fakeCfClient           *cloudfoundry.CFClient
+			)
+
+			BeforeEach(func() {
+				log = gosteno.NewLogger("process logs source detection test")
+				fakeCloudControllerAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
+				fakeCloudControllerAPI.Start()
+
+				ccAPIURL = fakeCloudControllerAPI.URL()
+				cfg := config.Config{
+					CloudControllerEndpoint: ccAPIURL,
+					Client:                  "bearer",
+					ClientSecret:            "123456789",
+					InsecureSSLSkipVerify:   true,
+					NumWorkers:              0,
+				}
+				var err error
+				fakeCfClient, err = cloudfoundry.NewClient(&cfg, log)
+				Expect(err).ToNot(HaveOccurred())
+
+				lchan = make(chan logs.LogMessage, 100)
+				p, _ = NewProcessor(nil, lchan, nil, "", true, fakeCfClient, nil, 4, 1, log)
+
+				// wait for the grab internal of 1 second set above
+				time.Sleep(2 * time.Second)
+				Expect(p.appCache.IsWarmedUp()).To(BeTrue())
+			})
+
+			It("detects the source from the app buildpacks", func() {
+				nodeAppGUID := "6d254438-cc3b-44a6-b2e6-343ca92deb5f"
+				goAppGUID := "6f1fbbf4-b04c-4574-a7be-cb059e170287"
+
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  nodeAppGUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("nodejs"))
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  goAppGUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("go"))
+			})
+
+			It("overrides detected source with app labels/annotations ddsource tag", func() {
+				rubyAppGuid := "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a"
+
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  rubyAppGuid,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				cfapp := p.appCache.Get(rubyAppGuid)
+				Expect("ddsource:ddsource-label-value").To(BeElementOf(cfapp.Tags))
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("ddsource-label-value"))
+			})
+
+			It("sets the source to the job when the app is not found in the appcache", func() {
+
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  "non-existing-app-guid",
+					Tags: map[string]string{
+						"job": "job-name",
+					},
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				cfapp := p.appCache.Get("non-existing-app-guid")
+				Expect(cfapp).To(BeNil())
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("job-name"))
 			})
 		})
 	})
