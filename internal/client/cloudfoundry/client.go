@@ -17,12 +17,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	maxResultsPerPageV2 = 100
+)
+
 type CFClient struct {
 	ApiVersion      int
 	NumWorkers      int
 	client          *cfclient.Client
 	logger          *gosteno.Logger
-	apiBatchSize    string
+	apiBatchSize    uint32
 	advancedTagging bool
 }
 
@@ -178,7 +182,7 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 		NumWorkers:      config.NumWorkers,
 		client:          cfClient,
 		logger:          logger,
-		apiBatchSize:    fmt.Sprint(config.CloudControllerAPIBatchSize),
+		apiBatchSize:    config.CloudControllerAPIBatchSize,
 		advancedTagging: config.EnableAdvancedTagging,
 	}
 	return &cfc, nil
@@ -348,7 +352,7 @@ func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", cfc.apiBatchSize)
+		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -395,7 +399,7 @@ func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
 	var cfprocesses []cfclient.Process
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", cfc.apiBatchSize)
+		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -428,7 +432,7 @@ func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", cfc.apiBatchSize)
+		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/spaces?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -461,7 +465,7 @@ func (cfc *CFClient) getV3Orgs() ([]v3OrgResource, error) {
 
 	for page := 1; ; page++ {
 		q := url.Values{}
-		q.Set("per_page", cfc.apiBatchSize)
+		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 		q.Set("page", strconv.Itoa(page))
 		r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
 		resp, err := cfc.client.DoRequest(r)
@@ -535,7 +539,7 @@ func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
 func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, error) {
 	q := url.Values{}
 	q.Set("inline-relations-depth", "2")
-	q.Set("results-per-page", cfc.apiBatchSize) // 100 is the max
+	q.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
 	if page > 0 {
 		q.Set("page", strconv.Itoa(page))
 	}
@@ -573,7 +577,7 @@ func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, er
 
 func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 	query := url.Values{}
-	query.Set("per_page", cfc.apiBatchSize)
+	query.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 
 	allOrgs, err := cfc.client.ListV3OrganizationsByQuery(query)
 	if err != nil {
@@ -585,7 +589,7 @@ func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 
 func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 	query := url.Values{}
-	query.Set("results-per-page", cfc.apiBatchSize)
+	query.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
 
 	allOrgs, err := cfc.client.ListOrgsByQuery(query)
 	if err != nil {
@@ -597,7 +601,7 @@ func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
 
 func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	query := url.Values{}
-	query.Set("results-per-page", cfc.apiBatchSize)
+	query.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
 
 	var allQuotas []CFOrgQuota
 
@@ -618,7 +622,7 @@ func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 
 func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
 	query := url.Values{}
-	query.Set("per_page", cfc.apiBatchSize)
+	query.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
 
 	var sidecars []CFSidecar
 
