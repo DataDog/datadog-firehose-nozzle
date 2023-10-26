@@ -188,7 +188,7 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 	if source == "" {
 		if job, ok := envelope.GetTags()["job"]; ok {
 			source = job
-		} else if source == "" {
+		} else {
 			source = "datadog-firehose-nozzle"
 		}
 	}
