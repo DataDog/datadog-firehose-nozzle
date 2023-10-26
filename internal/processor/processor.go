@@ -136,36 +136,39 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 		appTags = append(appTags, fmt.Sprintf("instance_index:%s", envelope.GetTags()["instance_id"]))
 		serviceName = cfapp.Name
 
-		// Map of buildpack discriminator -> Datadog Source value for logs parsing
-		cfBuildpackSourceMap := map[string]string{
-			"go":          "go",
-			"python":      "python",
-			"ruby":        "ruby",
-			"dotnet":      "dotnet",
-			"java":        "java",
-			"php":         "php",
-			"nodejs":      "nodejs",
-			"r-buildpack": "R",
-			"hwc":         "dotnet",
-			"nginx":       "nginx",
-		}
-
-		// detect the source
-		for _, buildpack := range cfapp.Buildpacks {
-			for discriminator, ddsource := range cfBuildpackSourceMap {
-				// the latest source that match will be used
-				if strings.Contains(buildpack, discriminator) {
-					source = ddsource
-				}
-			}
-		}
-
-		// use ddsource if present in the cfapp tags (includes app labels and annotations)
+		// use ddsource tag if present in the cfapp tags (includes app labels and annotations)
 		for _, tag := range cfapp.Tags {
 			if strings.Contains(tag, "ddsource") {
 				fields := strings.Split(tag, ":")
 				source = fields[1]
 				break
+			}
+		}
+
+		// no ddsource tag
+		if source == "" {
+			// Map of buildpack discriminator -> Datadog Source value for logs parsing
+			cfBuildpackSourceMap := map[string]string{
+				"go":          "go",
+				"python":      "python",
+				"ruby":        "ruby",
+				"dotnet":      "dotnet",
+				"java":        "java",
+				"php":         "php",
+				"nodejs":      "nodejs",
+				"r-buildpack": "R",
+				"hwc":         "dotnet",
+				"nginx":       "nginx",
+			}
+
+			// detect the source
+			for _, buildpack := range cfapp.Buildpacks {
+				for discriminator, ddsource := range cfBuildpackSourceMap {
+					// the latest source that match will be used
+					if strings.Contains(buildpack, discriminator) {
+						source = ddsource
+					}
+				}
 			}
 		}
 	}
@@ -181,6 +184,7 @@ func (p *Processor) ProcessLog(envelope *loggregator_v2.Envelope) {
 	logsMessage, err = infraParser.ParseLog(envelope)
 	logsMessage.Service = serviceName
 
+	// source not detected
 	if source == "" {
 		if job, ok := envelope.GetTags()["job"]; ok {
 			source = job
