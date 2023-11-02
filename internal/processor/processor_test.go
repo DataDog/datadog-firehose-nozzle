@@ -2,10 +2,15 @@ package processor
 
 import (
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/client/cloudfoundry"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/test/helper"
+	"github.com/cloudfoundry/gosteno"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -682,6 +687,181 @@ var _ = Describe("Processor", func() {
 				for _, tag := range expectedTags {
 					Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
 				}
+			})
+		})
+
+		Context("logs source detection", func() {
+			var (
+				log                    *gosteno.Logger
+				fakeCloudControllerAPI *helper.FakeCloudControllerAPI
+				ccAPIURL               string
+				fakeCfClient           *cloudfoundry.CFClient
+			)
+
+			BeforeEach(func() {
+				log = gosteno.NewLogger("process logs source detection test")
+				fakeCloudControllerAPI = helper.NewFakeCloudControllerAPI("bearer", "123456789")
+				fakeCloudControllerAPI.Start()
+
+				ccAPIURL = fakeCloudControllerAPI.URL()
+				cfg := config.Config{
+					CloudControllerEndpoint: ccAPIURL,
+					Client:                  "bearer",
+					ClientSecret:            "123456789",
+					InsecureSSLSkipVerify:   true,
+					NumWorkers:              0,
+				}
+				var err error
+				fakeCfClient, err = cloudfoundry.NewClient(&cfg, log)
+				Expect(err).ToNot(HaveOccurred())
+
+				lchan = make(chan logs.LogMessage, 100)
+				p, _ = NewProcessor(nil, lchan, nil, "", true, fakeCfClient, nil, 4, 1, log)
+
+				// wait for the grab internal of 1 second set above
+				time.Sleep(2 * time.Second)
+				Expect(p.appCache.IsWarmedUp()).To(BeTrue())
+			})
+
+			It("detects the source from the app buildpacks", func() {
+				nodeApp := cloudfoundry.CFApplication{
+					GUID:        "node-app-guid",
+					Name:        "nodejs-app-name",
+					Buildpacks:  []string{"nodejs_buildpack", "datadog–cloudfoundry-buildpack"},
+					Labels:      nil,
+					Annotations: nil,
+					OrgGUID:     "org-guid",
+					OrgName:     "org-name",
+					SpaceGUID:   "space-guid",
+					SpaceName:   "space-name",
+				}
+
+				p.appCache.Add(nodeApp)
+
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  nodeApp.GUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("nodejs"))
+
+				goApp := cloudfoundry.CFApplication{
+					GUID:        "go-app-guid",
+					Name:        "go-app-name",
+					Buildpacks:  []string{"go_buildpack", "datadog–cloudfoundry-buildpack"},
+					Labels:      nil,
+					Annotations: nil,
+					OrgGUID:     "org-guid",
+					OrgName:     "org-name",
+					SpaceGUID:   "space-guid",
+					SpaceName:   "space-name",
+				}
+
+				p.appCache.Add(goApp)
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  goApp.GUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("go"))
+			})
+
+			It("overrides detected source with app labels/annotations ddsource tag", func() {
+				rubyApp := cloudfoundry.CFApplication{
+					GUID:        "ruby-app-guid",
+					Name:        "ruby-app-name",
+					Buildpacks:  []string{"ruby_buildpack", "datadog–cloudfoundry-buildpack"},
+					Labels:      nil,
+					Annotations: nil,
+					OrgGUID:     "org-guid",
+					OrgName:     "org-name",
+					SpaceGUID:   "space-guid",
+					SpaceName:   "space-name",
+				}
+
+				// no ddsource label/annotation
+				p.appCache.Add(rubyApp)
+
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  rubyApp.GUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("ruby"))
+
+				// with ddsource label/annotation
+				rubyApp.Labels = map[string]string{
+					"tags.datadoghq.com/ddsource": "ddsource-label-value",
+				}
+				p.appCache.Add(rubyApp)
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  rubyApp.GUID,
+					Tags:      nil,
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("ddsource-label-value"))
+			})
+
+			It("sets the source to the job when the app is not found in the appcache", func() {
+				var logMessage logs.LogMessage
+
+				p.ProcessLog(&loggregator_v2.Envelope{
+					Timestamp: 1000000000,
+					SourceId:  "non-existing-app-guid",
+					Tags: map[string]string{
+						"job": "job-name",
+					},
+					Message: &loggregator_v2.Envelope_Log{
+						Log: &loggregator_v2.Log{
+							Payload: []byte("log message 1"),
+							Type:    loggregator_v2.Log_OUT,
+						},
+					},
+				})
+
+				cfapp := p.appCache.Get("non-existing-app-guid")
+				Expect(cfapp).To(BeNil())
+
+				Eventually(lchan).Should(Receive(&logMessage))
+				Expect(logMessage.Source).Should(Equal("job-name"))
 			})
 		})
 	})
