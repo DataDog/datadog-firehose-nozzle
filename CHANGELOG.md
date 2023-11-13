@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0 / 2023-11-13
+
+* [Added] Add support for logs and traces correlation. See [#109](https://github.com/DataDog/datadog-firehose-nozzle/pull/109).
+* [Added] Upgrade go to 1.21. See [#104](https://github.com/DataDog/datadog-firehose-nozzle/pull/104).
+* [Fixed] Fix `results-per-page` parameter to not exceed the maximum limit in the V2 API. See [#108](https://github.com/DataDog/datadog-firehose-nozzle/pull/108).
+* [Fixed] Increase wait time before refreshing UAA tokens. See [#103](https://github.com/DataDog/datadog-firehose-nozzle/pull/103).
+
 ## 2.6.0 / 2023-09-08
 
 * [Added] Add support for application logs. See [#92](https://github.com/DataDog/datadog-firehose-nozzle/pull/92).
