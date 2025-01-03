@@ -71,12 +71,15 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 			_type = "gauge"
 		}
 
+		originMetadata := metric.GetOriginMetadata()
+
 		m := metric.Series{
-			Metric: name,
-			Points: points,
-			Type:   _type,
-			Tags:   mVal.Tags,
-			Host:   mVal.Host,
+			Metric:   name,
+			Points:   points,
+			Type:     _type,
+			Tags:     mVal.Tags,
+			Host:     mVal.Host,
+			Metadata: originMetadata,
 		}
 		s = append(s, m)
 	}

@@ -67,10 +67,33 @@ func (m MetricsMap) Add(key MetricKey, newVal MetricValue) {
 	m[key] = value
 }
 
+func GetOriginMetadata() Metadata {
+	o := Origin{
+		OriginProduct:       11,
+		OriginSubProduct:    10,
+		OriginProductDetail: 440,
+	}
+
+	return Metadata{
+		Origin: o,
+	}
+}
+
+type Origin struct {
+	OriginProduct       int64 `json:"origin_product"`
+	OriginSubProduct    int64 `json:"origin_sub_product"`
+	OriginProductDetail int64 `json:"origin_product_detail"`
+}
+
+type Metadata struct {
+	Origin Origin `json:"origin"`
+}
+
 type Series struct {
-	Metric string   `json:"metric"`
-	Points []Point  `json:"points"`
-	Type   string   `json:"type"`
-	Host   string   `json:"host,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
+	Metric   string   `json:"metric"`
+	Points   []Point  `json:"points"`
+	Type     string   `json:"type"`
+	Host     string   `json:"host,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+	Metadata Metadata `json:"metadata"`
 }
