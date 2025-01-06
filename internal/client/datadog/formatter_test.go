@@ -40,7 +40,7 @@ var _ = Describe("Formatter", func() {
 			Type: metric.GAUGE,
 		}
 		result := formatter.FormatMetrics("foo", 1024, m)
-		Expect(string(helper.Decompress(result[0].data))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge","metadata":{"origin":{"origin_product":11,"origin_sub_product":10,"origin_product_detail":440}}}]}`))
+		Expect(string(helper.Decompress(result[0].data))).To(Equal(`{"series":[{"metric":"foobar","points":[[0,9.000000]],"type":"gauge","metadata":{"origin":{"origin_product":10,"origin_sub_product":11,"origin_product_detail":440}}}]}`))
 	})
 
 	It("compresses logs with zlib", func() {

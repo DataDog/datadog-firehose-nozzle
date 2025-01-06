@@ -6,9 +6,12 @@ import (
 )
 
 const (
-	GAUGE = "gauge"
-	COUNT = "count"
-	RATE  = "rate"
+	GAUGE                          = "gauge"
+	COUNT                          = "count"
+	RATE                           = "rate"
+	ORIGIN_AGENT_PRODUCT           = 10
+	ORIGIN_INTEGRATION_SUB_PRODUCT = 11
+	ORIGIN_CLOUD_FOUNDRY_DETAIL    = 440
 )
 
 type Point struct {
@@ -69,9 +72,9 @@ func (m MetricsMap) Add(key MetricKey, newVal MetricValue) {
 
 func GetOriginMetadata() Metadata {
 	o := Origin{
-		OriginProduct:       11,
-		OriginSubProduct:    10,
-		OriginProductDetail: 440,
+		OriginProduct:       ORIGIN_AGENT_PRODUCT,
+		OriginSubProduct:    ORIGIN_INTEGRATION_SUB_PRODUCT,
+		OriginProductDetail: ORIGIN_CLOUD_FOUNDRY_DETAIL,
 	}
 
 	return Metadata{
