@@ -27,10 +27,14 @@ func HashTags(tags []string) string {
 func FilterHighCardinalityTags(tags []string) []string {
 	var filteredTags []string
 	for _, tag := range tags {
-		for _, toFilter := range highCardinalityTags {
-			if strings.Contains(tag, toFilter) {
-				continue
+		isAllowed := true
+		for _, excludedTag := range highCardinalityTags {
+			if strings.Contains(tag, excludedTag) {
+				isAllowed = false
+				break
 			}
+		}
+		if isAllowed {
 			filteredTags = append(filteredTags, tag)
 		}
 	}
