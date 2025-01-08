@@ -10,6 +10,7 @@ import (
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -62,8 +63,10 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 			prefix = ""
 		}
 
+		tags := util.FilterHighCardinalityTags(mVal.Tags)
+
 		name := prefix + key.Name
-		points := f.removeNANs(mVal.Points, name, mVal.Tags)
+		points := f.removeNANs(mVal.Points, name, tags)
 
 		_type := mVal.Type
 
@@ -77,7 +80,7 @@ func (f Formatter) formatMetrics(prefix string, data map[metric.MetricKey]metric
 			Metric:   name,
 			Points:   points,
 			Type:     _type,
-			Tags:     mVal.Tags,
+			Tags:     tags,
 			Host:     mVal.Host,
 			Metadata: originMetadata,
 		}

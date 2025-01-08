@@ -4,10 +4,13 @@ import (
 	"crypto/sha1"
 	"math/rand"
 	"sort"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 )
+
+var highCardinalityTags []string = []string{"created_at", "user_data"}
 
 func HashTags(tags []string) string {
 	// This is the origial implementation of this function from the original nozzle
@@ -19,6 +22,19 @@ func HashTags(tags []string) string {
 		hash += string(tagHash[:])
 	}
 	return hash
+}
+
+func FilterHighCardinalityTags(tags []string) []string {
+	var filteredTags []string
+	for _, tag := range tags {
+		for _, toFilter := range highCardinalityTags {
+			if strings.Contains(tag, toFilter) {
+				continue
+			}
+			filteredTags = append(filteredTags, tag)
+		}
+	}
+	return filteredTags
 }
 
 func GetTickerWithJitter(wholeIntervalSeconds uint32, jitterPct float64) (*time.Ticker, func()) {
