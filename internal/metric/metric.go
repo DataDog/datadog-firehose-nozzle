@@ -6,9 +6,12 @@ import (
 )
 
 const (
-	GAUGE = "gauge"
-	COUNT = "count"
-	RATE  = "rate"
+	GAUGE                          = "gauge"
+	COUNT                          = "count"
+	RATE                           = "rate"
+	ORIGIN_AGENT_PRODUCT           = 10
+	ORIGIN_INTEGRATION_SUB_PRODUCT = 11
+	ORIGIN_CLOUD_FOUNDRY_DETAIL    = 440
 )
 
 type Point struct {
@@ -67,10 +70,33 @@ func (m MetricsMap) Add(key MetricKey, newVal MetricValue) {
 	m[key] = value
 }
 
+func GetOriginMetadata() Metadata {
+	o := Origin{
+		OriginProduct:       ORIGIN_AGENT_PRODUCT,
+		OriginSubProduct:    ORIGIN_INTEGRATION_SUB_PRODUCT,
+		OriginProductDetail: ORIGIN_CLOUD_FOUNDRY_DETAIL,
+	}
+
+	return Metadata{
+		Origin: o,
+	}
+}
+
+type Origin struct {
+	OriginProduct       int64 `json:"origin_product"`
+	OriginSubProduct    int64 `json:"origin_sub_product"`
+	OriginProductDetail int64 `json:"origin_product_detail"`
+}
+
+type Metadata struct {
+	Origin Origin `json:"origin"`
+}
+
 type Series struct {
-	Metric string   `json:"metric"`
-	Points []Point  `json:"points"`
-	Type   string   `json:"type"`
-	Host   string   `json:"host,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
+	Metric   string   `json:"metric"`
+	Points   []Point  `json:"points"`
+	Type     string   `json:"type"`
+	Host     string   `json:"host,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+	Metadata Metadata `json:"metadata"`
 }
