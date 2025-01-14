@@ -267,6 +267,24 @@ var _ = Describe("DatadogClient", func() {
 		))
 	})
 
+	It("filters created_at and user_data tags", func() {
+		unwantedTags := []string{"created_at: X", "user_data: X"}
+		unfilteredTags := append(defaultTags, unwantedTags...)
+		k, v := makeFakeMetric("metricName", "gauge", 1000, 5, unfilteredTags)
+		metricsMap.Add(k, v)
+
+		unsentMetrics := c.PostMetrics(metricsMap)
+		Expect(unsentMetrics).To(Equal(uint64(0)))
+
+		Eventually(fakeDatadogAPI.ReceivedContents).Should(HaveLen(1))
+		var payload Payload
+		err := json.Unmarshal(helper.Decompress(<-fakeDatadogAPI.ReceivedContents), &payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(payload.Series).To(HaveLen(1))
+
+		Expect(payload.Series[0].Tags).ToNot(ContainElements(unwantedTags))
+	})
+
 	It("creates internal metrics", func() {
 		k, v := c.MakeInternalMetric("totalMessagesReceived", metric.GAUGE, 15, time.Now().Unix())
 		metricsMap[k] = v
