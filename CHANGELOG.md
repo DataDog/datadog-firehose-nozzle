@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.0 / 2025-01-14
+
+* [Added] Add metric origin metadata. See [#114](https://github.com/DataDog/datadog-firehose-nozzle/pull/114).
+* [Added] Upgrade Go to 1.21.5. See [#112](https://github.com/DataDog/datadog-firehose-nozzle/pull/112).
+
 ## 2.7.0 / 2023-11-13
 
 * [Added] Add support for logs and traces correlation. See [#109](https://github.com/DataDog/datadog-firehose-nozzle/pull/109).
