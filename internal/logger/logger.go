@@ -51,6 +51,6 @@ func NewRLPLogForwarder(gostenoLog *gosteno.Logger) *RLPLogForwarder {
 
 func (f RLPLogForwarder) Write(p []byte) (n int, err error) {
 	message := "message forwarded from RLP client: " + string(p)
-	f.log.Debugf(message)
+	f.log.Debug(message)
 	return len(p), nil
 }
