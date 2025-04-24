@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.0 / 2025-04-24
+
+* [Added] Upgrade Go to 1.24.2. See [#123](https://github.com/DataDog/datadog-firehose-nozzle/pull/123).
+* [Added] Add support for `container_id` tag in logs. See [#122](https://github.com/DataDog/datadog-firehose-nozzle/pull/122).
+
 ## 2.8.0 / 2025-01-14
 
 * [Added] Add metric origin metadata. See [#114](https://github.com/DataDog/datadog-firehose-nozzle/pull/114).
