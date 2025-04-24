@@ -590,6 +590,51 @@ var _ = Describe("Processor", func() {
 			}
 		})
 
+		It("adds container_id tag", func() {
+			p.ProcessLog(&loggregator_v2.Envelope{
+				Timestamp:  1000000000,
+				SourceId:   "source-id-1",
+				InstanceId: "instance-id-1",
+				Tags: map[string]string{
+					"origin":              "test-origin",
+					"deployment":          "deployment-name-aaaaaaaaaaaaaaaaaaaa",
+					"job":                 "doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+					"process_instance_id": "fc8c7d5a-de2c-4d52-548d-d766",
+					"ip":                  "10.0.1.2",
+					"protocol":            "http",
+					"request_id":          "a1f5-deadbeef",
+				},
+				Message: &loggregator_v2.Envelope_Log{
+					Log: &loggregator_v2.Log{
+						Payload: []byte("log message 1"),
+						Type:    loggregator_v2.Log_OUT,
+					},
+				},
+			})
+
+			var logMessage logs.LogMessage
+			Eventually(lchan).Should(Receive(&logMessage))
+
+			expectedTags := []string{
+				"ip:10.0.1.2",
+				"protocol:http",
+				"request_id:a1f5-deadbeef",
+				"deployment:deployment-name",
+				"deployment:deployment-name-aaaaaaaaaaaaaaaaaaaa",
+				"job:doppler",
+				"job:doppler-partition-aaaaaaaaaaaaaaaaaaaa",
+				"name:test-origin",
+				"origin:test-origin",
+				"source_id:source-id-1",
+				"instance_id:instance-id-1",
+				"container_id:fc8c7d5a-de2c-4d52-548d-d766",
+			}
+
+			for _, tag := range expectedTags {
+				Expect(strings.Contains(logMessage.Tags, tag)).To(BeTrue())
+			}
+		})
+
 		It("does the correct dogate tag replacements when env_name and index are set", func() {
 			p.environment = "env_name"
 			p.ProcessLog(&loggregator_v2.Envelope{
