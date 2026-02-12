@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry-community/go-cfclient/v2"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/pkg/errors"
 )
