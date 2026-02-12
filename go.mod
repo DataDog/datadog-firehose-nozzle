@@ -1,6 +1,6 @@
 module github.com/DataDog/datadog-firehose-nozzle
 
-go 1.24.4
+go 1.25.7
 
 require (
 	code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
