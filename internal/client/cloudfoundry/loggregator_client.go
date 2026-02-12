@@ -12,7 +12,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logger"
 
-	"code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-loggregator/v10"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/gosteno"
 )
