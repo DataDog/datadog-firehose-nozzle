@@ -10,7 +10,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"code.cloudfoundry.org/go-loggregator/v10/rpc/loggregator_v2"
 )
 
 type InfraParser struct {
