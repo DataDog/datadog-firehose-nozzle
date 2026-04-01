@@ -9,8 +9,8 @@ require (
 	github.com/cloudfoundry/gosteno v0.0.0-20150423193413-0c8581caea35
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.3
-	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/go-retryablehttp v0.7.7
+	github.com/gorilla/websocket v1.5.3
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/errors v0.9.1
