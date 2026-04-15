@@ -9,11 +9,11 @@ import (
 
 // BoshTagsConfig controls BOSH tag generation and hostname resolution
 type BoshTagsConfig struct {
-	Enabled                    bool `json:"bosh_tags"`
-	FriendlyHostname           bool `json:"friendly_hostname"`
-	UniqueFriendlyHostname     bool `json:"unique_friendly_hostname"`
-	FriendlyHostnameAppendGUID bool `json:"friendly_hostname_append_guid"`
-	UseUUIDHostname            bool `json:"use_uuid_hostname"`
+	Enabled                    bool `json:"BoshTags"`
+	FriendlyHostname           bool `json:"FriendlyHostname"`
+	UniqueFriendlyHostname     bool `json:"UniqueFriendlyHostname"`
+	FriendlyHostnameAppendGUID bool `json:"FriendlyHostnameAppendGuid"`
+	UseUUIDHostname            bool `json:"UseUuidHostname"`
 }
 
 // EnvelopeMetadata holds BOSH metadata extracted from loggregator envelopes
