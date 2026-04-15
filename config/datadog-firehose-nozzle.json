@@ -23,5 +23,13 @@
   "AppMetrics": true,
   "NumWorkers": 1,
   "CustomTags": [],
-  "OrgDataCollectionInterval": 600
+  "OrgDataCollectionInterval": 600,
+
+  "BoshTagsConfig": {
+    "bosh_tags": false,
+    "friendly_hostname": true,
+    "unique_friendly_hostname": false,
+    "friendly_hostname_append_guid": false,
+    "use_uuid_hostname": false
+  }
 }

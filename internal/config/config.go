@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/DataDog/datadog-firehose-nozzle/internal/tags"
 )
 
 const (
@@ -68,6 +70,11 @@ type Config struct {
 	DCAEnabled                          bool
 	DCAUrl                              string
 	DCAToken                            string
+
+	// BOSH tag/hostname configuration for Datadog BYOC log solution (CloudPrem).
+	// When enabled, tags and hostname are generated from envelope metadata
+	// to replicate the Datadog SaaS behavior which enriches logs after ingestion.
+	BoshTagsConfig tags.BoshTagsConfig
 }
 
 // AsLogString returns a string representation of the config that is safe to log (no secrets)

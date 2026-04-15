@@ -157,7 +157,9 @@ var _ = Describe("NozzleConfig", func() {
 
 	It("correctly serializes to log string", func() {
 		// For logs, we want this to be serialized as one long line without newlines
-		expected := `{"AppMetrics":true,"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
+		expected := `{"AppMetrics":true,`
+		expected += `"BoshTagsConfig":{"bosh_tags":false,"friendly_hostname":false,"friendly_hostname_append_guid":false,"unique_friendly_hostname":false,"use_uuid_hostname":false},`
+		expected += `"Client":"user","ClientSecret":"*****","CloudControllerAPIBatchSize":1000,`
 		expected += `"CloudControllerEndpoint":"string","CustomTags":["nozzle:foobar","env:prod","role:db"],`
 		expected += `"DCAEnabled":true,"DCAToken":"123456789","DCAUrl":"datadog-cluster-agent.bosh-deployment-name:5005",`
 		expected += `"DataDogAPIKey":"*****","DataDogAdditionalEndpoints":{"https://app.datadoghq.com/api/v1/series":["*****","*****"],`
