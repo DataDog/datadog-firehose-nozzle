@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/logs"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
+	"github.com/DataDog/datadog-firehose-nozzle/internal/tags"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -103,11 +105,21 @@ func (p InfraParser) ParseLog(envelope *loggregator_v2.Envelope) (logs.LogMessag
 	}
 
 	host := parseHost(envelope)
-	tags := parseTags(envelope, p.Environment, p.DeploymentUUIDRegex, p.JobPartitionUUIDRegex)
-	tags = append(tags, p.CustomTags...)
+	envTags := parseTags(envelope, p.Environment, p.DeploymentUUIDRegex, p.JobPartitionUUIDRegex)
+	envTags = append(envTags, p.CustomTags...)
+
+	// When BOSH tags are enabled, extract metadata from the envelope and
+	// generate tags + hostname matching the datadog-agent-boshrelease behavior.
+	// This is needed for CloudPrem where Datadog's post-ingest processing is absent.
+	boshCfg := config.NozzleConfig.BoshTagsConfig
+	if boshCfg.Enabled {
+		meta := tags.ExtractMetadataFromEnvelope(envelope)
+		envTags = append(envTags, tags.GenerateBoshTags(boshCfg, meta)...)
+		host = tags.GenerateHostname(boshCfg, meta)
+	}
 
 	logValue.Hostname = host
-	logValue.Tags = strings.Join(tags, ",")
+	logValue.Tags = strings.Join(envTags, ",")
 	logValue.Message = string(envelope.GetLog().Payload)
 
 	return logValue, nil
