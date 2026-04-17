@@ -26,7 +26,7 @@
   "OrgDataCollectionInterval": 600,
 
   "BoshTagsConfig": {
-    "BoshTags": false,
+    "Enabled": false,
     "FriendlyHostname": true,
     "UniqueFriendlyHostname": false,
     "FriendlyHostnameAppendGuid": false,

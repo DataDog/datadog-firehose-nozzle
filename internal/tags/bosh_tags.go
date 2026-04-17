@@ -9,7 +9,7 @@ import (
 
 // BoshTagsConfig controls BOSH tag generation and hostname resolution
 type BoshTagsConfig struct {
-	Enabled                    bool `json:"BoshTags"`
+	Enabled                    bool `json:"Enabled"`
 	FriendlyHostname           bool `json:"FriendlyHostname"`
 	UniqueFriendlyHostname     bool `json:"UniqueFriendlyHostname"`
 	FriendlyHostnameAppendGUID bool `json:"FriendlyHostnameAppendGuid"`
