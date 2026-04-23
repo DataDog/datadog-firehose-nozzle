@@ -2,6 +2,8 @@ module github.com/DataDog/datadog-firehose-nozzle
 
 go 1.24.4
 
+toolchain go1.26.2
+
 require (
 	code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
 	code.cloudfoundry.org/localip v0.0.0-20210608161955-43c3ec713c20
