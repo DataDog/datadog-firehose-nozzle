@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"code.cloudfoundry.org/go-loggregator/v10/rpc/loggregator_v2"
 	"code.cloudfoundry.org/localip"
 	"github.com/cloudfoundry/gosteno"
 	. "github.com/onsi/ginkgo/v2"

@@ -15,8 +15,8 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/processor"
 	"github.com/cloudfoundry/gosteno"
 
-	"code.cloudfoundry.org/go-loggregator"
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"code.cloudfoundry.org/go-loggregator/v10"
+	"code.cloudfoundry.org/go-loggregator/v10/rpc/loggregator_v2"
 )
 
 // Nozzle is the struct that holds the state of the nozzle
