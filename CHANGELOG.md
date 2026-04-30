@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.10.0 / 2026-04-30
+
+* [Added] Add BOSH tags and hostname generation for CloudPrem logs. See [#131](https://github.com/DataDog/datadog-firehose-nozzle/pull/131).
+* [Added] Upgrade Go to 1.24.4. See [#128](https://github.com/DataDog/datadog-firehose-nozzle/pull/128).
+
 ## 2.9.0 / 2025-04-24
 
 * [Added] Upgrade Go to 1.24.2. See [#123](https://github.com/DataDog/datadog-firehose-nozzle/pull/123).
