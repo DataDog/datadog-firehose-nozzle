@@ -2,7 +2,7 @@ package cloudfoundry
 
 import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry-community/go-cfclient/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
