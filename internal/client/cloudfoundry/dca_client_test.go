@@ -2,11 +2,11 @@ package cloudfoundry
 
 import (
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
-	"github.com/cloudfoundry-community/go-cfclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -57,13 +57,16 @@ func checkVersionAttributes(version *Version) {
 	Expect(version.Commit).To(Equal("2b50b49"))
 }
 
-func checkV3OrgAttributes(org *cfclient.V3Organization) {
+func checkDCAOrgAttributes(org *resource.Organization) {
 	Expect(org.Name).To(Equal("system"))
 	Expect(org.GUID).To(Equal("24d7098c-832b-4dfa-a4f1-950780ae92e9"))
-	Expect(org.Relationships["quota"].Data.GUID).To(Equal("9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"))
+	Expect(org.Suspended).To(BeFalse())
+	Expect(org.Relationships.Quota.Data.GUID).To(Equal("9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"))
+	Expect(metadataToMap(org.Metadata.Labels)).To(HaveKeyWithValue("org-label", "org-label-value"))
+	Expect(metadataToMap(org.Metadata.Annotations)).To(HaveKeyWithValue("org-annotation", "org-annotation-value"))
 }
 
-func checkV2OrgQuotaAttributes(orgQuota *CFOrgQuota) {
+func checkDCAOrgQuotaAttributes(orgQuota *CFOrgQuota) {
 	Expect(orgQuota.GUID).To(Equal("9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"))
 	Expect(orgQuota.MemoryLimit).To(Equal(10240))
 }
@@ -137,21 +140,21 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		})
 	})
 
-	Context("GetV3Orgs method", func() {
+	Context("GetOrgs method", func() {
 		It("retrieves all orgs correctly from the cluster agent api", func() {
-			res, err := fakeDCAClient.GetV3Orgs()
+			res, err := fakeDCAClient.GetOrgs()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			checkV3OrgAttributes(&res[0])
+			Expect(res).To(HaveLen(2))
+			checkDCAOrgAttributes(res[0])
 		})
 	})
 
-	Context("GetV2OrgQuotas method", func() {
-		It("retrieves all orgs correctly from the cluster agent api", func() {
-			res, err := fakeDCAClient.GetV2OrgQuotas()
+	Context("GetOrgQuotas method", func() {
+		It("retrieves all org quotas correctly from the cluster agent api", func() {
+			res, err := fakeDCAClient.GetOrgQuotas()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			checkV2OrgQuotaAttributes(&res[0])
+			checkDCAOrgQuotaAttributes(&res[0])
 		})
 	})
 })

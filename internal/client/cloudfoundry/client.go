@@ -1,29 +1,23 @@
 package cloudfoundry
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"math"
-	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/cloudfoundry-community/go-cfclient"
+	cfclient "github.com/cloudfoundry/go-cfclient/v3/client"
+	cfconfig "github.com/cloudfoundry/go-cfclient/v3/config"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/pkg/errors"
 )
 
-const (
-	maxResultsPerPageV2 = 100
-)
+// unlimitedQuota is how the Cloud Controller stores unlimited quotas; the v3 API renders it as null.
+const unlimitedQuota = -1
 
 type CFClient struct {
-	ApiVersion      int
-	NumWorkers      int
 	client          *cfclient.Client
 	logger          *gosteno.Logger
 	apiBatchSize    uint32
@@ -54,108 +48,9 @@ type CFSidecar struct {
 	GUID string
 }
 
-type listSidecarsResponse struct {
-	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []CFSidecar         `json:"resources"`
-}
 type CFOrgQuota struct {
 	GUID        string
 	MemoryLimit int
-}
-
-type Data struct {
-	Data struct {
-		GUID string `json:"guid"`
-	} `json:"data"`
-}
-
-type v3AppResponse struct {
-	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []v3AppResource     `json:"resources"`
-}
-
-type v3AppResource struct {
-	GUID      string `json:"guid"`
-	Name      string `json:"name"`
-	State     string `json:"state"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	LifeCycle struct {
-		Type string `json:"type"`
-		Data struct {
-			BuildPacks []string `json:"buildpacks"`
-			Stack      string   `json:"stack"`
-		} `json:"data"`
-	} `json:"lifecycle"`
-	Relationships struct {
-		Space Data `json:"space"`
-	} `json:"relationships"`
-	Links struct {
-		Self                 cfclient.Link `json:"self"`
-		Space                cfclient.Link `json:"space"`
-		Processes            cfclient.Link `json:"processes"`
-		Packages             cfclient.Link `json:"packages"`
-		EnvironmentVariables cfclient.Link `json:"environment_variables"`
-		CurrentDroplet       cfclient.Link `json:"current_droplet"`
-		Droplets             cfclient.Link `json:"droplets"`
-		Tasks                cfclient.Link `json:"tasks"`
-		Start                cfclient.Link `json:"start"`
-		Stop                 cfclient.Link `json:"stop"`
-		RouteMappings        cfclient.Link `json:"route_mappings,omitempty"`
-		Revisions            cfclient.Link `json:"revisions,omitempty"`
-		DeployedRevisions    cfclient.Link `json:"deployed_revisions,omitempty"`
-	} `json:"links"`
-	Metadata struct {
-		Labels      map[string]string `json:"labels"`
-		Annotations map[string]string `json:"annotations"`
-	} `json:"metadata"`
-}
-
-type v3SpaceResponse struct {
-	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []v3SpaceResource   `json:"resources"`
-}
-
-type v3SpaceResource struct {
-	GUID          string `json:"guid"`
-	Name          string `json:"name"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	Relationships struct {
-		Organization Data `json:"organization"`
-	} `json:"relationships"`
-	Links struct {
-		Self         cfclient.Link `json:"self"`
-		Organization cfclient.Link `json:"organization"`
-	} `json:"links"`
-	Metadata struct {
-		Labels      map[string]string `json:"labels"`
-		Annotations map[string]string `json:"annotations"`
-	} `json:"metadata"`
-}
-
-type v3OrgResponse struct {
-	Pagination cfclient.Pagination `json:"pagination"`
-	Resources  []v3OrgResource     `json:"resources"`
-}
-
-type v3OrgResource struct {
-	GUID          string `json:"guid"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	Name          string `json:"name"`
-	Suspended     bool   `json:"suspended"`
-	Relationships struct {
-		Quota Data `json:"quota"`
-	} `json:"relationships"`
-	Links struct {
-		Self  cfclient.Link `json:"self"`
-		Quota cfclient.Link `json:"quota"`
-	} `json:"links"`
-	Metadata struct {
-		Labels      map[string]string `json:"labels"`
-		Annotations map[string]string `json:"annotations"`
-	} `json:"metadata"`
 }
 
 func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error) {
@@ -164,22 +59,25 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 		return nil, fmt.Errorf("the Cloud Controller Endpoint needs to be set in order to set up the cf client")
 	}
 
-	cfg := cfclient.Config{
-		ApiAddress:        config.CloudControllerEndpoint,
-		ClientID:          config.Client,
-		ClientSecret:      config.ClientSecret,
-		SkipSslValidation: config.InsecureSSLSkipVerify,
-		UserAgent:         "datadog-firehose-nozzle",
+	options := []cfconfig.Option{
+		cfconfig.ClientCredentials(config.Client, config.ClientSecret),
+		cfconfig.UserAgent("datadog-firehose-nozzle"),
 	}
-	cfClient, err := cfclient.NewClient(&cfg)
+	if config.InsecureSSLSkipVerify {
+		options = append(options, cfconfig.SkipTLSValidation())
+	}
+	cfg, err := cfconfig.New(config.CloudControllerEndpoint, options...)
+	if err != nil {
+		logger.Warnf("encountered an error while setting up the cf client: %v", err)
+		return nil, fmt.Errorf("encountered an error while setting up the cf client: %v", err)
+	}
+	cfClient, err := cfclient.New(cfg)
 	if err != nil {
 		logger.Warnf("encountered an error while setting up the cf client: %v", err)
 		return nil, fmt.Errorf("encountered an error while setting up the cf client: %v", err)
 	}
 
 	cfc := CFClient{
-		ApiVersion:      0,
-		NumWorkers:      config.NumWorkers,
 		client:          cfClient,
 		logger:          logger,
 		apiBatchSize:    config.CloudControllerAPIBatchSize,
@@ -188,45 +86,7 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	return &cfc, nil
 }
 
-func (cfc *CFClient) GetDopplerEndpoint() string {
-	return cfc.client.Endpoint.DopplerEndpoint
-}
-
 func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
-	if cfc.ApiVersion == 2 {
-		cfc.logger.Debug("api version is 2")
-		return cfc.getV2Applications()
-	}
-	if cfc.ApiVersion == 3 {
-		cfc.logger.Debug("api version is 3")
-		return cfc.getV3Applications()
-	}
-	cfc.logger.Debug("no api version set, trying to collect data with version 3")
-	results, err := cfc.getV3Applications()
-	if err != nil {
-		cfc.logger.Debug("error trying to fetch application infos with v3 endpoints. Falling back to v2 endpoints")
-		results, err = cfc.getV2Applications()
-		if err != nil {
-			cfc.logger.Errorf("error trying to fetch application infos with v2 endpoints %v", err)
-			return nil, err
-		}
-		cfc.ApiVersion = 2
-	}
-	cfc.ApiVersion = 3
-	return results, nil
-}
-
-func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
-	app, err := cfc.client.GetAppByGuid(guid)
-	if err != nil {
-		return nil, err
-	}
-	result := CFApplication{}
-	result.setV2AppData(app)
-	return &result, nil
-}
-
-func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	var wg sync.WaitGroup
 	errors := make(chan error, 10)
 	// Fetch apps
@@ -235,7 +95,7 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	go func() {
 		defer wg.Done()
 		var err error
-		cfapps, err = cfc.getV3Apps()
+		cfapps, err = cfc.getApps()
 		if err != nil {
 			errors <- err
 		}
@@ -243,11 +103,11 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 	// Fetch processes
 	wg.Add(1)
-	var processes []cfclient.Process
+	var processes []*resource.Process
 	go func() {
 		defer wg.Done()
 		var err error
-		processes, err = cfc.getV3Processes()
+		processes, err = cfc.getProcesses()
 		if err != nil {
 			errors <- err
 		}
@@ -255,11 +115,11 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 	// Fetch spaces
 	wg.Add(1)
-	var spaces []v3SpaceResource
+	var spaces []*resource.Space
 	go func() {
 		defer wg.Done()
 		var err error
-		spaces, err = cfc.getV3Spaces()
+		spaces, err = cfc.getSpaces()
 		if err != nil {
 			errors <- err
 		}
@@ -267,11 +127,11 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 
 	// Fetch orgs
 	wg.Add(1)
-	var orgs []v3OrgResource
+	var orgs []*resource.Organization
 	go func() {
 		defer wg.Done()
 		var err error
-		orgs, err = cfc.getV3Orgs()
+		orgs, err = cfc.GetOrgs()
 		if err != nil {
 			errors <- err
 		}
@@ -290,27 +150,21 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	}
 
 	// Group all processes per app
-	processesPerApp := map[string][]cfclient.Process{}
+	processesPerApp := map[string][]*resource.Process{}
 	for _, process := range processes {
-		parts := strings.Split(process.Links.App.Href, "/")
+		parts := strings.Split(process.Links["app"].Href, "/")
 		appGUID := parts[len(parts)-1]
-		appProcesses, exists := processesPerApp[appGUID]
-		if exists {
-			appProcesses = append(appProcesses, process)
-		} else {
-			appProcesses = []cfclient.Process{process}
-		}
-		processesPerApp[appGUID] = appProcesses
+		processesPerApp[appGUID] = append(processesPerApp[appGUID], process)
 	}
 
 	// Create a space Map
-	spacesPerGUID := map[string]v3SpaceResource{}
+	spacesPerGUID := map[string]*resource.Space{}
 	for _, space := range spaces {
 		spacesPerGUID[space.GUID] = space
 	}
 
 	// Create an org Map
-	orgsPerGUID := map[string]v3OrgResource{}
+	orgsPerGUID := map[string]*resource.Organization{}
 	for _, org := range orgs {
 		orgsPerGUID[org.GUID] = org
 	}
@@ -347,273 +201,115 @@ func (cfc *CFClient) getV3Applications() ([]CFApplication, error) {
 	return results, nil
 }
 
-func (cfc *CFClient) getV3Apps() ([]CFApplication, error) {
-	var cfapps []CFApplication
+// GetApplication avoids the go-cfclient include helpers: they index the included resources without checking,
+// which panics on an unexpected response.
+func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
+	ctx := context.Background()
+	app, err := cfc.client.Applications.Get(ctx, guid)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting app %s", guid)
+	}
+	if app.GUID == "" {
+		return nil, fmt.Errorf("Error requesting app %s: empty response", guid)
+	}
 
-	for page := 1; ; page++ {
-		q := url.Values{}
-		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-		q.Set("page", strconv.Itoa(page))
-		r := cfc.client.NewRequest("GET", "/v3/apps?"+q.Encode())
-		resp, err := cfc.client.DoRequest(r)
+	result := CFApplication{}
+	result.setV3AppData(app)
+	if cfc.advancedTagging {
+		result.Sidecars, err = cfc.getCFSidecars(guid)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error requesting apps page %d", err)
+			return nil, errors.Wrapf(err, "Error reading sidecars response for app %s", guid)
 		}
-		// Read body response
-		defer resp.Body.Close()
-		resBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error reading app response for page %d", page)
-		}
-		// Unmarshal body response into v3AppResponse objects
-		var appResp v3AppResponse
-		err = json.Unmarshal(resBody, &appResp)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error unmarshalling app response for page %d", page)
-		}
-		// Create CFApplication objects
-		appResources := appResp.Resources
-		for _, app := range appResources {
-			cfapp := CFApplication{}
-			cfapp.setV3AppData(app)
-			if cfc.advancedTagging {
-				sidecars, err := cfc.getCFSidecars(cfapp.GUID)
-				if err != nil {
-					return nil, errors.Wrapf(err, "Error reading sidecars response for app %s: %s", cfapp.GUID, err)
-				}
-				cfapp.Sidecars = sidecars
+	}
+
+	processes, err := cfc.client.Processes.ListForAppAll(ctx, guid, &cfclient.ProcessListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting processes for app %s", guid)
+	}
+	result.setV3ProcessData(processes)
+
+	// Fill space then org data. Order matters for labels and annotations.
+	space, err := cfc.client.Spaces.Get(ctx, result.SpaceGUID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting space %s for app %s", result.SpaceGUID, guid)
+	}
+	result.setV3SpaceData(space)
+
+	org, err := cfc.client.Organizations.Get(ctx, result.OrgGUID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error requesting org %s for app %s", result.OrgGUID, guid)
+	}
+	result.setV3OrgData(org)
+
+	return &result, nil
+}
+
+func (cfc *CFClient) listOptions() *cfclient.ListOptions {
+	return &cfclient.ListOptions{Page: 1, PerPage: int(cfc.apiBatchSize)}
+}
+
+func (cfc *CFClient) getApps() ([]CFApplication, error) {
+	apps, err := cfc.client.Applications.ListAll(context.Background(), &cfclient.AppListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting apps")
+	}
+
+	cfapps := make([]CFApplication, 0, len(apps))
+	for _, app := range apps {
+		cfapp := CFApplication{}
+		cfapp.setV3AppData(app)
+		if cfc.advancedTagging {
+			sidecars, err := cfc.getCFSidecars(cfapp.GUID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Error reading sidecars response for app %s", cfapp.GUID)
 			}
-			cfapps = append(cfapps, cfapp)
+			cfapp.Sidecars = sidecars
 		}
-
-		if appResp.Pagination.TotalPages <= page {
-			break
-		}
+		cfapps = append(cfapps, cfapp)
 	}
 
 	return cfapps, nil
 }
 
-func (cfc *CFClient) getV3Processes() ([]cfclient.Process, error) {
-	// Query the first page to get the total number of pages.
-	var cfprocesses []cfclient.Process
-	for page := 1; ; page++ {
-		q := url.Values{}
-		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-		q.Set("page", strconv.Itoa(page))
-		r := cfc.client.NewRequest("GET", "/v3/processes?"+q.Encode())
-		resp, err := cfc.client.DoRequest(r)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error requesting v3 processes page %d", page)
-		}
-		// Read body response
-		defer resp.Body.Close()
-		resBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error reading v3 processes response for page %d", page)
-		}
-		// Unmarshal body response into ProcessListResponse objects
-		var processResp cfclient.ProcessListResponse
-		err = json.Unmarshal(resBody, &processResp)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error unmarshalling v3 processes response for page %d", page)
-		}
-		cfprocesses = append(cfprocesses, processResp.Processes...)
-		if processResp.Pagination.TotalPages <= page {
-			break
-		}
+func (cfc *CFClient) getProcesses() ([]*resource.Process, error) {
+	processes, err := cfc.client.Processes.ListAll(context.Background(), &cfclient.ProcessListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting v3 processes")
 	}
-
-	return cfprocesses, nil
+	return processes, nil
 }
 
-func (cfc *CFClient) getV3Spaces() ([]v3SpaceResource, error) {
-	var spaces []v3SpaceResource
-
-	for page := 1; ; page++ {
-		q := url.Values{}
-		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-		q.Set("page", strconv.Itoa(page))
-		r := cfc.client.NewRequest("GET", "/v3/spaces?"+q.Encode())
-		resp, err := cfc.client.DoRequest(r)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error requesting v3 spaces page %d", page)
-		}
-		// Read body response
-		defer resp.Body.Close()
-		resBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error reading v3 spaces response for page %d", page)
-		}
-		// Unmarshal body response into v3SpaceResponse object
-		var spaceResp v3SpaceResponse
-		err = json.Unmarshal(resBody, &spaceResp)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error unmarshalling v3 spaces response for page %d", page)
-		}
-		spaces = append(spaces, spaceResp.Resources...)
-		if spaceResp.Pagination.TotalPages <= page {
-			break
-		}
+func (cfc *CFClient) getSpaces() ([]*resource.Space, error) {
+	spaces, err := cfc.client.Spaces.ListAll(context.Background(), &cfclient.SpaceListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting v3 spaces")
 	}
-
 	return spaces, nil
 }
 
-func (cfc *CFClient) getV3Orgs() ([]v3OrgResource, error) {
-	var cforgs []v3OrgResource
-
-	for page := 1; ; page++ {
-		q := url.Values{}
-		q.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-		q.Set("page", strconv.Itoa(page))
-		r := cfc.client.NewRequest("GET", "/v3/organizations?"+q.Encode())
-		resp, err := cfc.client.DoRequest(r)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error requesting v3 orgs page %d", page)
-		}
-		// Read body response
-		defer resp.Body.Close()
-		resBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error reading v3 orgs response for page %d", page)
-		}
-		// Unmarshal body response into  objects
-		var orgsResp v3OrgResponse
-		err = json.Unmarshal(resBody, &orgsResp)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error unmarshalling v3 orgs response for page %d", page)
-		}
-		cforgs = append(cforgs, orgsResp.Resources...)
-		if orgsResp.Pagination.TotalPages <= page {
-			break
-		}
+func (cfc *CFClient) GetOrgs() ([]*resource.Organization, error) {
+	orgs, err := cfc.client.Organizations.ListAll(context.Background(), &cfclient.OrganizationListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, errors.Wrap(err, "Error requesting v3 orgs")
 	}
-
-	return cforgs, nil
+	return orgs, nil
 }
 
-func (cfc *CFClient) getV2Applications() ([]CFApplication, error) {
-	// Query the first page to get the total number of pages.
-	results, pages, err := cfc.getV2ApplicationsByPage(1)
+func (cfc *CFClient) GetOrgQuotas() ([]CFOrgQuota, error) {
+	quotas, err := cfc.client.OrganizationQuotas.ListAll(context.Background(), &cfclient.OrganizationQuotaListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps page 1, skipping cache warmup")
+		return nil, errors.Wrap(err, "Error requesting v3 organization quotas")
 	}
-
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	// Calculate the number of workers needs based on the number of pages found
-	numWorkers := int(math.Min(float64(cfc.NumWorkers), float64(pages))) // We cannot have more workers than pages to fetch
-	var pagesPerWorker int
-	if pages-1 > 0 { // We already have the first page
-		pagesPerWorker = int(math.Ceil(float64(pages-1) / float64(numWorkers)))
-	}
-	// Use go routines to fetch page ranges
-	for worker := 0; worker < numWorkers; worker++ {
-		// Offset 2 because no page at index 0 and page 1 already fetched
-		start := (worker * pagesPerWorker) + 2
-		// Stop at page pages + pageWindow, to get the last one
-		end := int(math.Min(float64((worker+1)*pagesPerWorker+2), float64(pages+1)))
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-
-			for currentPage := start; currentPage < end; currentPage++ {
-				pageResults, _, err := cfc.getV2ApplicationsByPage(currentPage)
-				if err != nil {
-					cfc.logger.Error(err.Error())
-					continue
-				}
-				mutex.Lock()
-				results = append(results, pageResults...)
-				mutex.Unlock()
-			}
-		}(start, end)
-	}
-	wg.Wait()
-
-	return results, nil
-}
-
-func (cfc *CFClient) getV2ApplicationsByPage(page int) ([]CFApplication, int, error) {
-	q := url.Values{}
-	q.Set("inline-relations-depth", "2")
-	q.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	r := cfc.client.NewRequest("GET", "/v2/apps?"+q.Encode())
-	resp, err := cfc.client.DoRequest(r)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error requesting v2 apps page %d", page)
-	}
-	// Read body response
-	defer resp.Body.Close()
-	resBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error reading v2 app response for page %d", page)
-	}
-	// Unmarshal body response into AppResponse objects
-	var appResp cfclient.AppResponse
-	err = json.Unmarshal(resBody, &appResp)
-	if err != nil {
-		return nil, -1, errors.Wrapf(err, "Error unmarshalling v2 app response for page %d", page)
-	}
-	// Create CFApplication objects
-	appResources := appResp.Resources
-	results := []CFApplication{}
-	for _, app := range appResources {
-		app.Entity.Guid = app.Meta.Guid
-		app.Entity.CreatedAt = app.Meta.CreatedAt
-		app.Entity.UpdatedAt = app.Meta.UpdatedAt
-		cfapp := CFApplication{}
-		cfapp.setV2AppData(app.Entity)
-		results = append(results, cfapp)
-	}
-
-	return results, appResp.Pages, nil
-}
-
-func (cfc *CFClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
-	query := url.Values{}
-	query.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-
-	allOrgs, err := cfc.client.ListV3OrganizationsByQuery(query)
-	if err != nil {
-		return nil, err
-	}
-
-	return allOrgs, nil
-}
-
-func (cfc *CFClient) GetV2Orgs() ([]cfclient.Org, error) {
-	query := url.Values{}
-	query.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
-
-	allOrgs, err := cfc.client.ListOrgsByQuery(query)
-	if err != nil {
-		return nil, err
-	}
-
-	return allOrgs, nil
-}
-
-func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
-	query := url.Values{}
-	query.Set("results-per-page", fmt.Sprint(min(maxResultsPerPageV2, cfc.apiBatchSize)))
 
 	var allQuotas []CFOrgQuota
-
-	quotas, err := cfc.client.ListOrgQuotasByQuery(query)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, quota := range quotas {
+		memoryLimit := unlimitedQuota
+		if quota.Apps.TotalMemoryInMB != nil {
+			memoryLimit = *quota.Apps.TotalMemoryInMB
+		}
 		allQuotas = append(allQuotas, CFOrgQuota{
-			GUID:        quota.Guid,
-			MemoryLimit: quota.MemoryLimit,
+			GUID:        quota.GUID,
+			MemoryLimit: memoryLimit,
 		})
 	}
 
@@ -621,84 +317,39 @@ func (cfc *CFClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 }
 
 func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
-	query := url.Values{}
-	query.Set("per_page", fmt.Sprint(cfc.apiBatchSize))
-
-	var sidecars []CFSidecar
-
-	for page := 1; ; page++ {
-		query.Set("page", strconv.Itoa(page))
-		r := cfc.client.NewRequest("GET", "/v3/apps/"+appGUID+"/sidecars"+"?"+query.Encode())
-		resp, err := cfc.client.DoRequest(r)
-		if err != nil {
-			return nil, fmt.Errorf("Error requesting sidecars for app: %s", err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("Error listing sidecars, response code: %d", resp.StatusCode)
-		}
-
-		defer resp.Body.Close()
-		resBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("Error reading sidecars response for app %s for page %d: %s", appGUID, page, err)
-		}
-
-		var data listSidecarsResponse
-		err = json.Unmarshal(resBody, &data)
-		if err != nil {
-			return nil, fmt.Errorf("Error unmarshalling sidecars response for app %s for page %d: %s", appGUID, page, err)
-		}
-
-		sidecars = append(sidecars, data.Resources...)
-
-		if data.Pagination.TotalPages <= page {
-			break
-		}
+	sidecars, err := cfc.client.Sidecars.ListForAppAll(context.Background(), appGUID, &cfclient.SidecarListOptions{ListOptions: cfc.listOptions()})
+	if err != nil {
+		return nil, fmt.Errorf("Error requesting sidecars for app: %s", err)
 	}
-	return sidecars, nil
+
+	result := make([]CFSidecar, 0, len(sidecars))
+	for _, sidecar := range sidecars {
+		result = append(result, CFSidecar{Name: sidecar.Name, GUID: sidecar.GUID})
+	}
+	return result, nil
 }
 
-func (a *CFApplication) setV2AppData(data cfclient.App) {
-	a.GUID = data.Guid
-	a.Name = data.Name
-
-	a.SpaceGUID = data.SpaceData.Meta.Guid
-	a.SpaceName = data.SpaceData.Entity.Name
-
-	a.OrgName = data.SpaceData.Entity.OrgData.Entity.Name
-	a.OrgGUID = data.SpaceData.Entity.OrgData.Meta.Guid
-
-	a.Instances = data.Instances
-	a.DiskQuota = data.DiskQuota
-	a.Memory = data.Memory
-	a.TotalDiskQuota = data.DiskQuota * a.Instances
-	a.TotalMemory = data.Memory * a.Instances
-
-	a.Buildpacks = []string{}
-	if data.Buildpack != "" {
-		a.Buildpacks = append(a.Buildpacks, data.Buildpack)
-	} else if data.DetectedBuildpack != "" {
-		a.Buildpacks = append(a.Buildpacks, data.DetectedBuildpack)
-	}
-}
-
-func (a *CFApplication) setV3AppData(data v3AppResource) {
+func (a *CFApplication) setV3AppData(data *resource.App) {
 	a.GUID = data.GUID
 	a.Name = data.Name
-	a.SpaceGUID = data.Relationships.Space.Data.GUID
-	a.Buildpacks = data.LifeCycle.Data.BuildPacks
-	a.Annotations = data.Metadata.Annotations
-	a.Labels = data.Metadata.Labels
-	if a.Annotations == nil {
-		a.Annotations = map[string]string{}
+	if data.Relationships.Space.Data != nil {
+		a.SpaceGUID = data.Relationships.Space.Data.GUID
 	}
-	if a.Labels == nil {
-		a.Labels = map[string]string{}
+	switch lifecycle := data.Lifecycle.Data.(type) {
+	case *resource.BuildpackLifecycle:
+		a.Buildpacks = lifecycle.Buildpacks
+	case *resource.CNBLifecycle:
+		a.Buildpacks = lifecycle.Buildpacks
+	}
+	a.Annotations = map[string]string{}
+	a.Labels = map[string]string{}
+	if data.Metadata != nil {
+		a.Annotations = metadataToMap(data.Metadata.Annotations)
+		a.Labels = metadataToMap(data.Metadata.Labels)
 	}
 }
 
-func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
+func (a *CFApplication) setV3ProcessData(data []*resource.Process) {
 	if len(data) <= 0 {
 		return
 	}
@@ -730,35 +381,44 @@ func (a *CFApplication) setV3ProcessData(data []cfclient.Process) {
 	a.TotalMemory = totalMemoryInMbProvisioned
 }
 
-func (a *CFApplication) setV3SpaceData(data v3SpaceResource) {
+func (a *CFApplication) setV3SpaceData(data *resource.Space) {
 	a.SpaceName = data.Name
-	a.OrgGUID = data.Relationships.Organization.Data.GUID
+	if data.Relationships != nil && data.Relationships.Organization != nil && data.Relationships.Organization.Data != nil {
+		a.OrgGUID = data.Relationships.Organization.Data.GUID
+	}
 
 	// Set space labels and annotations only if they're not overriden per application
-	for key, value := range data.Metadata.Annotations {
-		if _, ok := a.Annotations[key]; !ok {
-			a.Annotations[key] = value
-		}
-	}
-	for key, value := range data.Metadata.Labels {
-		if _, ok := a.Labels[key]; !ok {
-			a.Labels[key] = value
-		}
+	if data.Metadata != nil {
+		mergeMetadata(a.Annotations, data.Metadata.Annotations)
+		mergeMetadata(a.Labels, data.Metadata.Labels)
 	}
 }
 
-func (a *CFApplication) setV3OrgData(data v3OrgResource) {
+func (a *CFApplication) setV3OrgData(data *resource.Organization) {
 	a.OrgName = data.Name
 
 	// Set org labels and annotations only if they're not overriden per space or application
-	for key, value := range data.Metadata.Annotations {
-		if _, ok := a.Annotations[key]; !ok {
-			a.Annotations[key] = value
-		}
+	if data.Metadata != nil {
+		mergeMetadata(a.Annotations, data.Metadata.Annotations)
+		mergeMetadata(a.Labels, data.Metadata.Labels)
 	}
-	for key, value := range data.Metadata.Labels {
-		if _, ok := a.Labels[key]; !ok {
-			a.Labels[key] = value
+}
+
+// metadataToMap converts v3 metadata, whose values are nullable, to a plain map.
+func metadataToMap(metadata map[string]*string) map[string]string {
+	result := make(map[string]string, len(metadata))
+	mergeMetadata(result, metadata)
+	return result
+}
+
+// mergeMetadata adds the entries of metadata that are not already set in dst.
+func mergeMetadata(dst map[string]string, metadata map[string]*string) {
+	for key, value := range metadata {
+		if value == nil {
+			continue
+		}
+		if _, ok := dst[key]; !ok {
+			dst[key] = *value
 		}
 	}
 }

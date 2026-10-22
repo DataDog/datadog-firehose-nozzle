@@ -1,16 +1,18 @@
 package cloudfoundry
 
 import (
+	"net/http"
+
 	. "github.com/DataDog/datadog-firehose-nozzle/test/helper"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 )
 
-func checkAppAttributes(app *CFApplication, apiVersion int, advancedTagging bool) {
+func checkAppAttributes(app *CFApplication, advancedTagging bool) {
 	Expect(app.GUID).To(Equal("6d254438-cc3b-44a6-b2e6-343ca92deb5f"))
 	Expect(app.Name).To(Equal("p-invitations-green"))
 	Expect(app.SpaceGUID).To(Equal("417b893e-291e-48ec-94c7-7b2348604365"))
@@ -23,71 +25,63 @@ func checkAppAttributes(app *CFApplication, apiVersion int, advancedTagging bool
 	Expect(app.TotalDiskQuota).To(Equal(1024))
 	Expect(app.Memory).To(Equal(256))
 	Expect(app.TotalMemory).To(Equal(256))
-	if apiVersion == 3 {
-		Expect(app.Annotations).To(Equal(map[string]string{
-			"app-space-org-annotation": "app-space-org-annotation-app-value",
-			"app-space-annotation":     "app-space-annotation-app-value",
-			"app-org-annotation":       "app-org-annotation-app-value",
-			"app-annotation":           "app-annotation-value",
-			"space-org-annotation":     "space-org-annotation-space-value",
-			"space-annotation":         "space-annotation-value",
-			"org-annotation":           "org-annotation-value",
-		}))
-		Expect(app.Labels).To(Equal(map[string]string{
-			"app-space-org-label": "app-space-org-label-app-value",
-			"app-space-label":     "app-space-label-app-value",
-			"app-org-label":       "app-org-label-app-value",
-			"app-label":           "app-label-value",
-			"space-org-label":     "space-org-label-space-value",
-			"space-label":         "space-label-value",
-			"org-label":           "org-label-value",
-		}))
-	} else {
-		Expect(app.Annotations).To(BeNil())
-		Expect(app.Labels).To(BeNil())
-	}
+	Expect(app.Annotations).To(Equal(map[string]string{
+		"app-space-org-annotation": "app-space-org-annotation-app-value",
+		"app-space-annotation":     "app-space-annotation-app-value",
+		"app-org-annotation":       "app-org-annotation-app-value",
+		"app-annotation":           "app-annotation-value",
+		"space-org-annotation":     "space-org-annotation-space-value",
+		"space-annotation":         "space-annotation-value",
+		"org-annotation":           "org-annotation-value",
+	}))
+	Expect(app.Labels).To(Equal(map[string]string{
+		"app-space-org-label": "app-space-org-label-app-value",
+		"app-space-label":     "app-space-label-app-value",
+		"app-org-label":       "app-org-label-app-value",
+		"app-label":           "app-label-value",
+		"space-org-label":     "space-org-label-space-value",
+		"space-label":         "space-label-value",
+		"org-label":           "org-label-value",
+	}))
 	if advancedTagging {
 		Expect(app.Sidecars).NotTo(BeNil())
 		Expect(app.Sidecars).To(HaveLen(1))
 		Expect(app.Sidecars[0].GUID).To(Equal("68a03f42-5392-47ed-9979-477d48a61927"))
 		Expect(app.Sidecars[0].Name).To(Equal("config-server"))
+	} else {
+		Expect(app.Sidecars).To(BeNil())
 	}
 }
 
-func checkProcessAttributes(process *cfclient.Process) {
+func checkProcessAttributes(process *resource.Process) {
 	Expect(process.GUID).To(Equal("6d254438-cc3b-44a6-b2e6-343ca92deb5f"))
 	Expect(process.Instances).To(Equal(1))
 	Expect(process.DiskInMB).To(Equal(1024))
 	Expect(process.MemoryInMB).To(Equal(256))
 }
 
-func checkSpaceAttributes(space *v3SpaceResource) {
+func checkSpaceAttributes(space *resource.Space) {
 	Expect(space.GUID).To(Equal("417b893e-291e-48ec-94c7-7b2348604365"))
 	Expect(space.Name).To(Equal("system"))
 	Expect(space.Relationships.Organization.Data.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 }
 
-func checkOrgAttributes(org *v3OrgResource) {
+func checkOrgAttributes(org *resource.Organization) {
 	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 	Expect(org.Name).To(Equal("system"))
-}
-
-func checkV3OrgAttributes2(org *cfclient.V3Organization) {
-	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
-	Expect(org.Name).To(Equal("system"))
-	Expect(org.Metadata.Annotations).To(Equal(map[string]string{
+	Expect(metadataToMap(org.Metadata.Annotations)).To(Equal(map[string]string{
 		"org-annotation":           "org-annotation-value",
 		"app-org-annotation":       "app-org-annotation-org-value",
 		"space-org-annotation":     "space-org-annotation-org-value",
 		"app-space-org-annotation": "app-space-org-annotation-org-value",
 	}))
-	Expect(org.Metadata.Labels).To(Equal(map[string]string{
+	Expect(metadataToMap(org.Metadata.Labels)).To(Equal(map[string]string{
 		"org-label":           "org-label-value",
 		"app-org-label":       "app-org-label-org-value",
 		"space-org-label":     "space-org-label-org-value",
 		"app-space-org-label": "app-space-org-label-org-value",
 	}))
-	Expect(org.Relationships["quota"].Data.GUID).To(Equal("1cf98856-aba8-49a8-8b21-d82a25898c4e"))
+	Expect(org.Relationships.Quota.Data.GUID).To(Equal("1cf98856-aba8-49a8-8b21-d82a25898c4e"))
 }
 
 var _ = Describe("CloudFoundryClient", func() {
@@ -105,238 +99,132 @@ var _ = Describe("CloudFoundryClient", func() {
 
 		ccAPIURL = fakeCloudControllerAPI.URL()
 		cfg := config.Config{
-			CloudControllerEndpoint: ccAPIURL,
-			Client:                  "bearer",
-			ClientSecret:            "123456789",
-			InsecureSSLSkipVerify:   true,
-			NumWorkers:              0,
+			CloudControllerEndpoint:     ccAPIURL,
+			Client:                      "bearer",
+			ClientSecret:                "123456789",
+			InsecureSSLSkipVerify:       true,
+			CloudControllerAPIBatchSize: 500,
 		}
 		var err error
 		fakeCfClient, err = NewClient(&cfg, log)
 		Expect(err).ToNot(HaveOccurred())
 	}, 0.0)
 
-	Context("individual endpoint", func() {
-		It("with v2 apps is retrieved correctly", func() {
-			fakeCfClient.NumWorkers = 1
-			res, page, err := fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(res).To(HaveLen(15))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
+	AfterEach(func() {
+		fakeCloudControllerAPI.Close()
+	})
 
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(res).To(HaveLen(15))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, page, err = fakeCfClient.getV2ApplicationsByPage(1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(page).To(Equal(3))
-			Expect(res).To(HaveLen(15))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
+	Context("NewClient", func() {
+		It("discovers the auth endpoints from the v3 API root, not /v2/info", func() {
+			Expect(fakeCloudControllerAPI.GetUsedEndpoints()).To(ContainElement("/"))
+			Expect(fakeCloudControllerAPI.GetUsedEndpoints()).NotTo(ContainElement("/v2/info"))
 		})
+	})
 
+	Context("individual endpoint", func() {
 		It("with v3 spaces is retrieved correctly", func() {
-			res, err := fakeCfClient.getV3Spaces()
+			res, err := fakeCfClient.getSpaces()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
 			Expect(res).To(HaveLen(6))
-			checkSpaceAttributes(&res[0])
+			checkSpaceAttributes(res[0])
 		})
 
 		It("with v3 processes is retrieved correctly", func() {
-			res, err := fakeCfClient.getV3Processes()
+			res, err := fakeCfClient.getProcesses()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
 			Expect(res).To(HaveLen(19))
-			checkProcessAttributes(&res[0])
+			checkProcessAttributes(res[0])
 		})
 
 		It("with v3 orgs is retrieved correctly", func() {
-			res, err := fakeCfClient.getV3Orgs()
+			res, err := fakeCfClient.GetOrgs()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
 			Expect(res).To(HaveLen(2))
-			checkOrgAttributes(&res[0])
+			checkOrgAttributes(res[0])
 		})
 
 		It("with v3 apps is retrieved correctly", func() {
-			res, err := fakeCfClient.getV3Apps()
+			res, err := fakeCfClient.getApps()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
 			Expect(res).To(HaveLen(14))
 		})
-	})
 
-	Context("getV2Applications method", func() {
-		It("retrieves apps correctly", func() {
-			fakeCfClient.NumWorkers = 1
-			res, err := fakeCfClient.getV2Applications()
+		It("sends the configured batch size as per_page", func() {
+			_, err := fakeCfClient.getApps()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(res).To(HaveLen(45))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-
-			fakeCfClient.NumWorkers = 100 // More runners than pages
-			res, err = fakeCfClient.getV2Applications()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(res).To(HaveLen(45))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-
-			fakeCfClient.NumWorkers = 3 // As many runners as pages
-			res, err = fakeCfClient.getV2Applications()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(res).To(HaveLen(45))
-			checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-		})
-	})
-
-	Context("getV3Applications method", func() {
-		It("retrieves apps correctly without advanced tags", func() {
-			res, err := fakeCfClient.getV3Applications()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(res).To(HaveLen(14))
-			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-		})
-
-		It("retrieves apps correctly with advanced tags", func() {
-			fakeCfClient.advancedTagging = true
-			res, err := fakeCfClient.getV3Applications()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			Expect(res).To(HaveLen(14))
-			checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+			var req *http.Request
+			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive(&req, WithTransform(func(r *http.Request) string {
+				return r.URL.Path
+			}, Equal("/v3/apps"))))
+			Expect(req.URL.Query().Get("per_page")).To(Equal("500"))
 		})
 	})
 
 	Context("GetApplications method", func() {
-		Context("without advanced tagging", func() {
-			It("retrieves apps correctly without specified API Version", func() {
-				fakeCfClient.NumWorkers = 1
-				res, err := fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-
-				fakeCfClient.NumWorkers = 100 // More runners than pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-
-				fakeCfClient.NumWorkers = 2 // As many runners as pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-			})
-
-			It("retrieves apps correctly with explicitly specified v3 API version", func() {
-				fakeCfClient.ApiVersion = 3
-				res, err := fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-			})
-
-			It("retrieves apps correctly with explicitly specified v2 API version", func() {
-				fakeCfClient.NumWorkers = 1
-				fakeCfClient.ApiVersion = 2
-				res, err := fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(res).To(HaveLen(45))
-				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-
-				fakeCfClient.NumWorkers = 100 // More runners than pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(res).To(HaveLen(45))
-				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-
-				fakeCfClient.NumWorkers = 3 // As many runners as pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(res).To(HaveLen(45))
-				checkAppAttributes(&res[0], 2, fakeCfClient.advancedTagging)
-			})
+		It("retrieves apps correctly without advanced tags", func() {
+			res, err := fakeCfClient.GetApplications()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(HaveLen(14))
+			checkAppAttributes(&res[0], fakeCfClient.advancedTagging)
 		})
 
-		Context("with advanced tagging", func() {
-			BeforeEach(func() {
-				fakeCfClient.advancedTagging = true
-			})
-			It("retrieves apps correctly without specified API Version", func() {
-				fakeCfClient.NumWorkers = 1
-				res, err := fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
+		It("retrieves apps correctly with advanced tags", func() {
+			fakeCfClient.advancedTagging = true
+			res, err := fakeCfClient.GetApplications()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(HaveLen(14))
+			checkAppAttributes(&res[0], fakeCfClient.advancedTagging)
+		})
 
-				fakeCfClient.NumWorkers = 100 // More runners than pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-
-				fakeCfClient.NumWorkers = 2 // As many runners as pages
-				res, err = fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(fakeCfClient.ApiVersion).To(Equal(3))
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-			})
-
-			It("retrieves apps correctly with explicitly specified v3 API version", func() {
-				fakeCfClient.ApiVersion = 3
-				res, err := fakeCfClient.GetApplications()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(res).To(HaveLen(14))
-				checkAppAttributes(&res[0], 3, fakeCfClient.advancedTagging)
-			})
+		It("only queries v3 endpoints", func() {
+			_, err := fakeCfClient.GetApplications()
+			Expect(err).ToNot(HaveOccurred())
+			for _, endpoint := range fakeCloudControllerAPI.GetUsedEndpoints() {
+				Expect(endpoint).NotTo(HavePrefix("/v2/"))
+			}
 		})
 	})
 
 	Context("GetApplication method", func() {
-		It("retrieves app correctly", func() {
+		It("retrieves app correctly without advanced tags", func() {
 			res, err := fakeCfClient.GetApplication("6d254438-cc3b-44a6-b2e6-343ca92deb5f")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).NotTo(BeNil())
-			checkAppAttributes(res, 2, fakeCfClient.advancedTagging)
+			checkAppAttributes(res, fakeCfClient.advancedTagging)
+		})
+
+		It("retrieves app correctly with advanced tags", func() {
+			fakeCfClient.advancedTagging = true
+			res, err := fakeCfClient.GetApplication("6d254438-cc3b-44a6-b2e6-343ca92deb5f")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).NotTo(BeNil())
+			checkAppAttributes(res, fakeCfClient.advancedTagging)
+		})
+
+		It("matches the app built by GetApplications", func() {
+			apps, err := fakeCfClient.GetApplications()
+			Expect(err).ToNot(HaveOccurred())
+			res, err := fakeCfClient.GetApplication("6d254438-cc3b-44a6-b2e6-343ca92deb5f")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*res).To(Equal(apps[0]))
+		})
+
+		It("returns an error for an unknown app", func() {
+			_, err := fakeCfClient.GetApplication("unknown-app")
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
-	Context("GetV3Orgs  method", func() {
-		It("retrieves v3 orgs correctly", func() {
-			res, err := fakeCfClient.GetV3Orgs()
+	Context("GetOrgQuotas method", func() {
+		It("retrieves v3 organization quotas and maps unlimited memory to -1", func() {
+			res, err := fakeCfClient.GetOrgQuotas()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).NotTo(BeNil())
-			checkV3OrgAttributes2(&res[0])
+			Expect(res).To(Equal([]CFOrgQuota{
+				{GUID: "1345a873-ead6-4ae2-9d7d-e270c1a05c82", MemoryLimit: 10240},
+				{GUID: "1cf98856-aba8-49a8-8b21-d82a25898c4e", MemoryLimit: 102400},
+				{GUID: "5c1e3a3c-0b5e-4bd1-9e3a-6a3b1f6f0c11", MemoryLimit: -1},
+			}))
+			Expect(fakeCloudControllerAPI.GetUsedEndpoints()).To(ContainElement("/v3/organization_quotas"))
 		})
 	})
 })

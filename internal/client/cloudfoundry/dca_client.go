@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
-	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -213,10 +213,10 @@ func (c *DCAClient) GetApplication(appGUID string) (*CFApplication, error) {
 	return &cfapp, err
 }
 
-// // GetV3Orgs fetches a V3 CF Organizations from the Cluster Agent.
-func (c *DCAClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
+// GetOrgs fetches CF Organizations from the Cluster Agent.
+func (c *DCAClient) GetOrgs() ([]*resource.Organization, error) {
 	const dcaOrgsPath = "api/v1/cf/orgs"
-	var allOrgs []cfclient.V3Organization
+	var allOrgs []*resource.Organization
 	var err error
 
 	// https://host:port/api/v1/cf/orgs
@@ -248,8 +248,8 @@ func (c *DCAClient) GetV3Orgs() ([]cfclient.V3Organization, error) {
 	return allOrgs, err
 }
 
-// GetV2OrgQuotas fetches CF Organization Quotas from the Cluster Agent.
-func (c *DCAClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
+// GetOrgQuotas fetches CF Organization Quotas from the Cluster Agent.
+func (c *DCAClient) GetOrgQuotas() ([]CFOrgQuota, error) {
 	const dcaOrgQuotasPath = "api/v1/cf/org_quotas"
 	var allQuotas []CFOrgQuota
 	var err error
@@ -281,26 +281,4 @@ func (c *DCAClient) GetV2OrgQuotas() ([]CFOrgQuota, error) {
 	err = json.Unmarshal(body, &allQuotas)
 
 	return allQuotas, err
-}
-
-// V2OrgsFromV3Orgs
-func (c *DCAClient) V2OrgsFromV3Orgs() ([]cfclient.Org, error) {
-	allOrgs, err := c.GetV3Orgs()
-	if err != nil {
-		return nil, err
-	}
-
-	var allV2Orgs []cfclient.Org
-
-	for _, v3Org := range allOrgs {
-		allV2Orgs = append(allV2Orgs, cfclient.Org{
-			Name:                v3Org.Name,
-			Guid:                v3Org.GUID,
-			CreatedAt:           v3Org.CreatedAt,
-			UpdatedAt:           v3Org.UpdatedAt,
-			QuotaDefinitionGuid: v3Org.Relationships["quota"].Data.GUID,
-		})
-	}
-
-	return allV2Orgs, nil
 }
