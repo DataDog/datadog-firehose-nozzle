@@ -123,6 +123,29 @@ var _ = Describe("DatadogClusterAgentClient", func() {
 		})
 	})
 
+	Context("NewDCAClient", func() {
+		It("enables advanced tagging from the config", func() {
+			cfg := config.Config{
+				DCAUrl:                dcaAPIURL,
+				DCAToken:              "123456789",
+				DCAEnabled:            true,
+				EnableAdvancedTagging: true,
+			}
+			client, err := NewDCAClient(&cfg, log)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := client.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
+			Expect(err).ToNot(HaveOccurred())
+			checkDCAAppAttributes(res, true)
+		})
+
+		It("keeps advanced tagging disabled by default", func() {
+			Expect(fakeDCAClient.advancedTagging).To(BeFalse())
+			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Sidecars).To(BeNil())
+		})
+	})
+
 	Context("GetApplication method", func() {
 		It("retrieves a single app correctly from the cluster agent api without advanced tags", func() {
 			res, err := fakeDCAClient.GetApplication("a7bebd67-1991-4e9e-8d44-399acf2f13e8")

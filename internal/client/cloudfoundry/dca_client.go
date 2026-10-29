@@ -39,6 +39,7 @@ func NewDCAClient(config *config.Config, logger *gosteno.Logger) (*DCAClient, er
 
 	dcaClient := DCAClient{}
 	dcaClient.logger = logger
+	dcaClient.advancedTagging = config.EnableAdvancedTagging
 	dcaClient.clusterAgentAPIEndpoint = config.DCAUrl
 	authToken := config.DCAToken
 	if authToken == "" {
