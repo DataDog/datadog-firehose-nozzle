@@ -176,6 +176,17 @@ var _ = Describe("CloudFoundryClient", func() {
 			checkAppAttributes(&res[0], fakeCfClient.advancedTagging)
 		})
 
+		It("leaves Sidecars nil for apps without sidecars with advanced tags", func() {
+			fakeCfClient.advancedTagging = true
+			res, err := fakeCfClient.GetApplications()
+			Expect(err).ToNot(HaveOccurred())
+			for _, app := range res {
+				if app.GUID != "6d254438-cc3b-44a6-b2e6-343ca92deb5f" && app.GUID != "6116f9ec-2bd6-4dd6-b7fe-a1b6acf6662a" {
+					Expect(app.Sidecars).To(BeNil(), "app %s", app.GUID)
+				}
+			}
+		})
+
 		It("only queries v3 endpoints", func() {
 			_, err := fakeCfClient.GetApplications()
 			Expect(err).ToNot(HaveOccurred())

@@ -322,7 +322,8 @@ func (cfc *CFClient) getCFSidecars(appGUID string) ([]CFSidecar, error) {
 		return nil, fmt.Errorf("Error requesting sidecars for app: %s", err)
 	}
 
-	result := make([]CFSidecar, 0, len(sidecars))
+	// nil when there are no sidecars: the app parser only emits sidecar tags for a non-nil slice
+	var result []CFSidecar
 	for _, sidecar := range sidecars {
 		result = append(result, CFSidecar{Name: sidecar.Name, GUID: sidecar.GUID})
 	}
