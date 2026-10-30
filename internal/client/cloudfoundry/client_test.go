@@ -115,6 +115,10 @@ var _ = Describe("CloudFoundryClient", func() {
 	})
 
 	Context("NewClient", func() {
+		It("bounds Cloud Controller requests with ccRequestTimeout", func() {
+			Expect(fakeCfClient.client.Config.HTTPAuthClient().Timeout).To(Equal(ccRequestTimeout))
+		})
+
 		It("discovers the auth endpoints from the v3 API root, not /v2/info", func() {
 			Expect(fakeCloudControllerAPI.GetUsedEndpoints()).To(ContainElement("/"))
 			Expect(fakeCloudControllerAPI.GetUsedEndpoints()).NotTo(ContainElement("/v2/info"))

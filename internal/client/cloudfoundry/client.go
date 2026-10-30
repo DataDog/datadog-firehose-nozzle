@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"time"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
 	cfclient "github.com/cloudfoundry/go-cfclient/v3/client"
@@ -13,8 +14,14 @@ import (
 	"github.com/cloudfoundry/gosteno"
 )
 
-// unlimitedQuota is how the Cloud Controller stores unlimited quotas; the v3 API renders it as null.
-const unlimitedQuota = -1
+const (
+	// unlimitedQuota is how the Cloud Controller stores unlimited quotas; the v3 API renders it as null.
+	unlimitedQuota = -1
+	// ccRequestTimeout bounds each Cloud Controller request, page reads included. It matches the gorouter's default
+	// backend timeout (router.request_timeout_in_seconds): go-cfclient's 30s default can fail large pages that the
+	// router, and the previous unbounded client, allow.
+	ccRequestTimeout = 900 * time.Second
+)
 
 type CFClient struct {
 	client          *cfclient.Client
@@ -61,6 +68,7 @@ func NewClient(config *config.Config, logger *gosteno.Logger) (*CFClient, error)
 	options := []cfconfig.Option{
 		cfconfig.ClientCredentials(config.Client, config.ClientSecret),
 		cfconfig.UserAgent("datadog-firehose-nozzle"),
+		cfconfig.RequestTimeout(ccRequestTimeout),
 	}
 	if config.InsecureSSLSkipVerify {
 		options = append(options, cfconfig.SkipTLSValidation())
