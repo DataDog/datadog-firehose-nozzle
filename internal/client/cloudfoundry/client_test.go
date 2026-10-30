@@ -69,17 +69,17 @@ func checkSpaceAttributes(space *resource.Space) {
 func checkOrgAttributes(org *resource.Organization) {
 	Expect(org.GUID).To(Equal("671557cf-edcd-49df-9863-ee14513d13c7"))
 	Expect(org.Name).To(Equal("system"))
-	Expect(metadataToMap(org.Metadata.Annotations)).To(Equal(map[string]string{
-		"org-annotation":           "org-annotation-value",
-		"app-org-annotation":       "app-org-annotation-org-value",
-		"space-org-annotation":     "space-org-annotation-org-value",
-		"app-space-org-annotation": "app-space-org-annotation-org-value",
+	Expect(org.Metadata.Annotations).To(Equal(map[string]*string{
+		"org-annotation":           new("org-annotation-value"),
+		"app-org-annotation":       new("app-org-annotation-org-value"),
+		"space-org-annotation":     new("space-org-annotation-org-value"),
+		"app-space-org-annotation": new("app-space-org-annotation-org-value"),
 	}))
-	Expect(metadataToMap(org.Metadata.Labels)).To(Equal(map[string]string{
-		"org-label":           "org-label-value",
-		"app-org-label":       "app-org-label-org-value",
-		"space-org-label":     "space-org-label-org-value",
-		"app-space-org-label": "app-space-org-label-org-value",
+	Expect(org.Metadata.Labels).To(Equal(map[string]*string{
+		"org-label":           new("org-label-value"),
+		"app-org-label":       new("app-org-label-org-value"),
+		"space-org-label":     new("space-org-label-org-value"),
+		"app-space-org-label": new("app-space-org-label-org-value"),
 	}))
 	Expect(org.Relationships.Quota.Data.GUID).To(Equal("1cf98856-aba8-49a8-8b21-d82a25898c4e"))
 }

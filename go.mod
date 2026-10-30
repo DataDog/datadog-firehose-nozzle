@@ -13,7 +13,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.34.2
-	github.com/pkg/errors v0.9.1
 )
 
 require (

@@ -198,12 +198,11 @@ var _ = Describe("OrgCollector", func() {
 
 		It("skips null metadata values", func() {
 			o := &OrgCollector{}
-			value := "value"
 			org := &resource.Organization{
 				Name:     "org",
 				Resource: resource.Resource{GUID: "org-guid"},
 				Metadata: &resource.Metadata{
-					Labels:      map[string]*string{"label": &value, "null-label": nil},
+					Labels:      map[string]*string{"label": new("value"), "null-label": nil},
 					Annotations: map[string]*string{"null-annotation": nil},
 				},
 			}

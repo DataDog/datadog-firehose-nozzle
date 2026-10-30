@@ -3,7 +3,7 @@ package cloudfoundry
 import (
 	"context"
 	"fmt"
-	"strings"
+	"path"
 	"sync"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -11,7 +11,6 @@ import (
 	cfconfig "github.com/cloudfoundry/go-cfclient/v3/config"
 	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
-	"github.com/pkg/errors"
 )
 
 // unlimitedQuota is how the Cloud Controller stores unlimited quotas; the v3 API renders it as null.
@@ -152,8 +151,7 @@ func (cfc *CFClient) GetApplications() ([]CFApplication, error) {
 	// Group all processes per app
 	processesPerApp := map[string][]*resource.Process{}
 	for _, process := range processes {
-		parts := strings.Split(process.Links["app"].Href, "/")
-		appGUID := parts[len(parts)-1]
+		appGUID := path.Base(process.Links["app"].Href)
 		processesPerApp[appGUID] = append(processesPerApp[appGUID], process)
 	}
 
@@ -207,7 +205,7 @@ func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 	ctx := context.Background()
 	app, err := cfc.client.Applications.Get(ctx, guid)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error requesting app %s", guid)
+		return nil, fmt.Errorf("Error requesting app %s: %w", guid, err)
 	}
 	if app.GUID == "" {
 		return nil, fmt.Errorf("Error requesting app %s: empty response", guid)
@@ -218,26 +216,26 @@ func (cfc *CFClient) GetApplication(guid string) (*CFApplication, error) {
 	if cfc.advancedTagging {
 		result.Sidecars, err = cfc.getCFSidecars(guid)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error reading sidecars response for app %s", guid)
+			return nil, fmt.Errorf("Error reading sidecars response for app %s: %w", guid, err)
 		}
 	}
 
 	processes, err := cfc.client.Processes.ListForAppAll(ctx, guid, &cfclient.ProcessListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error requesting processes for app %s", guid)
+		return nil, fmt.Errorf("Error requesting processes for app %s: %w", guid, err)
 	}
 	result.setV3ProcessData(processes)
 
 	// Fill space then org data. Order matters for labels and annotations.
 	space, err := cfc.client.Spaces.Get(ctx, result.SpaceGUID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error requesting space %s for app %s", result.SpaceGUID, guid)
+		return nil, fmt.Errorf("Error requesting space %s for app %s: %w", result.SpaceGUID, guid, err)
 	}
 	result.setV3SpaceData(space)
 
 	org, err := cfc.client.Organizations.Get(ctx, result.OrgGUID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error requesting org %s for app %s", result.OrgGUID, guid)
+		return nil, fmt.Errorf("Error requesting org %s for app %s: %w", result.OrgGUID, guid, err)
 	}
 	result.setV3OrgData(org)
 
@@ -251,7 +249,7 @@ func (cfc *CFClient) listOptions() *cfclient.ListOptions {
 func (cfc *CFClient) getApps() ([]CFApplication, error) {
 	apps, err := cfc.client.Applications.ListAll(context.Background(), &cfclient.AppListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting apps")
+		return nil, fmt.Errorf("Error requesting apps: %w", err)
 	}
 
 	cfapps := make([]CFApplication, 0, len(apps))
@@ -261,7 +259,7 @@ func (cfc *CFClient) getApps() ([]CFApplication, error) {
 		if cfc.advancedTagging {
 			sidecars, err := cfc.getCFSidecars(cfapp.GUID)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Error reading sidecars response for app %s", cfapp.GUID)
+				return nil, fmt.Errorf("Error reading sidecars response for app %s: %w", cfapp.GUID, err)
 			}
 			cfapp.Sidecars = sidecars
 		}
@@ -274,7 +272,7 @@ func (cfc *CFClient) getApps() ([]CFApplication, error) {
 func (cfc *CFClient) getProcesses() ([]*resource.Process, error) {
 	processes, err := cfc.client.Processes.ListAll(context.Background(), &cfclient.ProcessListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 processes")
+		return nil, fmt.Errorf("Error requesting v3 processes: %w", err)
 	}
 	return processes, nil
 }
@@ -282,7 +280,7 @@ func (cfc *CFClient) getProcesses() ([]*resource.Process, error) {
 func (cfc *CFClient) getSpaces() ([]*resource.Space, error) {
 	spaces, err := cfc.client.Spaces.ListAll(context.Background(), &cfclient.SpaceListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 spaces")
+		return nil, fmt.Errorf("Error requesting v3 spaces: %w", err)
 	}
 	return spaces, nil
 }
@@ -290,7 +288,7 @@ func (cfc *CFClient) getSpaces() ([]*resource.Space, error) {
 func (cfc *CFClient) GetOrgs() ([]*resource.Organization, error) {
 	orgs, err := cfc.client.Organizations.ListAll(context.Background(), &cfclient.OrganizationListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 orgs")
+		return nil, fmt.Errorf("Error requesting v3 orgs: %w", err)
 	}
 	return orgs, nil
 }
@@ -298,7 +296,7 @@ func (cfc *CFClient) GetOrgs() ([]*resource.Organization, error) {
 func (cfc *CFClient) GetOrgQuotas() ([]CFOrgQuota, error) {
 	quotas, err := cfc.client.OrganizationQuotas.ListAll(context.Background(), &cfclient.OrganizationQuotaListOptions{ListOptions: cfc.listOptions()})
 	if err != nil {
-		return nil, errors.Wrap(err, "Error requesting v3 organization quotas")
+		return nil, fmt.Errorf("Error requesting v3 organization quotas: %w", err)
 	}
 
 	var allQuotas []CFOrgQuota
@@ -345,8 +343,8 @@ func (a *CFApplication) setV3AppData(data *resource.App) {
 	a.Annotations = map[string]string{}
 	a.Labels = map[string]string{}
 	if data.Metadata != nil {
-		a.Annotations = metadataToMap(data.Metadata.Annotations)
-		a.Labels = metadataToMap(data.Metadata.Labels)
+		mergeMetadata(a.Annotations, data.Metadata.Annotations)
+		mergeMetadata(a.Labels, data.Metadata.Labels)
 	}
 }
 
@@ -405,14 +403,7 @@ func (a *CFApplication) setV3OrgData(data *resource.Organization) {
 	}
 }
 
-// metadataToMap converts v3 metadata, whose values are nullable, to a plain map.
-func metadataToMap(metadata map[string]*string) map[string]string {
-	result := make(map[string]string, len(metadata))
-	mergeMetadata(result, metadata)
-	return result
-}
-
-// mergeMetadata adds the entries of metadata that are not already set in dst.
+// mergeMetadata adds the non-null entries of metadata that are not already set in dst.
 func mergeMetadata(dst map[string]string, metadata map[string]*string) {
 	for key, value := range metadata {
 		if value == nil {

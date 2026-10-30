@@ -62,8 +62,8 @@ func checkDCAOrgAttributes(org *resource.Organization) {
 	Expect(org.GUID).To(Equal("24d7098c-832b-4dfa-a4f1-950780ae92e9"))
 	Expect(org.Suspended).To(BeFalse())
 	Expect(org.Relationships.Quota.Data.GUID).To(Equal("9f3f17e5-dabe-49b9-82c6-aa9e79724bdd"))
-	Expect(metadataToMap(org.Metadata.Labels)).To(HaveKeyWithValue("org-label", "org-label-value"))
-	Expect(metadataToMap(org.Metadata.Annotations)).To(HaveKeyWithValue("org-annotation", "org-annotation-value"))
+	Expect(org.Metadata.Labels).To(HaveKeyWithValue("org-label", new("org-label-value")))
+	Expect(org.Metadata.Annotations).To(HaveKeyWithValue("org-annotation", new("org-annotation-value")))
 }
 
 func checkDCAOrgQuotaAttributes(orgQuota *CFOrgQuota) {
