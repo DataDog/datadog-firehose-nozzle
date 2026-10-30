@@ -34,7 +34,23 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		log                     *gosteno.Logger
 		logContent              *bytes.Buffer
 		fakeBuffer              *helper.FakeBufferSink
+		nozzleDone              chan struct{}
 	)
+
+	startNozzle := func() {
+		nozzleDone = make(chan struct{})
+		go func() {
+			defer close(nozzleDone)
+			nozzle.Start()
+		}()
+	}
+
+	// stopNozzle waits for the nozzle to shut down, so its firehose consumer no longer requests UAA tokens
+	// when the test closes the fake servers.
+	stopNozzle := func() {
+		nozzle.Stop()
+		Eventually(nozzleDone, 10).Should(BeClosed())
+	}
 
 	BeforeEach(func() {
 		content := make([]byte, 1024)
@@ -88,11 +104,11 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
-			go nozzle.Start()
+			startNozzle()
 		})
 
 		AfterEach(func() {
-			nozzle.Stop()
+			stopNozzle()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -202,7 +218,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 			// need to use function to always return the current UsedEndpoints, since it's appended to
 			// and thus the address of the slice changes
-			Eventually(fakeCCAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/v2/quota_definitions"))
+			Eventually(fakeCCAPI.GetUsedEndpoints, 10, 1).Should(ContainElement("/v3/organization_quotas"))
 		})
 
 		It("adds internal metrics and generates aggregate messages when idle", func() {
@@ -425,12 +441,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
-			go nozzle.Start()
+			startNozzle()
 			<-nozzle.TickedOnce()
 		})
 
 		AfterEach(func() {
-			nozzle.Stop()
+			stopNozzle()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -485,7 +501,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 		})
 
 		AfterEach(func() {
-			nozzle.Stop()
+			stopNozzle()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()
@@ -494,7 +510,7 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 
 		It("logs a warning", func() {
 
-			go nozzle.Start()
+			startNozzle()
 			<-nozzle.TickedOnce()
 			nozzle.workersStopper <- true // Stop one worker
 			nozzle.stopWorkers()          // We should hit the worker timeout for one worker
@@ -546,11 +562,13 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			// (OrgCollector, AppCache), but we consider them optional, so let's make sure
 			// that Nozzle starts when config.CloudControllerEndpoint is nil
 			var err error
+			nozzleDone = make(chan struct{})
 			go func() {
+				defer close(nozzleDone)
 				err = nozzle.Start()
 			}()
 			<-nozzle.TickedOnce()
-			nozzle.Stop()
+			stopNozzle()
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -595,12 +613,12 @@ var _ = Describe("Datadog Firehose Nozzle", func() {
 			tokenFetcher := uaatokenfetcher.New(fakeUAA.URL(), "un", "pwd", true, log)
 			nozzle = NewNozzle(configuration, tokenFetcher, log)
 
-			go nozzle.Start()
+			startNozzle()
 			<-nozzle.TickedOnce()
 		})
 
 		AfterEach(func() {
-			nozzle.Stop()
+			stopNozzle()
 			fakeUAA.Close()
 			fakeFirehose.Close()
 			fakeDatadogAPI.Close()

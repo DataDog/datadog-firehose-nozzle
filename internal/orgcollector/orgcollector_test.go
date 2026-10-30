@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 
 	"github.com/DataDog/datadog-firehose-nozzle/internal/config"
@@ -176,6 +177,42 @@ var _ = Describe("OrgCollector", func() {
 			Expect(v2.Points).To(HaveLen(1))
 			Expect(v2.Points[0].Timestamp).To(BeNumerically(">", 0))
 			Expect(v2.Points[0].Value).To(Equal(float64(102400)))
+		})
+	})
+
+	Context("getTagsFromOrg", func() {
+		It("handles orgs without metadata", func() {
+			o := &OrgCollector{}
+			org := &resource.Organization{
+				Name:      "no-metadata",
+				Suspended: true,
+				Resource:  resource.Resource{GUID: "org-guid"},
+			}
+			Expect(o.getTagsFromOrg(org)).To(Equal([]string{
+				"guid:org-guid",
+				"org_name:no-metadata",
+				"org_id:org-guid",
+				"status:suspended",
+			}))
+		})
+
+		It("skips null metadata values", func() {
+			o := &OrgCollector{}
+			org := &resource.Organization{
+				Name:     "org",
+				Resource: resource.Resource{GUID: "org-guid"},
+				Metadata: &resource.Metadata{
+					Labels:      map[string]*string{"label": new("value"), "null-label": nil},
+					Annotations: map[string]*string{"null-annotation": nil},
+				},
+			}
+			Expect(o.getTagsFromOrg(org)).To(Equal([]string{
+				"guid:org-guid",
+				"org_name:org",
+				"org_id:org-guid",
+				"status:active",
+				"label:value",
+			}))
 		})
 	})
 })
