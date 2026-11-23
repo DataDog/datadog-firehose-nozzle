@@ -12,7 +12,7 @@ import (
 	"github.com/DataDog/datadog-firehose-nozzle/internal/metric"
 	"github.com/DataDog/datadog-firehose-nozzle/internal/util"
 
-	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/cloudfoundry/gosteno"
 )
 
@@ -88,14 +88,14 @@ func (o *OrgCollector) pushMetrics() {
 	errors := make(chan error, 10)
 	// Fetch orgs
 	wg.Add(1)
-	var allOrgs []cfclient.V3Organization
+	var allOrgs []*resource.Organization
 	go func() {
 		defer wg.Done()
 		var err error
 		if o.dcaClient != nil {
-			allOrgs, err = o.dcaClient.GetV3Orgs()
+			allOrgs, err = o.dcaClient.GetOrgs()
 		} else {
-			allOrgs, err = o.cfClient.GetV3Orgs()
+			allOrgs, err = o.cfClient.GetOrgs()
 		}
 
 		if err != nil {
@@ -110,9 +110,9 @@ func (o *OrgCollector) pushMetrics() {
 		defer wg.Done()
 		var err error
 		if o.dcaClient != nil {
-			allQuotas, err = o.dcaClient.GetV2OrgQuotas()
+			allQuotas, err = o.dcaClient.GetOrgQuotas()
 		} else {
-			allQuotas, err = o.cfClient.GetV2OrgQuotas()
+			allQuotas, err = o.cfClient.GetOrgQuotas()
 		}
 		if err != nil {
 			errors <- err
@@ -135,7 +135,11 @@ func (o *OrgCollector) pushMetrics() {
 
 	metricsPackages := []metric.MetricPackage{}
 	for _, org := range allOrgs {
-		q, ok := quotaGuidsToObjects[org.Relationships["quota"].Data.GUID]
+		var quotaGUID string
+		if org.Relationships.Quota.Data != nil {
+			quotaGUID = org.Relationships.Quota.Data.GUID
+		}
+		q, ok := quotaGuidsToObjects[quotaGUID]
 		if !ok {
 			o.log.Warnf("failed to get quota for org %s", org.GUID)
 			continue
@@ -165,25 +169,33 @@ func (o *OrgCollector) pushMetrics() {
 	o.processedMetrics <- metricsPackages
 }
 
-func (o *OrgCollector) getTagsFromOrg(org cfclient.V3Organization) []string {
+func (o *OrgCollector) getTagsFromOrg(org *resource.Organization) []string {
 	tags := []string{}
 	tags = append(tags, fmt.Sprintf("guid:%s", org.GUID))
 	tags = append(tags, fmt.Sprintf("org_name:%s", org.Name))
 	tags = append(tags, fmt.Sprintf("org_id:%s", org.GUID))
 
 	status := "active"
-	if org.Suspended != nil && *org.Suspended {
+	if org.Suspended {
 		status = "suspended"
 	}
 
 	tags = append(tags, fmt.Sprintf("status:%s", status))
 
+	if org.Metadata == nil {
+		return tags
+	}
+
 	for k, v := range org.Metadata.Labels {
-		tags = append(tags, fmt.Sprintf("%s:%s", k, v))
+		if v != nil {
+			tags = append(tags, fmt.Sprintf("%s:%s", k, *v))
+		}
 	}
 
 	for k, v := range org.Metadata.Annotations {
-		tags = append(tags, fmt.Sprintf("%s:%s", k, v))
+		if v != nil {
+			tags = append(tags, fmt.Sprintf("%s:%s", k, *v))
+		}
 	}
 
 	return tags

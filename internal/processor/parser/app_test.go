@@ -132,7 +132,7 @@ var _ = Describe("AppMetrics", func() {
 			_, err := a.getAppData("app-5")
 			Expect(err).To(HaveOccurred()) // error expected because fake CC won't return an app, so unmarshalling will fail
 			Eventually(fakeCloudControllerAPI.ReceivedRequests).Should(Receive(&req))
-			Expect(req.URL.Path).To(Equal("/v2/apps/app-5"))
+			Expect(req.URL.Path).To(Equal("/v3/apps/app-5"))
 		})
 
 		It("tries to get it from the cluster agent api when not in the cache", func() {
